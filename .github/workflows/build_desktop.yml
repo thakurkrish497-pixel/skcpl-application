@@ -46,7 +46,9 @@ jobs:
       - name: Compress Windows Release Bundle
         shell: pwsh
         run: |
-          Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath SKCPL-Windows-x64.zip
+          $releaseDir = Get-ChildItem -Path build/windows -Recurse -Filter "Release" -Directory | Select-Object -First 1
+          Write-Host "Found release directory: $($releaseDir.FullName)"
+          Compress-Archive -Path "$($releaseDir.FullName)/*" -DestinationPath SKCPL-Windows-x64.zip
 
       - name: Upload Windows Executable Artifact
         uses: actions/upload-artifact@v4
@@ -83,7 +85,7 @@ jobs:
       - name: Compress macOS Release App
         run: |
           cd build/macos/Build/Products/Release
-          zip -r -y "${{ github.workspace }}/SKCPL-macOS.zip" "SKCPL - Connect to Waves.app"
+          zip -r -y "${{ github.workspace }}/SKCPL-macOS.zip" *.app
 
       - name: Upload macOS App Artifact
         uses: actions/upload-artifact@v4

@@ -46,7 +46,10 @@ jobs:
       - name: Compress Windows Release Bundle
         shell: pwsh
         run: |
-          $releaseDir = Get-ChildItem -Path build/windows -Recurse -Filter "Release" -Directory | Select-Object -First 1
+          $releaseDir = Get-ChildItem -Path build/windows -Recurse -Directory | Where-Object { $_.FullName -like "*runner*Release" } | Select-Object -First 1
+          if (-not $releaseDir) {
+            $releaseDir = Get-ChildItem -Path build/windows -Recurse -Directory | Where-Object { $_.Name -eq "Release" } | Select-Object -Last 1
+          }
           Write-Host "Found release directory: $($releaseDir.FullName)"
           Compress-Archive -Path "$($releaseDir.FullName)/*" -DestinationPath SKCPL-Windows-x64.zip
 
@@ -104,15 +107,14 @@ jobs:
       contents: write
 
     steps:
-      - name: Download Windows Artifact
+      - name: Download All Artifacts
         uses: actions/download-artifact@v4
         with:
-          name: SKCPL-Windows-x64
+          path: release-files
+          merge-multiple: true
 
-      - name: Download macOS Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: SKCPL-macOS
+      - name: List Release Files
+        run: ls -la release-files
 
       - name: Create or Update Public GitHub Release
         uses: softprops/action-gh-release@v2
@@ -127,9 +129,7 @@ jobs:
             ### Direct Website Downloads:
             - **Windows (64-bit)**: [SKCPL-Windows-x64.zip](https://github.com/thakurkrish497-pixel/skcpl-application/releases/download/v1.0.0/SKCPL-Windows-x64.zip)
             - **macOS Desktop**: [SKCPL-macOS.zip](https://github.com/thakurkrish497-pixel/skcpl-application/releases/download/v1.0.0/SKCPL-macOS.zip)
-          files: |
-            SKCPL-Windows-x64.zip
-            SKCPL-macOS.zip
+          files: release-files/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

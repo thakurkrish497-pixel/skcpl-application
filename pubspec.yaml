@@ -58,6 +58,9 @@ dev_dependencies:
   flutter_lints: ^3.0.1
   riverpod_generator: ^2.3.9
   build_runner: ^2.4.7
+
+dependency_overrides:
+  record_platform_interface: 1.5.0
   json_serializable: ^6.7.1
 
 flutter:

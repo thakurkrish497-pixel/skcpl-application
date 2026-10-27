@@ -6,7 +6,6 @@ import '../../core/constants/app_text_styles.dart';
 import '../../core/localization/app_strings.dart';
 import '../../core/utils/validators.dart';
 import '../../providers/auth_provider.dart';
-import '../../providers/role_access_provider.dart';
 import '../../widgets/language_toggle_button.dart';
 import '../../widgets/skcpl_brand_logo.dart';
 
@@ -55,7 +54,6 @@ class _RoleLoginScreenState extends ConsumerState<RoleLoginScreen> {
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
-    final roleAccess = ref.watch(roleAccessProvider);
 
     return Scaffold(
       backgroundColor: AppColors.scaffoldDark,
@@ -111,65 +109,7 @@ class _RoleLoginScreenState extends ConsumerState<RoleLoginScreen> {
                     ],
                   ),
                 ).animate().fadeIn(delay: 150.ms),
-                const SizedBox(height: 20),
-
-                // Quick Role Selector Tabs
-                Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: BoxDecoration(
-                    color: AppColors.cardDark,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: AppColors.divider),
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: _QuickRoleButton(
-                          title: 'Project Head',
-                          icon: Icons.engineering_rounded,
-                          accentColor: AppColors.waveCyan,
-                          isSelected: _emailController.text == roleAccess.projectHeadEmail,
-                          onTap: () {
-                            setState(() {
-                              _emailController.text = roleAccess.projectHeadEmail;
-                              _passwordController.text = roleAccess.projectHeadPassword;
-                            });
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: _QuickRoleButton(
-                          title: 'Accounts',
-                          icon: Icons.account_balance_rounded,
-                          accentColor: AppColors.approved,
-                          isSelected: _emailController.text == roleAccess.accountsEmail,
-                          onTap: () {
-                            setState(() {
-                              _emailController.text = roleAccess.accountsEmail;
-                              _passwordController.text = roleAccess.accountsPassword;
-                            });
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: _QuickRoleButton(
-                          title: 'Admin',
-                          icon: Icons.shield_rounded,
-                          accentColor: AppColors.goldAccent,
-                          isSelected: _emailController.text == 'admin@skcpl.com' || _emailController.text == 'admin',
-                          onTap: () {
-                            setState(() {
-                              _emailController.text = 'admin';
-                              _passwordController.text = 'Suresh@11';
-                            });
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                ).animate().fadeIn(delay: 200.ms),
+                const SizedBox(height: 12),
 
                 const SizedBox(height: 24),
 
@@ -294,64 +234,6 @@ class _RoleLoginScreenState extends ConsumerState<RoleLoginScreen> {
                 ).animate().fadeIn(delay: 600.ms),
               ],
             ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _QuickRoleButton extends StatelessWidget {
-  final String title;
-  final IconData icon;
-  final Color accentColor;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  const _QuickRoleButton({
-    required this.title,
-    required this.icon,
-    required this.accentColor,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-            color: isSelected ? accentColor.withOpacity(0.18) : Colors.transparent,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: isSelected ? accentColor.withOpacity(0.6) : Colors.transparent,
-              width: 1.2,
-            ),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                icon,
-                size: 20,
-                color: isSelected ? accentColor : AppColors.textTertiary,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                title,
-                style: TextStyle(
-                  color: isSelected ? Colors.white : AppColors.textSecondary,
-                  fontSize: 11,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                ),
-              ),
-            ],
           ),
         ),
       ),

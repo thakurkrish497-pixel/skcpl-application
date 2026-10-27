@@ -14,7 +14,12 @@ import '../../providers/storage_provider.dart';
 import '../../widgets/locked_form_banner.dart';
 import '../../widgets/status_badge.dart';
 import '../../widgets/photo_picker.dart';
-import 'dart:io';
+import '../../widgets/offline_indicator.dart';
+import '../../widgets/responsive_layout.dart';
+import '../../providers/site_staff_provider.dart';
+import '../../providers/role_access_provider.dart';
+import '../../services/dropdown_service.dart';
+import '../../models/site_staff_model.dart';
 
 /// Use Product (Outbound) form — simplified, no vendor/rate/tax
 class UseProductScreen extends ConsumerStatefulWidget {
@@ -30,17 +35,23 @@ class _UseProductScreenState extends ConsumerState<UseProductScreen> {
   final _formKey = GlobalKey<FormState>();
   final _quantityController = TextEditingController();
   final _remarksController = TextEditingController();
+  final _customProductController = TextEditingController();
+  final _customUnitController = TextEditingController();
+  final _billNoController = TextEditingController();
 
   String? _selectedProductId;
   String? _selectedMetricUnitId;
   DateTime _selectedDate = DateTime.now();
-  List<File> _selectedPhotos = [];
+  List<PickedPhoto> _selectedPhotos = [];
+  bool _isSubmitting = false;
 
   bool get isLocked {
+    final activeStaff = ref.read(activeStaffProvider);
+    if (activeStaff != null && !activeStaff.hasModule(StaffModule.stock)) return true;
     if (widget.existingTransaction == null) return false;
+    if (widget.existingTransaction!.status == TransactionStatus.approved) return true;
     final user = ref.read(authProvider);
-    if (user.isAdmin) return false;
-    if (user.isAccounts && widget.existingTransaction!.status == TransactionStatus.pendingAccounts) return false;
+    if (user.isAdmin || user.isAccounts) return false;
     return !widget.existingTransaction!.isEditable;
   }
 
@@ -48,7 +59,7 @@ class _UseProductScreenState extends ConsumerState<UseProductScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final siteId = ref.read(authProvider).activeSite?.id;
+      final siteId = widget.existingTransaction?.siteId ?? ref.read(authProvider).activeSite?.id;
       if (siteId != null) {
         ref.read(stockProvider.notifier).loadCurrentStock(siteId);
       }
@@ -59,7 +70,17 @@ class _UseProductScreenState extends ConsumerState<UseProductScreen> {
       _selectedMetricUnitId = tx.metricUnitId;
       _selectedDate = tx.date;
       _quantityController.text = tx.quantity.toString();
-      _remarksController.text = tx.remarks ?? '';
+      _remarksController.text = tx.cleanRemarks ?? '';
+      _billNoController.text = tx.billNo ?? '';
+
+      if (tx.customProduct != null || tx.productId == DropdownService.otherProductPlaceholderId) {
+        _selectedProductId = 'OTHER';
+        _customProductController.text = tx.customProduct ?? '';
+      }
+      if (tx.customMetricUnit != null || tx.metricUnitId == DropdownService.otherUnitPlaceholderId) {
+        _selectedMetricUnitId = 'OTHER';
+        _customUnitController.text = tx.customMetricUnit ?? '';
+      }
     }
   }
 
@@ -95,15 +116,31 @@ class _UseProductScreenState extends ConsumerState<UseProductScreen> {
     }
 
     final authState = ref.read(authProvider);
-    final siteId = authState.activeSite?.id;
+    final siteId = widget.existingTransaction?.siteId ?? authState.activeSite?.id;
     final userId = authState.user?.id;
 
-    if (siteId == null) return;
+    if (siteId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error: No site associated with this transaction')),
+      );
+      return;
+    }
+
+    final activeStaff = ref.read(activeStaffProvider);
+    if (activeStaff != null && !activeStaff.hasModule(StaffModule.stock)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Access Denied: Stock usage is turned off for ${activeStaff.name}.'),
+          backgroundColor: AppColors.rejected,
+        ),
+      );
+      return;
+    }
 
     final quantity = double.parse(_quantityController.text);
 
     // Stock Validation
-    if (widget.existingTransaction == null) {
+    if (widget.existingTransaction == null && _selectedProductId != 'OTHER') {
       final stockState = ref.read(stockProvider);
       final stockItem = stockState.currentStock.where((s) => s['product_id'] == _selectedProductId).firstOrNull;
       final currentStock = stockItem?['current_stock'] ?? 0;
@@ -118,57 +155,144 @@ class _UseProductScreenState extends ConsumerState<UseProductScreen> {
       }
     }
 
-    StockTransactionModel transaction;
+    setState(() => _isSubmitting = true);
 
-    if (widget.existingTransaction == null) {
-      transaction = StockTransactionModel(
-        siteId: siteId,
-        submittedBy: userId,
-        type: TransactionType.outbound,
-        date: _selectedDate,
-        productId: _selectedProductId!,
-        metricUnitId: _selectedMetricUnitId!,
-        quantity: double.parse(_quantityController.text),
-        remarks: _remarksController.text.isEmpty ? null : _remarksController.text,
-      );
-    } else {
-      transaction = StockTransactionModel(
-        id: widget.existingTransaction!.id,
-        siteId: widget.existingTransaction!.siteId,
-        submittedBy: widget.existingTransaction!.submittedBy,
-        type: TransactionType.outbound,
-        date: widget.existingTransaction!.date,
-        productId: _selectedProductId!,
-        metricUnitId: _selectedMetricUnitId!,
-        quantity: double.parse(_quantityController.text),
-        remarks: _remarksController.text.isEmpty ? null : _remarksController.text,
-        status: widget.existingTransaction!.status,
-        photoUrls: widget.existingTransaction!.photoUrls,
-      );
-    }
-
-    List<String> uploadedUrls = List.from(transaction.photoUrls);
-    if (_selectedPhotos.isNotEmpty) {
-      final storageService = ref.read(storageServiceProvider);
-      for (var file in _selectedPhotos) {
-        final url = await storageService.uploadPhoto(file);
-        uploadedUrls.add(url);
+    try {
+      String? encodedRemarks = _remarksController.text.trim().isEmpty ? null : _remarksController.text.trim();
+      if (_selectedProductId == 'OTHER' && _customProductController.text.trim().isNotEmpty) {
+        final tag = '[Material: ${_customProductController.text.trim()}]';
+        encodedRemarks = encodedRemarks == null ? tag : '$tag $encodedRemarks';
       }
-      transaction = transaction.copyWith(photoUrls: uploadedUrls);
-    }
+      if (_selectedMetricUnitId == 'OTHER' && _customUnitController.text.trim().isNotEmpty) {
+        final tag = '[Unit: ${_customUnitController.text.trim()}]';
+        encodedRemarks = encodedRemarks == null ? tag : '$tag $encodedRemarks';
+      }
 
-    final success = widget.existingTransaction == null
-        ? await ref.read(stockProvider.notifier).submitTransaction(transaction)
-        : await ref.read(stockProvider.notifier).updateTransaction(transaction);
+      final bill = _billNoController.text.trim();
+      final activeStaff = ref.read(activeStaffProvider);
+      final roleAccess = ref.read(roleAccessProvider);
+      final phCanApproveStock = roleAccess.projectHeadCanApproveStock;
+      final accountsCanApproveStock = roleAccess.accountsCanApproveStock;
 
-    if (success && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(widget.existingTransaction != null ? 'Transaction updated successfully!' : 'Usage recorded! Sent to Accounts.'),
-          backgroundColor: AppColors.approved,
-        ),
-      );
-      Navigator.pop(context, true);
+      if (widget.existingTransaction == null) {
+        if (activeStaff != null) {
+          final staffTag = '[By: ${activeStaff.name} (${activeStaff.designation ?? activeStaff.role.displayName})]';
+          encodedRemarks = encodedRemarks == null ? staffTag : '$staffTag $encodedRemarks';
+        }
+        if (phCanApproveStock) {
+          const supTag = '[Project Head Review: Pending] [Supervisor Review: Pending]';
+          encodedRemarks = encodedRemarks == null ? supTag : '$encodedRemarks $supTag';
+        } else {
+          const supTag = '[Project Head Review: Bypassed by Admin Policy]';
+          encodedRemarks = encodedRemarks == null ? supTag : '$encodedRemarks $supTag';
+        }
+      } else if (activeStaff != null) {
+        final staffTag = '[By: ${activeStaff.name} (${activeStaff.designation ?? activeStaff.role.displayName})]';
+        encodedRemarks = encodedRemarks == null ? staffTag : '$staffTag $encodedRemarks';
+      }
+      if (bill.isNotEmpty) {
+        final tag = '[Bill: $bill]';
+        encodedRemarks = encodedRemarks == null ? tag : '$tag $encodedRemarks';
+      }
+
+      final effectiveProductId = _selectedProductId == 'OTHER'
+          ? DropdownService.otherProductPlaceholderId
+          : _selectedProductId!;
+
+      final effectiveMetricUnitId = _selectedMetricUnitId == 'OTHER'
+          ? DropdownService.otherUnitPlaceholderId
+          : _selectedMetricUnitId!;
+
+      TransactionStatus initialStatus = TransactionStatus.pendingAccounts;
+      if (!phCanApproveStock && !accountsCanApproveStock) {
+        // Both Project Head & Accounts bypassed -> direct to Admin
+        initialStatus = TransactionStatus.pendingAdmin;
+      }
+
+      StockTransactionModel transaction;
+
+      if (widget.existingTransaction == null) {
+        transaction = StockTransactionModel(
+          siteId: siteId,
+          submittedBy: userId,
+          type: TransactionType.outbound,
+          date: _selectedDate,
+          productId: effectiveProductId,
+          metricUnitId: effectiveMetricUnitId,
+          quantity: double.parse(_quantityController.text),
+          remarks: encodedRemarks,
+          status: initialStatus,
+        );
+      } else {
+        transaction = StockTransactionModel(
+          id: widget.existingTransaction!.id,
+          siteId: widget.existingTransaction!.siteId,
+          submittedBy: widget.existingTransaction!.submittedBy,
+          type: TransactionType.outbound,
+          date: _selectedDate,
+          productId: effectiveProductId,
+          metricUnitId: effectiveMetricUnitId,
+          quantity: double.parse(_quantityController.text),
+          remarks: encodedRemarks,
+          status: widget.existingTransaction!.status,
+          photoUrls: widget.existingTransaction!.photoUrls,
+        );
+      }
+
+      List<String> uploadedUrls = List.from(transaction.photoUrls);
+      if (_selectedPhotos.isNotEmpty) {
+        final storageService = ref.read(storageServiceProvider);
+        for (var photo in _selectedPhotos) {
+          try {
+            final url = await storageService.uploadPhotoBytes(photo.bytes, fileName: photo.name);
+            uploadedUrls.add(url);
+          } catch (uploadError) {
+            debugPrint('Photo upload failed: $uploadError');
+          }
+        }
+        transaction = transaction.copyWith(photoUrls: uploadedUrls);
+      }
+
+      final success = widget.existingTransaction == null
+          ? await ref.read(stockProvider.notifier).submitTransaction(transaction)
+          : await ref.read(stockProvider.notifier).updateTransaction(transaction);
+
+      final stockError = ref.read(stockProvider).error;
+
+      if (success && mounted) {
+        final isOffline = stockError == 'OFFLINE_SAVED';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isOffline
+                  ? 'Saved offline! Will sync automatically when internet is back.'
+                  : (widget.existingTransaction != null
+                      ? 'Changes saved successfully!'
+                      : 'Submitted successfully!'),
+            ),
+            backgroundColor: isOffline ? AppColors.pending : AppColors.approved,
+          ),
+        );
+        Navigator.pop(context, true);
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(ref.read(stockProvider).error ?? 'Submission failed'),
+            backgroundColor: AppColors.rejected,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: AppColors.rejected,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
@@ -176,12 +300,15 @@ class _UseProductScreenState extends ConsumerState<UseProductScreen> {
   void dispose() {
     _quantityController.dispose();
     _remarksController.dispose();
+    _customProductController.dispose();
+    _customUnitController.dispose();
+    _billNoController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final siteId = ref.watch(authProvider).activeSite?.id;
+    final siteId = widget.existingTransaction?.siteId ?? ref.watch(authProvider).activeSite?.id;
     final productsAsync = ref.watch(dropdownProvider((category: DropdownCategory.product, siteId: siteId)));
     final unitsAsync = ref.watch(dropdownProvider((category: DropdownCategory.metricUnit, siteId: siteId)));
     final stockState = ref.watch(stockProvider);
@@ -189,8 +316,9 @@ class _UseProductScreenState extends ConsumerState<UseProductScreen> {
     return Scaffold(
       backgroundColor: AppColors.scaffoldDark,
       appBar: AppBar(
-        title: const Text('Use Product'),
+        title: Text(widget.existingTransaction != null ? 'Edit Used Product' : 'Use Product'),
         actions: [
+          const OfflineSyncButton(),
           if (isLocked)
             const Padding(
               padding: EdgeInsets.all(16),
@@ -206,10 +334,12 @@ class _UseProductScreenState extends ConsumerState<UseProductScreen> {
             ),
         ],
       ),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.all(20),
+      body: ResponsiveContainer(
+        maxWidth: 720,
+        child: Form(
+          key: _formKey,
+          child: ListView(
+            padding: const EdgeInsets.all(20),
           children: [
             if (isLocked)
               const LockedFormBanner().animate().fadeIn(),
@@ -221,15 +351,15 @@ class _UseProductScreenState extends ConsumerState<UseProductScreen> {
                 child: TextFormField(
                   readOnly: true,
                   controller: TextEditingController(
-                    text: DateFormat('dd MMM yyyy').format(_selectedDate),
+                    text: DateFormat('dd MMM yyyy (EEEE)').format(_selectedDate),
                   ),
                   style: AppTextStyles.bodyMedium.copyWith(
                     color: AppColors.textPrimary,
                   ),
                   decoration: InputDecoration(
-                    labelText: 'Date',
+                    labelText: 'Date (Optional / Defaults to today)',
                     prefixIcon: const Icon(Icons.calendar_today_rounded,
-                        color: AppColors.textTertiary, size: 20),
+                        color: AppColors.primary, size: 20),
                     suffixIcon: isLocked
                         ? null
                         : const Icon(Icons.arrow_drop_down,
@@ -241,29 +371,76 @@ class _UseProductScreenState extends ConsumerState<UseProductScreen> {
 
             const SizedBox(height: 18),
 
+            // ── Issue Slip / Ref No. (Optional) ──
+            TextFormField(
+              controller: _billNoController,
+              readOnly: isLocked,
+              style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
+              decoration: const InputDecoration(
+                labelText: 'Issue Slip / Reference No. (Optional)',
+                hintText: 'e.g. SLIP-102 / Work Order #4',
+                prefixIcon: Icon(Icons.receipt_long_rounded, color: AppColors.textTertiary, size: 20),
+              ),
+            ).animate().fadeIn(delay: 150.ms),
+
+            const SizedBox(height: 18),
+
             // Product
             productsAsync.when(
               loading: () => _placeholder('Loading products...'),
               error: (_, __) => _placeholder('Failed to load products'),
-              data: (products) => DropdownButtonFormField<String>(
-                value: _selectedProductId,
-                decoration: const InputDecoration(
-                  labelText: 'Product Name',
-                  prefixIcon: Icon(Icons.category_rounded,
-                      color: AppColors.textTertiary, size: 20),
-                ),
-                dropdownColor: AppColors.cardDark,
-                style: AppTextStyles.bodyMedium.copyWith(
-                  color: AppColors.textPrimary,
-                ),
-                items: products
-                    .map((p) => DropdownMenuItem(
-                          value: p.id,
-                          child: Text(p.value),
-                        ))
-                    .toList(),
-                onChanged: isLocked ? null : (val) => setState(() => _selectedProductId = val),
-                validator: (v) => Validators.dropdownRequired(v, 'Product'),
+              data: (products) => Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  DropdownButtonFormField<String>(
+                    value: _selectedProductId,
+                    decoration: const InputDecoration(
+                      labelText: 'Product Name',
+                      prefixIcon: Icon(Icons.category_rounded,
+                          color: AppColors.textTertiary, size: 20),
+                    ),
+                    dropdownColor: AppColors.cardDark,
+                    style: AppTextStyles.bodyMedium.copyWith(
+                      color: AppColors.textPrimary,
+                    ),
+                    items: [
+                      ...products.map((p) => DropdownMenuItem(
+                            value: p.id,
+                            child: Text(p.value),
+                          )),
+                      const DropdownMenuItem(
+                        value: 'OTHER',
+                        child: Text(
+                          '+ Other / Enter Manually',
+                          style: TextStyle(
+                            fontStyle: FontStyle.italic,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ),
+                    ],
+                    onChanged: isLocked ? null : (val) => setState(() => _selectedProductId = val),
+                    validator: (v) => Validators.dropdownRequired(v, 'Product'),
+                  ),
+                  if (_selectedProductId == 'OTHER') ...[
+                    const SizedBox(height: 14),
+                    TextFormField(
+                      controller: _customProductController,
+                      readOnly: isLocked,
+                      validator: (v) => v == null || v.trim().isEmpty
+                          ? 'Please enter product name'
+                          : null,
+                      style: AppTextStyles.bodyMedium
+                          .copyWith(color: AppColors.textPrimary),
+                      decoration: const InputDecoration(
+                        labelText: 'Enter Product / Material Name',
+                        hintText: 'e.g. Birla White Cement, PVC Pipe 4"',
+                        prefixIcon: Icon(Icons.edit_note_rounded,
+                            color: AppColors.primary, size: 20),
+                      ),
+                    ).animate().fadeIn(),
+                  ],
+                ],
               ),
             ).animate().fadeIn(delay: 200.ms),
 
@@ -273,25 +450,58 @@ class _UseProductScreenState extends ConsumerState<UseProductScreen> {
             unitsAsync.when(
               loading: () => _placeholder('Loading units...'),
               error: (_, __) => _placeholder('Failed to load units'),
-              data: (units) => DropdownButtonFormField<String>(
-                value: _selectedMetricUnitId,
-                decoration: const InputDecoration(
-                  labelText: 'Metric Unit',
-                  prefixIcon: Icon(Icons.straighten_rounded,
-                      color: AppColors.textTertiary, size: 20),
-                ),
-                dropdownColor: AppColors.cardDark,
-                style: AppTextStyles.bodyMedium.copyWith(
-                  color: AppColors.textPrimary,
-                ),
-                items: units
-                    .map((u) => DropdownMenuItem(
-                          value: u.id,
-                          child: Text(u.value),
-                        ))
-                    .toList(),
-                onChanged: isLocked ? null : (val) => setState(() => _selectedMetricUnitId = val),
-                validator: (v) => Validators.dropdownRequired(v, 'Unit'),
+              data: (units) => Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  DropdownButtonFormField<String>(
+                    value: _selectedMetricUnitId,
+                    decoration: const InputDecoration(
+                      labelText: 'Metric Unit',
+                      prefixIcon: Icon(Icons.straighten_rounded,
+                          color: AppColors.textTertiary, size: 20),
+                    ),
+                    dropdownColor: AppColors.cardDark,
+                    style: AppTextStyles.bodyMedium.copyWith(
+                      color: AppColors.textPrimary,
+                    ),
+                    items: [
+                      ...units.map((u) => DropdownMenuItem(
+                            value: u.id,
+                            child: Text(u.value),
+                          )),
+                      const DropdownMenuItem(
+                        value: 'OTHER',
+                        child: Text(
+                          '+ Other / Enter Manually',
+                          style: TextStyle(
+                            fontStyle: FontStyle.italic,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ),
+                    ],
+                    onChanged: isLocked ? null : (val) => setState(() => _selectedMetricUnitId = val),
+                    validator: (v) => Validators.dropdownRequired(v, 'Unit'),
+                  ),
+                  if (_selectedMetricUnitId == 'OTHER') ...[
+                    const SizedBox(height: 14),
+                    TextFormField(
+                      controller: _customUnitController,
+                      readOnly: isLocked,
+                      validator: (v) => v == null || v.trim().isEmpty
+                          ? 'Please enter metric unit'
+                          : null,
+                      style: AppTextStyles.bodyMedium
+                          .copyWith(color: AppColors.textPrimary),
+                      decoration: const InputDecoration(
+                        labelText: 'Enter Metric Unit',
+                        hintText: 'e.g. Bags, Quintal, Meter, Nos',
+                        prefixIcon: Icon(Icons.straighten_rounded,
+                            color: AppColors.primary, size: 20),
+                      ),
+                    ).animate().fadeIn(),
+                  ],
+                ],
               ),
             ).animate().fadeIn(delay: 300.ms),
 
@@ -354,11 +564,11 @@ class _UseProductScreenState extends ConsumerState<UseProductScreen> {
                 width: double.infinity,
                 height: 54,
                 child: ElevatedButton.icon(
-                  onPressed: stockState.isLoading ? null : _handleSubmit,
+                  onPressed: (_isSubmitting || stockState.isLoading) ? null : _handleSubmit,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFF59E0B),
                   ),
-                  icon: stockState.isLoading
+                  icon: (_isSubmitting || stockState.isLoading)
                       ? const SizedBox(
                           width: 20,
                           height: 20,
@@ -368,9 +578,9 @@ class _UseProductScreenState extends ConsumerState<UseProductScreen> {
                           ),
                         )
                       : const Icon(Icons.send_rounded),
-                  label: Text(stockState.isLoading
-                      ? 'Submitting...'
-                      : 'Submit Usage to Accounts'),
+                  label: Text((_isSubmitting || stockState.isLoading)
+                      ? (widget.existingTransaction != null ? 'Saving Changes...' : 'Submitting...')
+                      : (widget.existingTransaction != null ? 'Save Changes' : 'Submit')),
                 ),
               ).animate().fadeIn(delay: 600.ms),
 
@@ -378,6 +588,7 @@ class _UseProductScreenState extends ConsumerState<UseProductScreen> {
           ],
         ),
       ),
+    ),
     );
   }
 

@@ -22,6 +22,13 @@ class SiteModel {
     this.allocatedBudget = 0.0,
   });
 
+  /// True if this location is an office (e.g. Indore Head Office for Attendance)
+  /// rather than an active on-ground construction site.
+  bool get isHeadOffice =>
+      name.toLowerCase().contains('head office') ||
+      name.toLowerCase().contains('indore office') ||
+      name.toLowerCase().trim() == 'indore';
+
   factory SiteModel.fromJson(Map<String, dynamic> json) {
     return SiteModel(
       id: json['id'] as String,

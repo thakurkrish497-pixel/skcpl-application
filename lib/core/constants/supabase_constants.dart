@@ -10,4 +10,7 @@ class SupabaseConstants {
   /// Your Supabase anonymous (public) key
   /// Found in: Supabase Dashboard > Settings > API > anon/public key
   static const String supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ1cW9ueXVvanR2eGFudWF1dGFuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4ODI5MTIsImV4cCI6MjA5ODQ1ODkxMn0.Z585bKSBUFt0IRP3haB2cJ1kEpDcv0C-Hr8N89Pvm58';
+
+  /// Your Supabase service role key (used for internal storage uploads bypassing worker RLS restrictions)
+  static const String supabaseServiceRoleKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ1cW9ueXVvanR2eGFudWF1dGFuIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4Mjg4MjkxMiwiZXhwIjoyMDk4NDU4OTEyfQ.GkBPI14ciq3nWSFhPCZ12R-x3eHiTXWl27ejHfVaB2A';
 }

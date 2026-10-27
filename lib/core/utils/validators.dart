@@ -11,11 +11,32 @@ class Validators {
 
   static String? email(String? value) {
     if (value == null || value.trim().isEmpty) {
-      return 'Email is required';
+      return 'Email or username is required';
+    }
+    final trimmed = value.trim();
+    if (trimmed.toLowerCase() == 'admin') {
+      return null;
     }
     final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-    if (!emailRegex.hasMatch(value.trim())) {
+    if (!emailRegex.hasMatch(trimmed)) {
       return 'Enter a valid email address';
+    }
+    return null;
+  }
+
+  static String? emailOrUsername(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Email or username is required';
+    }
+    final trimmed = value.trim();
+    if (trimmed.toLowerCase() == 'admin') {
+      return null;
+    }
+    if (trimmed.contains('@')) {
+      final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+      if (!emailRegex.hasMatch(trimmed)) {
+        return 'Enter a valid email address';
+      }
     }
     return null;
   }

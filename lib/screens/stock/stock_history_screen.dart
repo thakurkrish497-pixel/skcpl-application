@@ -7,6 +7,11 @@ import '../../models/stock_transaction_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/stock_provider.dart';
 import '../../widgets/status_badge.dart';
+import '../../widgets/offline_indicator.dart';
+import '../../widgets/photo_thumbnail_strip.dart';
+import '../../widgets/cache_manager_dialog.dart';
+import '../../providers/cash_provider.dart';
+import '../../services/excel_service.dart';
 import 'add_product_screen.dart';
 import 'use_product_screen.dart';
 
@@ -37,7 +42,52 @@ class _StockHistoryScreenState extends ConsumerState<StockHistoryScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.scaffoldDark,
-      appBar: AppBar(title: const Text('Stock History')),
+      appBar: AppBar(
+        title: const Text('Stock History'),
+        actions: [
+          if (ref.watch(authProvider).isAdmin || ref.watch(authProvider).isAccounts)
+            IconButton(
+              icon: const Icon(Icons.table_view_rounded, color: Color(0xFF107C41)),
+              tooltip: 'Export Excel Workbook (.xlsx)',
+              onPressed: () async {
+                final activeSite = ref.read(authProvider).activeSite;
+                if (activeSite == null) return;
+                try {
+                  var cashList = ref.read(cashProvider).transactions;
+                  if (cashList.isEmpty) {
+                    await ref.read(cashProvider.notifier).loadTransactions(activeSite.id);
+                    cashList = ref.read(cashProvider).transactions;
+                  }
+                  await ExcelService.exportAndShareComprehensiveExcel(
+                    siteName: activeSite.name,
+                    siteId: activeSite.id,
+                    cashTransactions: cashList,
+                    stockTransactions: stockState.transactions,
+                  );
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Comprehensive Excel (Cash & Stock) exported!'),
+                        backgroundColor: Color(0xFF107C41),
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Export failed: $e'),
+                        backgroundColor: AppColors.rejected,
+                      ),
+                    );
+                  }
+                }
+              },
+            ),
+          const CacheActionButton(),
+          const OfflineSyncButton(),
+        ],
+      ),
       body: stockState.isLoading
           ? const Center(
               child: CircularProgressIndicator(color: AppColors.primary),
@@ -158,7 +208,11 @@ class _TransactionTile extends StatelessWidget {
                     style: AppTextStyles.caption.copyWith(color: AppColors.approved),
                   ),
                 ),
-              StatusBadge(status: transaction.status, compact: true),
+              StatusBadge(
+                status: transaction.status,
+                compact: true,
+                isOffline: transaction.id?.startsWith('offline_') ?? false,
+              ),
               if (transaction.isEditable) ...[
                 const SizedBox(width: 8),
                 const Icon(Icons.edit_outlined, size: 16, color: AppColors.primary),
@@ -167,20 +221,97 @@ class _TransactionTile extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            '${transaction.quantity} units',
+            '${transaction.displayProductName}: ${transaction.quantity} ${transaction.displayMetricUnitName}',
             style: AppTextStyles.h4.copyWith(color: AppColors.textPrimary),
           ),
+          if (transaction.billNo != null || (isInbound && transaction.displayVendorName != 'None'))
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Wrap(
+                spacing: 12,
+                runSpacing: 4,
+                children: [
+                  if (isInbound && transaction.displayVendorName != 'None')
+                    Text(
+                      'Party / Vendor: ${transaction.displayVendorName}',
+                      style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary, fontWeight: FontWeight.w600),
+                    ),
+                  if (transaction.billNo != null && transaction.billNo!.isNotEmpty)
+                    Text(
+                      'Bill: #${transaction.billNo!}',
+                      style: AppTextStyles.bodySmall.copyWith(color: AppColors.primary, fontWeight: FontWeight.w600),
+                    ),
+                ],
+              ),
+            ),
           if (isInbound && transaction.finalAmount != null)
             Text(
               '₹ ${NumberFormat('#,##,###.##').format(transaction.finalAmount)}',
               style: AppTextStyles.labelLarge
                   .copyWith(color: AppColors.primary),
             ),
-          if (transaction.remarks != null &&
-              transaction.remarks!.isNotEmpty) ...[
+          if (transaction.submitterName != null || transaction.supervisorReviewNote != null) ...[
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              children: [
+                if (transaction.submitterName != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceDark,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: AppColors.divider),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.person_outline, size: 11, color: AppColors.primary),
+                        const SizedBox(width: 4),
+                        Text(
+                          'By: ${transaction.submitterName}',
+                          style: AppTextStyles.bodySmall.copyWith(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                if (transaction.supervisorReviewNote != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.verified_outlined, size: 11, color: AppColors.primary),
+                        const SizedBox(width: 4),
+                        Text(
+                          transaction.supervisorReviewNote!,
+                          style: AppTextStyles.bodySmall.copyWith(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ],
+          if (transaction.cleanRemarks != null &&
+              transaction.cleanRemarks!.isNotEmpty) ...[
             const SizedBox(height: 8),
             Text(
-              transaction.remarks!,
+              transaction.cleanRemarks!,
               style: AppTextStyles.bodySmall
                   .copyWith(color: AppColors.textTertiary),
               maxLines: 2,
@@ -211,6 +342,8 @@ class _TransactionTile extends StatelessWidget {
               ),
             ),
           ],
+          if (transaction.photoUrls.isNotEmpty)
+            PhotoThumbnailStrip(photoUrls: transaction.photoUrls),
         ],
       ),
     );

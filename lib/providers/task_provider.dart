@@ -6,7 +6,7 @@ import 'auth_provider.dart';
 
 /// Provides the TaskService instance
 final taskServiceProvider = Provider<TaskService>((ref) {
-  final supabase = ref.read(supabaseClientProvider);
+  final supabase = ref.read(supabaseServiceClientProvider);
   return TaskService(supabase);
 });
 

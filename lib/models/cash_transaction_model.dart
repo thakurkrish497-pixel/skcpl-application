@@ -68,13 +68,98 @@ class CashTransactionModel {
   /// Whether the record is permanently locked
   bool get isLocked => status == TransactionStatus.approved;
 
+  /// Extracts Bill / Voucher No from remarks if entered
+  String? get billNo {
+    final match = RegExp(r'\[Bill:\s*(.+?)\]').firstMatch(remarks ?? '');
+    return match?.group(1)?.trim();
+  }
+
+  /// Extracts Party / Vendor Name from remarks if entered
+  String? get partyName {
+    final match = RegExp(r'\[Party:\s*(.+?)\]').firstMatch(remarks ?? '');
+    return match?.group(1)?.trim();
+  }
+
+  /// Extracts manually typed expense category name if worker used the manual entry option
+  String? get customExpenseType {
+    final match = RegExp(r'\[Expense:\s*(.+?)\]').firstMatch(remarks ?? '');
+    return match?.group(1)?.trim();
+  }
+
+  /// Display expense type name, prioritizing manual entry if available
+  String get displayExpenseTypeName {
+    final custom = customExpenseType;
+    if (custom != null && custom.isNotEmpty) {
+      return custom;
+    }
+    if (expenseTypeName != null &&
+        expenseTypeName!.isNotEmpty &&
+        expenseTypeName != 'Other (Manual Entry)') {
+      return expenseTypeName!;
+    }
+    return 'General Expense';
+  }
+
+  /// Extracts the staff member name and role who submitted this transaction (e.g., "Ramesh (Worker)")
+  String? get submitterName {
+    final match = RegExp(r'\[By:\s*(.+?)\]').firstMatch(remarks ?? '');
+    return match?.group(1)?.trim();
+  }
+
+  /// Extracts Project Head / Supervisor review note if any (e.g., "Approved by Vikas", "Edited & Approved by Vikas")
+  String? get supervisorReviewNote {
+    final match = RegExp(r'\[(?:Project Head|Supervisor):\s*(.+?)\]').firstMatch(remarks ?? '');
+    return match?.group(1)?.trim();
+  }
+
+  String? get projectHeadReviewNote => supervisorReviewNote;
+
+  /// Whether this cash transaction is currently waiting for Project Head / Supervisor review
+  bool get isPendingSupervisorReview =>
+      remarks?.contains('[Project Head Review: Pending]') == true ||
+      remarks?.contains('[Project Head: Review Pending]') == true ||
+      remarks?.contains('[Supervisor Review: Pending]') == true ||
+      remarks?.contains('[Supervisor: Review Pending]') == true;
+
+  bool get isPendingProjectHeadReview => isPendingSupervisorReview;
+
+  /// Whether this cash transaction has been approved by the Project Head / Supervisor
+  bool get isSupervisorApproved =>
+      remarks?.contains('[Project Head: Approved') == true ||
+      remarks?.contains('[Project Head: Edited & Approved') == true ||
+      remarks?.contains('[Supervisor: Approved') == true ||
+      remarks?.contains('[Supervisor: Edited & Approved') == true;
+
+  bool get isProjectHeadApproved => isSupervisorApproved;
+
+  /// User remarks with any system bracket tags stripped out
+  String? get cleanRemarks {
+    if (remarks == null) return null;
+    final cleaned = remarks!
+        .replaceAll(RegExp(r'\[Expense:\s*.+?\]\s*'), '')
+        .replaceAll(RegExp(r'\[Bill:\s*.+?\]\s*'), '')
+        .replaceAll(RegExp(r'\[Party:\s*.+?\]\s*'), '')
+        .replaceAll(RegExp(r'\[By:\s*.+?\]\s*'), '')
+        .replaceAll(RegExp(r'\[(?:Project Head|Supervisor)(?:\s+Review)?:\s*.+?\]\s*'), '')
+        .trim();
+    return cleaned.isEmpty ? null : cleaned;
+  }
+
   factory CashTransactionModel.fromJson(Map<String, dynamic> json) {
+    String? typeName = json['expense_type_name'] as String?;
+    if (typeName == null && json['dropdown_items'] != null) {
+      if (json['dropdown_items'] is Map) {
+        typeName = json['dropdown_items']['value'] as String?;
+      }
+    }
+
     return CashTransactionModel(
       id: json['id'] as String?,
       siteId: json['site_id'] as String,
       submittedBy: json['submitted_by'] as String?,
       date: DateTime.parse(json['date'] as String),
       expenseTypeId: json['expense_type_id'] as String,
+      expenseTypeName: typeName,
       expenseAmount: (json['expense_amount'] as num?)?.toDouble() ?? 0,
       amountReceived: (json['amount_received'] as num?)?.toDouble() ?? 0,
       cashInHand: (json['cash_in_hand'] as num).toDouble(),
@@ -120,6 +205,7 @@ class CashTransactionModel {
     String? submittedBy,
     DateTime? date,
     String? expenseTypeId,
+    String? expenseTypeName,
     double? expenseAmount,
     double? amountReceived,
     double? cashInHand,
@@ -140,6 +226,7 @@ class CashTransactionModel {
       submittedBy: submittedBy ?? this.submittedBy,
       date: date ?? this.date,
       expenseTypeId: expenseTypeId ?? this.expenseTypeId,
+      expenseTypeName: expenseTypeName ?? this.expenseTypeName,
       expenseAmount: expenseAmount ?? this.expenseAmount,
       amountReceived: amountReceived ?? this.amountReceived,
       cashInHand: cashInHand ?? this.cashInHand,

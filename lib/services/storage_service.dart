@@ -1,41 +1,78 @@
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
+import '../core/constants/supabase_constants.dart';
 
 class StorageService {
-  final SupabaseClient _client;
   static const String _bucketName = 'transaction_photos';
 
-  StorageService(this._client);
+  // Dedicated client with service role key to ensure workers without auth session can upload photos
+  late final SupabaseClient _storageClient;
 
-  /// Uploads a photo to Supabase storage and returns the public URL
-  Future<String> uploadPhoto(File photo) async {
-    final fileName = '${const Uuid().v4()}.jpg';
-    final path = 'photos/$fileName';
+  StorageService([SupabaseClient? client]) {
+    _storageClient = SupabaseClient(
+      SupabaseConstants.supabaseUrl,
+      SupabaseConstants.supabaseServiceRoleKey,
+    );
+  }
 
-    await _client.storage.from(_bucketName).upload(path, photo);
+  /// Uploads photo bytes directly (cross-platform: Web, iOS, Android, macOS)
+  Future<String> uploadPhotoBytes(Uint8List bytes, {String? fileName}) async {
+    final cleanName = fileName != null && fileName.isNotEmpty
+        ? fileName.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_')
+        : 'photo.jpg';
+    final uniqueName = '${const Uuid().v4()}_$cleanName';
+    final path = 'photos/$uniqueName';
 
-    // Get the public URL for the uploaded photo
-    return _client.storage.from(_bucketName).getPublicUrl(path);
+    await _storageClient.storage.from(_bucketName).uploadBinary(
+          path,
+          bytes,
+          fileOptions: const FileOptions(
+            contentType: 'image/jpeg',
+            upsert: true,
+          ),
+        );
+
+    return _storageClient.storage.from(_bucketName).getPublicUrl(path);
+  }
+
+  /// Uploads a photo object (Uint8List, XFile, or File) and returns the public URL
+  Future<String> uploadPhoto(dynamic photo) async {
+    if (photo is Uint8List) {
+      return uploadPhotoBytes(photo);
+    }
+
+    try {
+      // Handles XFile or File having readAsBytes()
+      final bytes = await photo.readAsBytes() as Uint8List;
+      final name = (photo.name != null) ? photo.name.toString() : 'photo.jpg';
+      return await uploadPhotoBytes(bytes, fileName: name);
+    } catch (_) {
+      // Fallback
+      final fileName = '${const Uuid().v4()}.jpg';
+      final path = 'photos/$fileName';
+      await _storageClient.storage.from(_bucketName).upload(
+            path,
+            photo,
+            fileOptions: const FileOptions(upsert: true),
+          );
+      return _storageClient.storage.from(_bucketName).getPublicUrl(path);
+    }
   }
 
   /// Deletes a photo from Supabase storage using its URL
   Future<void> deletePhoto(String photoUrl) async {
     try {
-      // Extract the path from the full URL
-      // The URL looks like: https://[project_id].supabase.co/storage/v1/object/public/transaction_photos/photos/[file_name].jpg
       final uri = Uri.parse(photoUrl);
       final pathSegments = uri.pathSegments;
-      
-      // Find where the bucket name is in the path
+
       final bucketIndex = pathSegments.indexOf(_bucketName);
       if (bucketIndex != -1 && bucketIndex < pathSegments.length - 1) {
-        // The object path is everything after the bucket name
         final objectPath = pathSegments.sublist(bucketIndex + 1).join('/');
-        await _client.storage.from(_bucketName).remove([objectPath]);
+        await _storageClient.storage.from(_bucketName).remove([objectPath]);
       }
     } catch (e) {
-      print('Error deleting photo: $e');
+      // Silently handle deletion error
     }
   }
 }

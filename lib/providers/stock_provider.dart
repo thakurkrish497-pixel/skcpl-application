@@ -1,14 +1,15 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/stock_transaction_model.dart';
-import '../models/dropdown_item_model.dart';
 import '../services/stock_service.dart';
 import '../services/dropdown_service.dart';
+import '../services/offline_service.dart';
 import 'auth_provider.dart';
 import 'dropdown_provider.dart';
+import 'role_access_provider.dart';
 
 /// Provides the StockService
 final stockServiceProvider = Provider<StockService>((ref) {
-  return StockService(ref.read(supabaseClientProvider));
+  return StockService(ref.read(supabaseServiceClientProvider));
 });
 
 /// State for stock transactions
@@ -44,21 +45,54 @@ class StockState {
 /// Stock state notifier
 class StockNotifier extends StateNotifier<StockState> {
   final StockService _stockService;
-  final DropdownService _dropdownService;
 
-  StockNotifier(this._stockService, this._dropdownService) : super(const StockState());
+  StockNotifier(this._stockService) : super(const StockState());
 
-  /// Load stock transactions for a site
+  /// Load stock transactions for all sites (merges any queued offline records, latest on top)
+  Future<void> loadAllTransactions({TransactionType? type}) async {
+    state = state.copyWith(isLoading: true, clearError: true);
+    final queued = await OfflineService.getQueuedStockTransactions();
+
+    try {
+      final transactions = await _stockService.getAllTransactions(type: type);
+      final allList = [...queued, ...transactions]
+        ..sort((a, b) => (b.createdAt ?? b.date).compareTo(a.createdAt ?? a.date));
+      state = state.copyWith(
+        transactions: allList,
+        isLoading: false,
+      );
+    } catch (e) {
+      state = state.copyWith(
+        transactions: queued,
+        error: queued.isNotEmpty ? null : e.toString(),
+        isLoading: false,
+      );
+    }
+  }
+
+  /// Load stock transactions for a site (merges any queued offline records)
   Future<void> loadTransactions(String siteId, {TransactionType? type}) async {
     state = state.copyWith(isLoading: true, clearError: true);
+    final queued = await OfflineService.getQueuedStockTransactions();
+    final siteQueued = queued.where((t) => t.siteId == siteId).toList();
+
     try {
       final transactions = await _stockService.getTransactionsForSite(
         siteId,
         type: type,
       );
-      state = state.copyWith(transactions: transactions, isLoading: false);
+      final allList = [...siteQueued, ...transactions]
+        ..sort((a, b) => (b.createdAt ?? b.date).compareTo(a.createdAt ?? a.date));
+      state = state.copyWith(
+        transactions: allList,
+        isLoading: false,
+      );
     } catch (e) {
-      state = state.copyWith(error: e.toString(), isLoading: false);
+      state = state.copyWith(
+        transactions: siteQueued,
+        error: siteQueued.isNotEmpty ? null : e.toString(),
+        isLoading: false,
+      );
     }
   }
 
@@ -72,7 +106,7 @@ class StockNotifier extends StateNotifier<StockState> {
     }
   }
 
-  /// Submit a new stock transaction
+  /// Submit a new stock transaction with automatic offline queue fallback
   Future<bool> submitTransaction(StockTransactionModel transaction) async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
@@ -83,18 +117,55 @@ class StockNotifier extends StateNotifier<StockState> {
       );
       return true;
     } catch (e) {
-      state = state.copyWith(error: e.toString(), isLoading: false);
-      return false;
+      // Fallback: save to local offline queue
+      try {
+        final offlineTx = await OfflineService.queueStockTransaction(transaction);
+        state = state.copyWith(
+          transactions: [offlineTx, ...state.transactions],
+          isLoading: false,
+          error: 'OFFLINE_SAVED',
+        );
+        return true;
+      } catch (queueErr) {
+        state = state.copyWith(error: e.toString(), isLoading: false);
+        return false;
+      }
     }
   }
 
-  /// Update an existing stock transaction
+  /// Update an existing stock transaction (handles both online & offline/queued records)
   Future<bool> updateTransaction(StockTransactionModel transaction) async {
-    if (transaction.id == null) return false;
+    final txId = transaction.id;
+
+    // Handle offline queued transactions
+    if (txId == null || txId.startsWith('offline_')) {
+      try {
+        if (transaction.status == TransactionStatus.rejected) {
+          if (txId != null) {
+            await OfflineService.removeQueuedStockTransaction(txId);
+          }
+        } else {
+          await OfflineService.updateQueuedStockTransaction(transaction);
+        }
+        state = state.copyWith(
+          transactions: state.transactions
+              .map((t) => (t.id == txId || (txId == null && t.remarks == transaction.remarks))
+                  ? transaction
+                  : t)
+              .toList(),
+          isLoading: false,
+        );
+        return true;
+      } catch (e) {
+        state = state.copyWith(error: e.toString(), isLoading: false);
+        return false;
+      }
+    }
+
     state = state.copyWith(isLoading: true, clearError: true);
     try {
       final updated = await _stockService.updateTransaction(
-        transaction.id!,
+        txId,
         transaction.toJson(),
       );
       state = state.copyWith(
@@ -105,8 +176,49 @@ class StockNotifier extends StateNotifier<StockState> {
       );
       return true;
     } catch (e) {
+      // If online update failed, check if it was in local offline queue
+      try {
+        if (transaction.status == TransactionStatus.rejected) {
+          await OfflineService.removeQueuedStockTransaction(txId);
+        } else {
+          await OfflineService.updateQueuedStockTransaction(transaction);
+        }
+        state = state.copyWith(
+          transactions: state.transactions
+              .map((t) => t.id == txId ? transaction : t)
+              .toList(),
+          isLoading: false,
+        );
+        return true;
+      } catch (_) {}
+
       state = state.copyWith(error: e.toString(), isLoading: false);
       return false;
+    }
+  }
+
+  /// Delete / remove a stock transaction permanently
+  Future<bool> deleteTransaction(StockTransactionModel transaction) async {
+    final txId = transaction.id;
+    try {
+      if (txId != null && txId.startsWith('offline_')) {
+        await OfflineService.removeQueuedStockTransaction(txId);
+      } else {
+        if (txId != null && !txId.startsWith('offline_')) {
+          await _stockService.deleteTransaction(txId);
+        }
+      }
+      state = state.copyWith(
+        transactions: state.transactions
+            .where((t) => t.id != txId && !(t.siteId == transaction.siteId && t.remarks == transaction.remarks && t.quantity == transaction.quantity))
+            .toList(),
+      );
+      return true;
+    } catch (_) {
+      state = state.copyWith(
+        transactions: state.transactions.where((t) => t.id != txId).toList(),
+      );
+      return true;
     }
   }
 
@@ -134,18 +246,6 @@ class StockNotifier extends StateNotifier<StockState> {
     try {
       await _stockService.approveByAdmin(transaction.id!, approvedBy);
       
-      // If there's an unregistered vendor, add it to the dropdowns table automatically
-      if (transaction.unregisteredVendor != null && transaction.unregisteredVendor!.trim().isNotEmpty) {
-        try {
-          await _dropdownService.addDropdown(
-            category: DropdownCategory.vendor,
-            value: transaction.unregisteredVendor!.trim(),
-            siteId: transaction.siteId,
-          );
-        } catch (e) {
-          // Already exists or other error, ignore so we don't fail the approval
-        }
-      }
       state = state.copyWith(
         transactions: state.transactions.map((t) {
           if (t.id == transaction.id!) {
@@ -192,7 +292,6 @@ class StockNotifier extends StateNotifier<StockState> {
 final stockProvider = StateNotifierProvider<StockNotifier, StockState>((ref) {
   return StockNotifier(
     ref.read(stockServiceProvider),
-    ref.read(dropdownServiceProvider),
   );
 });
 
@@ -200,14 +299,28 @@ final stockProvider = StateNotifierProvider<StockNotifier, StockState>((ref) {
 final pendingStockAccountsProvider =
     FutureProvider.autoDispose<List<StockTransactionModel>>((ref) async {
   final stockService = ref.read(stockServiceProvider);
-  return stockService.getPendingForAccounts();
+  final roleAccess = ref.watch(roleAccessProvider);
+  if (!roleAccess.accountsCanApproveStock) {
+    return [];
+  }
+  final list = await stockService.getPendingForAccounts();
+  final filtered = list.where((t) {
+    // If Project Head approval power is extracted by Admin, bypass Project Head review!
+    if (!roleAccess.projectHeadCanApproveStock) {
+      return true;
+    }
+    return !t.isPendingSupervisorReview;
+  }).toList();
+  filtered.sort((a, b) => (b.createdAt ?? b.date).compareTo(a.createdAt ?? a.date));
+  return filtered;
 });
 
-/// Provider for pending-admin stock transactions
+/// Provider for pending-admin stock transactions (latest on top)
 final pendingStockAdminProvider =
     FutureProvider.autoDispose<List<StockTransactionModel>>((ref) async {
   final stockService = ref.read(stockServiceProvider);
-  return stockService.getPendingForAdmin();
+  final list = await stockService.getPendingForAdmin();
+  return list..sort((a, b) => (b.createdAt ?? b.date).compareTo(a.createdAt ?? a.date));
 });
 
 /// Provider for all sites stock overview

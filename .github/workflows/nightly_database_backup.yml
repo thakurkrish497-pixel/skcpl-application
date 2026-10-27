@@ -1,0 +1,64 @@
+name: Automated Nightly Database Backup (SKCPL)
+
+on:
+  schedule:
+    # Runs automatically every night at 18:30 UTC (00:00 AM IST Midnight)
+    - cron: '30 18 * * *'
+  workflow_dispatch: # Allows manual trigger from GitHub Actions tab
+
+jobs:
+  backup:
+    name: Backup All Database Tables & Generate Snapshot
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set current timestamp
+        id: vars
+        run: echo "TIMESTAMP=$(date +'%Y-%m-%d_%H%M%S')" >> $GITHUB_OUTPUT
+
+      - name: Create backup directory
+        run: mkdir -p backups
+
+      - name: Export All Tables via Supabase REST API
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://buqonyuojtvxanuautan.supabase.co' }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY || secrets.SUPABASE_ANON_KEY }}
+        run: |
+          echo "Starting automated database snapshot at $(date)..."
+          TABLES=("sites" "site_staff" "cash_transactions" "stock_transactions" "attendance" "attendance_regularization" "daily_site_reports" "expense_types" "vendors" "products")
+          
+          # Initialize master JSON backup
+          echo '{"backup_version":"1.0","app":"SKCPL Construction Management","tagline":"Connect to Waves","exported_at":"'$(date -u +"%Y-%m-%dT%H:%M:%SZ")'","tables":{' > backups/skcpl_master_backup_${{ steps.vars.outputs.TIMESTAMP }}.json
+          
+          FIRST=true
+          for table in "${TABLES[@]}"; do
+            echo "Backing up table: $table..."
+            if [ "$FIRST" = true ]; then
+              FIRST=false
+            else
+              echo ',' >> backups/skcpl_master_backup_${{ steps.vars.outputs.TIMESTAMP }}.json
+            fi
+            
+            echo "\"$table\":" >> backups/skcpl_master_backup_${{ steps.vars.outputs.TIMESTAMP }}.json
+            curl -s -X GET "$SUPABASE_URL/rest/v1/$table?select=*" \
+              -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+              -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" >> backups/skcpl_master_backup_${{ steps.vars.outputs.TIMESTAMP }}.json
+          done
+          
+          echo '}}' >> backups/skcpl_master_backup_${{ steps.vars.outputs.TIMESTAMP }}.json
+          echo "Master database backup completed successfully."
+
+      - name: Compress Backup Archive
+        run: |
+          cd backups
+          tar -czvf skcpl_database_backup_${{ steps.vars.outputs.TIMESTAMP }}.tar.gz *.json
+
+      - name: Store Backup as GitHub Artifact (90-day retention)
+        uses: actions/upload-artifact@v4
+        with:
+          name: skcpl-database-backup-${{ steps.vars.outputs.TIMESTAMP }}
+          path: backups/*.tar.gz
+          retention-days: 90

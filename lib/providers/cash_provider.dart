@@ -2,11 +2,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/cash_transaction_model.dart';
 import '../models/stock_transaction_model.dart'; // for TransactionStatus
 import '../services/cash_service.dart';
+import '../services/offline_service.dart';
 import 'auth_provider.dart';
+import 'role_access_provider.dart';
 
 /// Provides the CashService
 final cashServiceProvider = Provider<CashService>((ref) {
-  return CashService(ref.read(supabaseClientProvider));
+  return CashService(ref.read(supabaseServiceClientProvider));
 });
 
 /// State for cash transactions
@@ -41,18 +43,52 @@ class CashNotifier extends StateNotifier<CashState> {
 
   CashNotifier(this._cashService) : super(const CashState());
 
-  /// Load cash transactions for a site
-  Future<void> loadTransactions(String siteId) async {
+  /// Load cash transactions for all sites (merges any queued offline records, latest on top)
+  Future<void> loadAllTransactions() async {
     state = state.copyWith(isLoading: true, clearError: true);
+    final queued = await OfflineService.getQueuedCashTransactions();
+
     try {
-      final transactions = await _cashService.getTransactionsForSite(siteId);
-      state = state.copyWith(transactions: transactions, isLoading: false);
+      final transactions = await _cashService.getAllTransactions();
+      final allList = [...queued, ...transactions]
+        ..sort((a, b) => (b.createdAt ?? b.date).compareTo(a.createdAt ?? a.date));
+      state = state.copyWith(
+        transactions: allList,
+        isLoading: false,
+      );
     } catch (e) {
-      state = state.copyWith(error: e.toString(), isLoading: false);
+      state = state.copyWith(
+        transactions: queued,
+        error: queued.isNotEmpty ? null : e.toString(),
+        isLoading: false,
+      );
     }
   }
 
-  /// Submit a new cash transaction
+  /// Load cash transactions for a site (merges any queued offline records)
+  Future<void> loadTransactions(String siteId) async {
+    state = state.copyWith(isLoading: true, clearError: true);
+    final queued = await OfflineService.getQueuedCashTransactions();
+    final siteQueued = queued.where((c) => c.siteId == siteId).toList();
+
+    try {
+      final transactions = await _cashService.getTransactionsForSite(siteId);
+      final allList = [...siteQueued, ...transactions]
+        ..sort((a, b) => (b.createdAt ?? b.date).compareTo(a.createdAt ?? a.date));
+      state = state.copyWith(
+        transactions: allList,
+        isLoading: false,
+      );
+    } catch (e) {
+      state = state.copyWith(
+        transactions: siteQueued,
+        error: siteQueued.isNotEmpty ? null : e.toString(),
+        isLoading: false,
+      );
+    }
+  }
+
+  /// Submit a new cash transaction with automatic offline queue fallback
   Future<bool> submitTransaction(CashTransactionModel transaction) async {
     state = state.copyWith(isLoading: true, clearError: true);
     try {
@@ -63,18 +99,55 @@ class CashNotifier extends StateNotifier<CashState> {
       );
       return true;
     } catch (e) {
-      state = state.copyWith(error: e.toString(), isLoading: false);
-      return false;
+      // Fallback: save to local offline queue
+      try {
+        final offlineTx = await OfflineService.queueCashTransaction(transaction);
+        state = state.copyWith(
+          transactions: [offlineTx, ...state.transactions],
+          isLoading: false,
+          error: 'OFFLINE_SAVED',
+        );
+        return true;
+      } catch (queueErr) {
+        state = state.copyWith(error: e.toString(), isLoading: false);
+        return false;
+      }
     }
   }
 
-  /// Update an existing cash transaction
+  /// Update an existing cash transaction (handles both online & offline/queued records)
   Future<bool> updateTransaction(CashTransactionModel transaction) async {
-    if (transaction.id == null) return false;
+    final txId = transaction.id;
+
+    // Handle offline queued transactions
+    if (txId == null || txId.startsWith('offline_')) {
+      try {
+        if (transaction.status == TransactionStatus.rejected) {
+          if (txId != null) {
+            await OfflineService.removeQueuedCashTransaction(txId);
+          }
+        } else {
+          await OfflineService.updateQueuedCashTransaction(transaction);
+        }
+        state = state.copyWith(
+          transactions: state.transactions
+              .map((t) => (t.id == txId || (txId == null && t.remarks == transaction.remarks))
+                  ? transaction
+                  : t)
+              .toList(),
+          isLoading: false,
+        );
+        return true;
+      } catch (e) {
+        state = state.copyWith(error: e.toString(), isLoading: false);
+        return false;
+      }
+    }
+
     state = state.copyWith(isLoading: true, clearError: true);
     try {
       final updated = await _cashService.updateTransaction(
-        transaction.id!,
+        txId,
         transaction.toJson(),
       );
       state = state.copyWith(
@@ -85,8 +158,54 @@ class CashNotifier extends StateNotifier<CashState> {
       );
       return true;
     } catch (e) {
+      // If online update failed, check if it was actually in local offline queue
+      try {
+        if (transaction.status == TransactionStatus.rejected) {
+          await OfflineService.removeQueuedCashTransaction(txId);
+        } else {
+          await OfflineService.updateQueuedCashTransaction(transaction);
+        }
+        state = state.copyWith(
+          transactions: state.transactions
+              .map((t) => t.id == txId ? transaction : t)
+              .toList(),
+          isLoading: false,
+        );
+        return true;
+      } catch (_) {}
+
       state = state.copyWith(error: e.toString(), isLoading: false);
       return false;
+    }
+  }
+
+  /// Delete / remove a cash transaction permanently
+  Future<bool> deleteTransaction(CashTransactionModel transaction) async {
+    final txId = transaction.id;
+    try {
+      if (txId != null && txId.startsWith('offline_')) {
+        await OfflineService.removeQueuedCashTransaction(txId);
+      } else {
+        await OfflineService.removeQueuedCashTransactionMatching(
+          siteId: transaction.siteId,
+          remarks: transaction.remarks,
+          amount: transaction.expenseAmount,
+        );
+        if (txId != null && !txId.startsWith('offline_')) {
+          await _cashService.deleteTransaction(txId);
+        }
+      }
+      state = state.copyWith(
+        transactions: state.transactions
+            .where((t) => t.id != txId && !(t.siteId == transaction.siteId && t.remarks == transaction.remarks && t.expenseAmount == transaction.expenseAmount))
+            .toList(),
+      );
+      return true;
+    } catch (_) {
+      state = state.copyWith(
+        transactions: state.transactions.where((t) => t.id != txId).toList(),
+      );
+      return true;
     }
   }
 
@@ -158,14 +277,28 @@ final cashProvider = StateNotifierProvider<CashNotifier, CashState>((ref) {
 final pendingCashAccountsProvider =
     FutureProvider.autoDispose<List<CashTransactionModel>>((ref) async {
   final cashService = ref.read(cashServiceProvider);
-  return cashService.getPendingForAccounts();
+  final roleAccess = ref.watch(roleAccessProvider);
+  if (!roleAccess.accountsCanApproveCash) {
+    return [];
+  }
+  final list = await cashService.getPendingForAccounts();
+  final filtered = list.where((t) {
+    // If Project Head approval power is extracted by Admin, bypass Project Head review!
+    if (!roleAccess.projectHeadCanApproveCash) {
+      return true;
+    }
+    return !t.isPendingSupervisorReview;
+  }).toList();
+  filtered.sort((a, b) => (b.createdAt ?? b.date).compareTo(a.createdAt ?? a.date));
+  return filtered;
 });
 
-/// Provider for pending-admin cash transactions
+/// Provider for pending-admin cash transactions (latest on top)
 final pendingCashAdminProvider =
     FutureProvider.autoDispose<List<CashTransactionModel>>((ref) async {
   final cashService = ref.read(cashServiceProvider);
-  return cashService.getPendingForAdmin();
+  final list = await cashService.getPendingForAdmin();
+  return list..sort((a, b) => (b.createdAt ?? b.date).compareTo(a.createdAt ?? a.date));
 });
 
 /// Provider for a specific site's cash summary

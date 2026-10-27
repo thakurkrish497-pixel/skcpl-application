@@ -1,4 +1,4 @@
-package com.example.skcpl_app
+package com.skumarcreation.skcpl
 
 import io.flutter.embedding.android.FlutterActivity
 

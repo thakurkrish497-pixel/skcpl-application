@@ -2,6 +2,7 @@
 enum UserRole {
   admin,
   accounts,
+  projectHead,
   worker;
 
   String get displayName {
@@ -10,14 +11,20 @@ enum UserRole {
         return 'Admin';
       case UserRole.accounts:
         return 'Accounts';
+      case UserRole.projectHead:
+        return 'Project Head';
       case UserRole.worker:
         return 'Site Worker';
     }
   }
 
   static UserRole fromString(String value) {
+    final clean = value.toLowerCase().replaceAll('-', '_').replaceAll(' ', '_').trim();
+    if (clean == 'projecthead' || clean == 'project_head' || clean == 'supervisor') {
+      return UserRole.projectHead;
+    }
     return UserRole.values.firstWhere(
-      (e) => e.name == value,
+      (e) => e.name.toLowerCase() == clean,
       orElse: () => UserRole.worker,
     );
   }
@@ -87,5 +94,6 @@ class UserModel {
 
   bool get isAdmin => role == UserRole.admin;
   bool get isAccounts => role == UserRole.accounts;
+  bool get isProjectHead => role == UserRole.projectHead;
   bool get isWorker => role == UserRole.worker;
 }

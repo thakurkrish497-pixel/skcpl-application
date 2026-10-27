@@ -65,7 +65,7 @@ class _SiteCashflowCard extends ConsumerWidget {
           // Header
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               border: Border(bottom: BorderSide(color: AppColors.divider, width: 0.5)),
             ),
             child: Row(

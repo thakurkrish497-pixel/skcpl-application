@@ -1,11 +1,11 @@
 {
-    "name": "skcpl_app",
-    "short_name": "skcpl_app",
+    "name": "SKCPL Construction Management",
+    "short_name": "SKCPL",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#0B1528",
+    "theme_color": "#1E3A8A",
+    "description": "SKCPL Construction Management - Connect to Waves",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

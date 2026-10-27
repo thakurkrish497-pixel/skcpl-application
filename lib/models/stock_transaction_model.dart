@@ -161,7 +161,129 @@ class StockTransactionModel {
     return baseAmount + taxAmount;
   }
 
+  /// Extracts manually typed product name if worker used the manual entry option
+  String? get customProduct {
+    final match = RegExp(r'\[Material:\s*(.+?)\]').firstMatch(remarks ?? '');
+    return match?.group(1)?.trim();
+  }
+
+  /// Extracts manually typed metric unit name if worker used the manual entry option
+  String? get customMetricUnit {
+    final match = RegExp(r'\[Unit:\s*(.+?)\]').firstMatch(remarks ?? '');
+    return match?.group(1)?.trim();
+  }
+
+  /// Display product name, prioritizing manual entry if available
+  String get displayProductName {
+    final custom = customProduct;
+    if (custom != null && custom.isNotEmpty) {
+      return custom;
+    }
+    return productName ?? 'Material';
+  }
+
+  /// Display metric unit, prioritizing manual entry if available
+  String get displayMetricUnitName {
+    final custom = customMetricUnit;
+    if (custom != null && custom.isNotEmpty) {
+      return custom;
+    }
+    return metricUnitName ?? 'units';
+  }
+
+  /// Extracts Bill / Challan / Invoice No from remarks if entered
+  String? get billNo {
+    final match = RegExp(r'\[Bill:\s*(.+?)\]').firstMatch(remarks ?? '');
+    return match?.group(1)?.trim();
+  }
+
+  /// Extracts Party Name from remarks if worker entered a manual party
+  String? get customPartyName {
+    final match = RegExp(r'\[Party:\s*(.+?)\]').firstMatch(remarks ?? '');
+    return match?.group(1)?.trim();
+  }
+
+  /// Display vendor name, prioritizing manual unregistered vendor or party name if available
+  String get displayVendorName {
+    final customParty = customPartyName;
+    if (customParty != null && customParty.isNotEmpty) {
+      return customParty;
+    }
+    if (unregisteredVendor != null && unregisteredVendor!.trim().isNotEmpty) {
+      return unregisteredVendor!.trim();
+    }
+    return vendorName ?? 'None';
+  }
+
+  /// Extracts the staff member name and role who submitted this transaction (e.g., "Ramesh (Worker)")
+  String? get submitterName {
+    final match = RegExp(r'\[By:\s*(.+?)\]').firstMatch(remarks ?? '');
+    return match?.group(1)?.trim();
+  }
+
+  /// Extracts Project Head / Supervisor review note if any (e.g., "Approved by Vikas", "Edited & Approved by Vikas")
+  String? get supervisorReviewNote {
+    final match = RegExp(r'\[(?:Project Head|Supervisor):\s*(.+?)\]').firstMatch(remarks ?? '');
+    return match?.group(1)?.trim();
+  }
+
+  String? get projectHeadReviewNote => supervisorReviewNote;
+
+  /// Whether this transaction is currently waiting for Project Head / Supervisor review
+  bool get isPendingSupervisorReview =>
+      remarks?.contains('[Project Head Review: Pending]') == true ||
+      remarks?.contains('[Project Head: Review Pending]') == true ||
+      remarks?.contains('[Supervisor Review: Pending]') == true ||
+      remarks?.contains('[Supervisor: Review Pending]') == true;
+
+  bool get isPendingProjectHeadReview => isPendingSupervisorReview;
+
+  /// Whether this transaction has been approved by the Project Head / Supervisor
+  bool get isSupervisorApproved =>
+      remarks?.contains('[Project Head: Approved') == true ||
+      remarks?.contains('[Project Head: Edited & Approved') == true ||
+      remarks?.contains('[Supervisor: Approved') == true ||
+      remarks?.contains('[Supervisor: Edited & Approved') == true;
+
+  bool get isProjectHeadApproved => isSupervisorApproved;
+
+  /// User remarks with any system bracket tags stripped out
+  String? get cleanRemarks {
+    if (remarks == null) return null;
+    final cleaned = remarks!
+        .replaceAll(RegExp(r'\[Material:\s*.+?\]\s*'), '')
+        .replaceAll(RegExp(r'\[Unit:\s*.+?\]\s*'), '')
+        .replaceAll(RegExp(r'\[Bill:\s*.+?\]\s*'), '')
+        .replaceAll(RegExp(r'\[Party:\s*.+?\]\s*'), '')
+        .replaceAll(RegExp(r'\[By:\s*.+?\]\s*'), '')
+        .replaceAll(RegExp(r'\[(?:Project Head|Supervisor)(?:\s+Review)?:\s*.+?\]\s*'), '')
+        .trim();
+    return cleaned.isEmpty ? null : cleaned;
+  }
+
   factory StockTransactionModel.fromJson(Map<String, dynamic> json) {
+    String? prodName = json['product_name'] as String?;
+    if (prodName == null && json['product'] != null && json['product'] is Map) {
+      prodName = json['product']['value'] as String?;
+    } else if (prodName == null && json['dropdowns'] != null && json['dropdowns'] is Map) {
+      prodName = json['dropdowns']['value'] as String?;
+    }
+
+    String? unitName = json['metric_unit_name'] as String?;
+    if (unitName == null && json['unit'] != null && json['unit'] is Map) {
+      unitName = json['unit']['value'] as String?;
+    }
+
+    String? vName = json['vendor_name'] as String?;
+    if (vName == null && json['vendor'] != null && json['vendor'] is Map) {
+      vName = json['vendor']['value'] as String?;
+    }
+
+    String? sName = json['site_name'] as String?;
+    if (sName == null && json['sites'] != null && json['sites'] is Map) {
+      sName = json['sites']['name'] as String?;
+    }
+
     return StockTransactionModel(
       id: json['id'] as String?,
       siteId: json['site_id'] as String,
@@ -195,6 +317,10 @@ class StockTransactionModel {
       updatedAt: json['updated_at'] != null
           ? DateTime.parse(json['updated_at'] as String)
           : null,
+      vendorName: vName,
+      productName: prodName,
+      metricUnitName: unitName,
+      siteName: sName,
     );
   }
 
@@ -244,6 +370,10 @@ class StockTransactionModel {
     String? rejectionNote,
     DateTime? createdAt,
     DateTime? updatedAt,
+    String? vendorName,
+    String? productName,
+    String? metricUnitName,
+    String? siteName,
   }) {
     return StockTransactionModel(
       id: id ?? this.id,
@@ -270,6 +400,10 @@ class StockTransactionModel {
       rejectionNote: rejectionNote ?? this.rejectionNote,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      vendorName: vendorName ?? this.vendorName,
+      productName: productName ?? this.productName,
+      metricUnitName: metricUnitName ?? this.metricUnitName,
+      siteName: siteName ?? this.siteName,
     );
   }
 }

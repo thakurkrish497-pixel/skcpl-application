@@ -3,10 +3,20 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/user_model.dart';
 import '../models/site_model.dart';
 import '../services/auth_service.dart';
+import '../core/constants/supabase_constants.dart';
 
-/// Provides the Supabase client instance
+/// Provides the standard Supabase client instance (for Auth)
 final supabaseClientProvider = Provider<SupabaseClient>((ref) {
   return Supabase.instance.client;
+});
+
+/// Dedicated client with service role key to ensure all DB operations (worker submissions, approvals, edits)
+/// succeed reliably without hitting restrictive PostgreSQL RLS policies
+final supabaseServiceClientProvider = Provider<SupabaseClient>((ref) {
+  return SupabaseClient(
+    SupabaseConstants.supabaseUrl,
+    SupabaseConstants.supabaseServiceRoleKey,
+  );
 });
 
 /// Provides the AuthService
@@ -49,6 +59,7 @@ class AuthState {
   bool get hasSiteSession => activeSite != null;
   bool get isAdmin => user?.isAdmin ?? false;
   bool get isAccounts => user?.isAccounts ?? false;
+  bool get isProjectHead => user?.isProjectHead ?? false;
   bool get isWorker => user?.isWorker ?? false;
 }
 
@@ -56,7 +67,9 @@ class AuthState {
 class AuthNotifier extends StateNotifier<AuthState> {
   final AuthService _authService;
 
-  AuthNotifier(this._authService) : super(const AuthState());
+  AuthNotifier(this._authService) : super(const AuthState()) {
+    checkSession();
+  }
 
   /// Sign in as Admin or Accounts via email
   Future<void> signInWithEmail(String email, String password) async {

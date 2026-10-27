@@ -9,6 +9,8 @@ import '../../providers/auth_provider.dart';
 import '../../providers/stock_provider.dart';
 import '../../providers/cash_provider.dart';
 import '../../widgets/status_badge.dart';
+import '../../widgets/photo_thumbnail_strip.dart';
+import '../../widgets/photo_viewer_dialog.dart';
 import '../../providers/dropdown_provider.dart';
 import '../../models/dropdown_item_model.dart';
 import '../stock/add_product_screen.dart';
@@ -41,21 +43,65 @@ class _TransactionReviewScreenState
       ? widget.stockTransaction!.status
       : widget.cashTransaction!.status;
 
-  bool get canReview => status == TransactionStatus.pendingAccounts;
+  bool get canAccountsReview => status == TransactionStatus.pendingAccounts;
+  bool get canAdminReview => status == TransactionStatus.pendingAdmin;
+  bool get canReview => canAccountsReview || canAdminReview;
+  bool get canEdit => status != TransactionStatus.approved;
+
+  Future<void> _openEditScreen() async {
+    bool? didUpdate = false;
+    if (isStockReview) {
+      if (widget.stockTransaction!.type == TransactionType.inbound) {
+        didUpdate = await Navigator.push<bool>(context, MaterialPageRoute(
+          builder: (_) => AddProductScreen(existingTransaction: widget.stockTransaction),
+        ));
+      } else {
+        didUpdate = await Navigator.push<bool>(context, MaterialPageRoute(
+          builder: (_) => UseProductScreen(existingTransaction: widget.stockTransaction),
+        ));
+      }
+    } else {
+      didUpdate = await Navigator.push<bool>(context, MaterialPageRoute(
+        builder: (_) => ExpenseFormScreen(existingTransaction: widget.cashTransaction),
+      ));
+    }
+
+    if (didUpdate == true && mounted) {
+      ref.invalidate(pendingStockAccountsProvider);
+      ref.invalidate(pendingCashAccountsProvider);
+      ref.invalidate(pendingStockAdminProvider);
+      ref.invalidate(pendingCashAdminProvider);
+      Navigator.pop(context, true);
+    }
+  }
 
   Future<void> _approve() async {
     setState(() => _isProcessing = true);
-    final userId = ref.read(authProvider).user?.id ?? '';
+    final userId = ref.read(authProvider).user?.id ?? 
+                   ref.read(supabaseClientProvider).auth.currentUser?.id ?? 
+                   '';
 
     bool success;
-    if (isStockReview) {
-      success = await ref
-          .read(stockProvider.notifier)
-          .approveByAccounts(widget.stockTransaction!.id!, userId);
+    if (canAdminReview) {
+      if (isStockReview) {
+        success = await ref
+            .read(stockProvider.notifier)
+            .approveByAdmin(widget.stockTransaction!, userId);
+      } else {
+        success = await ref
+            .read(cashProvider.notifier)
+            .approveByAdmin(widget.cashTransaction!.id!, userId);
+      }
     } else {
-      success = await ref
-          .read(cashProvider.notifier)
-          .approveByAccounts(widget.cashTransaction!.id!, userId);
+      if (isStockReview) {
+        success = await ref
+            .read(stockProvider.notifier)
+            .approveByAccounts(widget.stockTransaction!.id!, userId);
+      } else {
+        success = await ref
+            .read(cashProvider.notifier)
+            .approveByAccounts(widget.cashTransaction!.id!, userId);
+      }
     }
 
     if (!mounted) return;
@@ -64,13 +110,27 @@ class _TransactionReviewScreenState
     if (success) {
       ref.invalidate(pendingStockAccountsProvider);
       ref.invalidate(pendingCashAccountsProvider);
+      ref.invalidate(pendingStockAdminProvider);
+      ref.invalidate(pendingCashAdminProvider);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Approved! Forwarded to Admin.'),
+          content: Text(canAdminReview
+              ? 'Approved! Record permanently locked.'
+              : 'Approved! Forwarded to Admin.'),
           backgroundColor: AppColors.approved,
         ),
       );
-      Navigator.pop(context);
+      Navigator.pop(context, true);
+    } else {
+      final errorMsg = isStockReview
+          ? ref.read(stockProvider).error
+          : ref.read(cashProvider).error;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Approval failed: ${errorMsg ?? "Please try again"}'),
+          backgroundColor: AppColors.rejected,
+        ),
+      );
     }
   }
 
@@ -83,20 +143,22 @@ class _TransactionReviewScreenState
     }
 
     setState(() => _isProcessing = true);
-    final userId = ref.read(authProvider).user?.id ?? '';
+    final userId = ref.read(authProvider).user?.id ?? 
+                   ref.read(supabaseClientProvider).auth.currentUser?.id ?? 
+                   '';
 
     bool success;
     if (isStockReview) {
       success = await ref.read(stockProvider.notifier).rejectTransaction(
             widget.stockTransaction!.id!,
             userId,
-            _rejectionNoteController.text,
+            _rejectionNoteController.text.trim(),
           );
     } else {
       success = await ref.read(cashProvider.notifier).rejectTransaction(
             widget.cashTransaction!.id!,
             userId,
-            _rejectionNoteController.text,
+            _rejectionNoteController.text.trim(),
           );
     }
 
@@ -106,13 +168,25 @@ class _TransactionReviewScreenState
     if (success) {
       ref.invalidate(pendingStockAccountsProvider);
       ref.invalidate(pendingCashAccountsProvider);
+      ref.invalidate(pendingStockAdminProvider);
+      ref.invalidate(pendingCashAdminProvider);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('Transaction rejected.'),
           backgroundColor: AppColors.rejected,
         ),
       );
-      Navigator.pop(context);
+      Navigator.pop(context, true);
+    } else {
+      final errorMsg = isStockReview
+          ? ref.read(stockProvider).error
+          : ref.read(cashProvider).error;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Rejection failed: ${errorMsg ?? "Please try again"}'),
+          backgroundColor: AppColors.rejected,
+        ),
+      );
     }
   }
 
@@ -133,7 +207,9 @@ class _TransactionReviewScreenState
     final unitsAsync = ref.watch(allDropdownsProvider((category: DropdownCategory.metricUnit, siteId: siteId)));
     final expenseTypesAsync = ref.watch(allDropdownsProvider((category: DropdownCategory.expenseType, siteId: siteId)));
 
-    final isLoading = vendorsAsync.isLoading || productsAsync.isLoading || unitsAsync.isLoading || expenseTypesAsync.isLoading;
+    final isLoading = isStockReview
+        ? (vendorsAsync.isLoading || productsAsync.isLoading || unitsAsync.isLoading)
+        : expenseTypesAsync.isLoading;
     
     if (isLoading) {
       return const Scaffold(
@@ -147,44 +223,32 @@ class _TransactionReviewScreenState
     final units = unitsAsync.valueOrNull ?? [];
     final expenseTypes = expenseTypesAsync.valueOrNull ?? [];
 
+    final canEdit = status != TransactionStatus.approved;
+
     return Scaffold(
       backgroundColor: AppColors.scaffoldDark,
       appBar: AppBar(
         title: Text(isStockReview ? 'Review Stock Entry' : 'Review Expense'),
         actions: [
           Padding(
-            padding: const EdgeInsets.only(right: 12),
+            padding: const EdgeInsets.only(right: 8),
             child: StatusBadge(status: status),
           ),
-          if (ref.watch(authProvider).isAdmin || 
-             (ref.watch(authProvider).isAccounts && 
-              (isStockReview ? widget.stockTransaction!.status == TransactionStatus.pendingAccounts : widget.cashTransaction!.status == TransactionStatus.pendingAccounts)))
-            IconButton(
-              icon: const Icon(Icons.edit),
-              onPressed: () async {
-                bool? didUpdate = false;
-                if (isStockReview) {
-                  if (widget.stockTransaction!.type == TransactionType.inbound) {
-                    didUpdate = await Navigator.push<bool>(context, MaterialPageRoute(
-                      builder: (_) => AddProductScreen(existingTransaction: widget.stockTransaction),
-                    ));
-                  } else {
-                    didUpdate = await Navigator.push<bool>(context, MaterialPageRoute(
-                      builder: (_) => UseProductScreen(existingTransaction: widget.stockTransaction),
-                    ));
-                  }
-                } else {
-                  didUpdate = await Navigator.push<bool>(context, MaterialPageRoute(
-                    builder: (_) => ExpenseFormScreen(existingTransaction: widget.cashTransaction),
-                  ));
-                }
-
-                if (didUpdate == true && mounted) {
-                  ref.invalidate(pendingStockAccountsProvider);
-                  ref.invalidate(pendingCashAccountsProvider);
-                  Navigator.pop(context);
-                }
-              },
+          if (canEdit)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: TextButton.icon(
+                onPressed: _openEditScreen,
+                icon: const Icon(Icons.edit_note_rounded, color: AppColors.primary, size: 22),
+                label: const Text(
+                  'Edit',
+                  style: TextStyle(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                  ),
+                ),
+              ),
             ),
         ],
       ),
@@ -203,6 +267,43 @@ class _TransactionReviewScreenState
                 ? _buildStockDetails(widget.stockTransaction!, vendors, products, units)
                 : _buildCashDetails(widget.cashTransaction!, expenseTypes),
           ),
+
+          // ── Prominent Edit Button ──
+          if (canEdit) ...[
+            const SizedBox(height: 16),
+            Container(
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.primary, width: 1.5),
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(14),
+                  onTap: _isProcessing ? null : _openEditScreen,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.edit_note_rounded, color: AppColors.primary, size: 24),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Edit / Correct Transaction Details',
+                          style: AppTextStyles.labelLarge.copyWith(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
 
           if (canReview) ...[
             const SizedBox(height: 24),
@@ -257,7 +358,7 @@ class _TransactionReviewScreenState
                               ),
                             )
                           : const Icon(Icons.check_circle_outline),
-                      label: const Text('Approve'),
+                      label: Text(canAdminReview ? 'Final Approve' : 'Approve'),
                     ),
                   ),
                 ),
@@ -270,11 +371,16 @@ class _TransactionReviewScreenState
   }
 
   Widget _buildStockDetails(StockTransactionModel tx, List<DropdownItemModel> vendors, List<DropdownItemModel> products, List<DropdownItemModel> units) {
-    final productName = products.where((p) => p.id == tx.productId).firstOrNull?.value ?? 'Unknown Product';
-    final vendorName = tx.vendorId != null 
-        ? vendors.where((v) => v.id == tx.vendorId).firstOrNull?.value ?? 'Unknown Vendor'
-        : tx.unregisteredVendor ?? 'None';
-    final unitName = units.where((u) => u.id == tx.metricUnitId).firstOrNull?.value ?? '';
+    final matchedProduct = products.where((p) => p.id == tx.productId).firstOrNull?.value;
+    final productName = tx.customProduct ?? (matchedProduct ?? tx.displayProductName);
+
+    final matchedVendor = tx.vendorId != null 
+        ? vendors.where((v) => v.id == tx.vendorId).firstOrNull?.value
+        : null;
+    final vendorName = matchedVendor ?? tx.displayVendorName;
+
+    final matchedUnit = units.where((u) => u.id == tx.metricUnitId).firstOrNull?.value;
+    final unitName = tx.customMetricUnit ?? (matchedUnit ?? tx.displayMetricUnitName);
     
     final baseAmount = (tx.rate ?? 0) * tx.quantity;
     final sgstAmount = baseAmount * (tx.sgst / 100);
@@ -285,7 +391,8 @@ class _TransactionReviewScreenState
       children: [
         _DetailRow('Type', tx.type.displayName),
         _DetailRow('Date', DateFormat('dd MMM yyyy').format(tx.date)),
-        if (tx.type == TransactionType.inbound) _DetailRow('Vendor', vendorName),
+        if (tx.type == TransactionType.inbound) _DetailRow('Vendor / Party', vendorName),
+        if (tx.billNo != null && tx.billNo!.isNotEmpty) _DetailRow('Bill / Challan No', '#${tx.billNo}'),
         _DetailRow('Product', productName),
         _DetailRow('Quantity', '${tx.quantity} $unitName'),
         if (tx.rate != null && tx.type == TransactionType.inbound) _DetailRow('Rate', '₹${tx.rate}'),
@@ -295,46 +402,45 @@ class _TransactionReviewScreenState
         if (tx.finalAmount != null && tx.type == TransactionType.inbound)
           _DetailRow('Final Amount',
               '₹${NumberFormat('#,##,###.##').format(tx.finalAmount)}'),
-        if (tx.remarks != null) _DetailRow('Remarks', tx.remarks!),
-        if (tx.photoUrls.isNotEmpty) ...[
-          const SizedBox(height: 16),
-          Text('Attached Photos', style: AppTextStyles.labelLarge.copyWith(color: AppColors.textSecondary)),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: tx.photoUrls.map((url) => _PhotoThumbnail(url: url)).toList(),
+        if (tx.submitterName != null) _DetailRow('Entered By', tx.submitterName!),
+        if (tx.supervisorReviewNote != null) _DetailRow('Project Head Review', tx.supervisorReviewNote!),
+        if (tx.cleanRemarks != null && tx.cleanRemarks!.isNotEmpty) _DetailRow('Remarks', tx.cleanRemarks!),
+        if (tx.photoUrls.isNotEmpty)
+          PhotoThumbnailStrip(
+            photoUrls: tx.photoUrls,
+            title: 'Attached Bills & Challans (${tx.photoUrls.length}) • Tap to zoom',
+            size: 76,
           ),
-        ]
       ],
     );
   }
 
   Widget _buildCashDetails(CashTransactionModel tx, List<DropdownItemModel> expenseTypes) {
-    final expenseName = expenseTypes.where((e) => e.id == tx.expenseTypeId).firstOrNull?.value ?? 'Unknown Expense';
+    final matchedExpense = expenseTypes.where((e) => e.id == tx.expenseTypeId).firstOrNull?.value;
+    final expenseName = tx.customExpenseType ?? (matchedExpense ?? tx.displayExpenseTypeName);
     
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _DetailRow('Date', DateFormat('dd MMM yyyy').format(tx.date)),
         _DetailRow('Expense Type', expenseName),
+        if (tx.partyName != null && tx.partyName!.isNotEmpty) _DetailRow('Party / Vendor', tx.partyName!),
+        if (tx.billNo != null && tx.billNo!.isNotEmpty) _DetailRow('Bill / Voucher No', '#${tx.billNo}'),
         _DetailRow('Expense Amount',
             '₹${NumberFormat('#,##,###').format(tx.expenseAmount)}'),
         _DetailRow('Amount Received',
             '₹${NumberFormat('#,##,###').format(tx.amountReceived)}'),
         _DetailRow('Cash in Hand',
             '₹${NumberFormat('#,##,###').format(tx.cashInHand)}'),
-        if (tx.remarks != null) _DetailRow('Remarks', tx.remarks!),
-        if (tx.photoUrls.isNotEmpty) ...[
-          const SizedBox(height: 16),
-          Text('Attached Photos', style: AppTextStyles.labelLarge.copyWith(color: AppColors.textSecondary)),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: tx.photoUrls.map((url) => _PhotoThumbnail(url: url)).toList(),
+        if (tx.submitterName != null) _DetailRow('Entered By', tx.submitterName!),
+        if (tx.supervisorReviewNote != null) _DetailRow('Project Head Review', tx.supervisorReviewNote!),
+        if (tx.cleanRemarks != null && tx.cleanRemarks!.isNotEmpty) _DetailRow('Remarks', tx.cleanRemarks!),
+        if (tx.photoUrls.isNotEmpty)
+          PhotoThumbnailStrip(
+            photoUrls: tx.photoUrls,
+            title: 'Attached Receipts (${tx.photoUrls.length}) • Tap to zoom',
+            size: 76,
           ),
-        ]
       ],
     );
   }
@@ -365,29 +471,6 @@ class _DetailRow extends StatelessWidget {
                     .copyWith(color: AppColors.textPrimary)),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _PhotoThumbnail extends StatelessWidget {
-  final String url;
-  const _PhotoThumbnail({required this.url});
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
-      child: Image.network(
-        url,
-        width: 80,
-        height: 80,
-        fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => Container(
-          width: 80, height: 80,
-          color: AppColors.surfaceDark,
-          child: const Icon(Icons.broken_image, color: AppColors.textTertiary),
-        ),
       ),
     );
   }

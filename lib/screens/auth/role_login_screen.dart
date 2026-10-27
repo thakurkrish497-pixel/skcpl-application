@@ -3,8 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_text_styles.dart';
+import '../../core/localization/app_strings.dart';
 import '../../core/utils/validators.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/role_access_provider.dart';
+import '../../widgets/language_toggle_button.dart';
+import '../../widgets/skcpl_brand_logo.dart';
 
 /// Login screen for Admin and Accounts roles (email/password via Supabase Auth)
 class RoleLoginScreen extends ConsumerStatefulWidget {
@@ -42,6 +46,8 @@ class _RoleLoginScreenState extends ConsumerState<RoleLoginScreen> {
         Navigator.pushReplacementNamed(context, '/admin-dashboard');
       } else if (authState.isAccounts) {
         Navigator.pushReplacementNamed(context, '/accounts-dashboard');
+      } else if (authState.isProjectHead) {
+        Navigator.pushReplacementNamed(context, '/project-head-dashboard');
       }
     }
   }
@@ -49,12 +55,19 @@ class _RoleLoginScreenState extends ConsumerState<RoleLoginScreen> {
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
+    final roleAccess = ref.watch(roleAccessProvider);
 
     return Scaffold(
       backgroundColor: AppColors.scaffoldDark,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
+        actions: const [
+          Padding(
+            padding: EdgeInsets.only(right: 16),
+            child: LanguageToggleButton(isCompact: true),
+          ),
+        ],
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -64,38 +77,101 @@ class _RoleLoginScreenState extends ConsumerState<RoleLoginScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                const SizedBox(height: 10),
+
+                // 3D Brand Logo Showcase
+                const Center(
+                  child: SkcplBrandLogo(
+                    variant: LogoVariant.hero,
+                    customSize: 84,
+                    showTagline: true,
+                  ),
+                ).animate().fadeIn(duration: 400.ms).scale(begin: const Offset(0.85, 0.85)),
+
+                const SizedBox(height: 28),
+
+                Center(
+                  child: Column(
+                    children: [
+                      Text(
+                        context.tr('management_login'),
+                        style: AppTextStyles.h2.copyWith(
+                          color: AppColors.textPrimary,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        context.tr('management_login_sub'),
+                        style: AppTextStyles.bodySmall.copyWith(
+                          color: AppColors.textSecondary,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                ).animate().fadeIn(delay: 150.ms),
                 const SizedBox(height: 20),
 
-                // Header
+                // Quick Role Selector Tabs
                 Container(
-                  padding: const EdgeInsets.all(14),
+                  padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
-                    gradient: AppColors.primaryGradient,
+                    color: AppColors.cardDark,
                     borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppColors.divider),
                   ),
-                  child: const Icon(
-                    Icons.admin_panel_settings_rounded,
-                    color: Colors.white,
-                    size: 28,
-                  ),
-                ).animate().fadeIn().scale(begin: const Offset(0.8, 0.8)),
-
-                const SizedBox(height: 24),
-
-                Text(
-                  'Management Login',
-                  style: AppTextStyles.h1.copyWith(color: AppColors.textPrimary),
-                ).animate().fadeIn(delay: 100.ms).slideX(begin: -0.05),
-
-                const SizedBox(height: 8),
-                Text(
-                  'Sign in with your Admin or Accounts credentials',
-                  style: AppTextStyles.bodyMedium.copyWith(
-                    color: AppColors.textSecondary,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _QuickRoleButton(
+                          title: 'Project Head',
+                          icon: Icons.engineering_rounded,
+                          accentColor: AppColors.waveCyan,
+                          isSelected: _emailController.text == roleAccess.projectHeadEmail,
+                          onTap: () {
+                            setState(() {
+                              _emailController.text = roleAccess.projectHeadEmail;
+                              _passwordController.text = roleAccess.projectHeadPassword;
+                            });
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: _QuickRoleButton(
+                          title: 'Accounts',
+                          icon: Icons.account_balance_rounded,
+                          accentColor: AppColors.approved,
+                          isSelected: _emailController.text == roleAccess.accountsEmail,
+                          onTap: () {
+                            setState(() {
+                              _emailController.text = roleAccess.accountsEmail;
+                              _passwordController.text = roleAccess.accountsPassword;
+                            });
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: _QuickRoleButton(
+                          title: 'Admin',
+                          icon: Icons.shield_rounded,
+                          accentColor: AppColors.goldAccent,
+                          isSelected: _emailController.text == 'admin@skcpl.com' || _emailController.text == 'admin',
+                          onTap: () {
+                            setState(() {
+                              _emailController.text = 'admin';
+                              _passwordController.text = 'Suresh@11';
+                            });
+                          },
+                        ),
+                      ),
+                    ],
                   ),
                 ).animate().fadeIn(delay: 200.ms),
 
-                const SizedBox(height: 40),
+                const SizedBox(height: 24),
 
                 // Error message
                 if (authState.error != null)
@@ -127,17 +203,18 @@ class _RoleLoginScreenState extends ConsumerState<RoleLoginScreen> {
                     ),
                   ).animate().fadeIn().shake(),
 
-                // Email field
+                // Email / Username field
                 TextFormField(
                   controller: _emailController,
-                  validator: Validators.email,
+                  validator: Validators.emailOrUsername,
                   keyboardType: TextInputType.emailAddress,
                   style: AppTextStyles.bodyMedium.copyWith(
                     color: AppColors.textPrimary,
                   ),
-                  decoration: const InputDecoration(
-                    labelText: 'Email Address',
-                    prefixIcon: Icon(Icons.email_outlined,
+                  decoration: InputDecoration(
+                    labelText: 'Username or Email',
+                    hintText: 'admin or user@skcpl.com',
+                    prefixIcon: const Icon(Icons.person_outline,
                         color: AppColors.textTertiary),
                   ),
                 ).animate().fadeIn(delay: 300.ms).slideY(begin: 0.05),
@@ -153,7 +230,7 @@ class _RoleLoginScreenState extends ConsumerState<RoleLoginScreen> {
                     color: AppColors.textPrimary,
                   ),
                   decoration: InputDecoration(
-                    labelText: 'Password',
+                    labelText: context.tr('password'),
                     prefixIcon: const Icon(Icons.lock_outline,
                         color: AppColors.textTertiary),
                     suffixIcon: IconButton(
@@ -187,11 +264,94 @@ class _RoleLoginScreenState extends ConsumerState<RoleLoginScreen> {
                               color: Colors.white,
                             ),
                           )
-                        : const Text('Sign In'),
+                        : Text(context.tr('sign_in')),
                   ),
                 ).animate().fadeIn(delay: 500.ms).slideY(begin: 0.05),
+
+                const SizedBox(height: 32),
+
+                // Developer Credit Footer
+                Center(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.code_rounded,
+                        size: 14,
+                        color: AppColors.isLight ? AppColors.primary : AppColors.waveCyan,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Made by — Krish Thakur',
+                        style: AppTextStyles.caption.copyWith(
+                          color: AppColors.isLight ? AppColors.primary : AppColors.waveCyan,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                    ],
+                  ),
+                ).animate().fadeIn(delay: 600.ms),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _QuickRoleButton extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final Color accentColor;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _QuickRoleButton({
+    required this.title,
+    required this.icon,
+    required this.accentColor,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: isSelected ? accentColor.withOpacity(0.18) : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: isSelected ? accentColor.withOpacity(0.6) : Colors.transparent,
+              width: 1.2,
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 20,
+                color: isSelected ? accentColor : AppColors.textTertiary,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                title,
+                style: TextStyle(
+                  color: isSelected ? Colors.white : AppColors.textSecondary,
+                  fontSize: 11,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                ),
+              ),
+            ],
           ),
         ),
       ),

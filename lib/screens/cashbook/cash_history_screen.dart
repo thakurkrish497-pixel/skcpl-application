@@ -7,7 +7,12 @@ import '../../models/cash_transaction_model.dart';
 import '../../models/stock_transaction_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/cash_provider.dart';
+import '../../providers/stock_provider.dart';
 import '../../widgets/status_badge.dart';
+import '../../widgets/offline_indicator.dart';
+import '../../widgets/photo_thumbnail_strip.dart';
+import '../../widgets/cache_manager_dialog.dart';
+import '../../services/excel_service.dart';
 import 'expense_form_screen.dart';
 
 /// Cash book history for the active site
@@ -36,7 +41,53 @@ class _CashHistoryScreenState extends ConsumerState<CashHistoryScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.scaffoldDark,
-      appBar: AppBar(title: const Text('Cash Book History')),
+      appBar: AppBar(
+        title: const Text('Cash Book History'),
+        actions: [
+          if (ref.watch(authProvider).isAdmin || ref.watch(authProvider).isAccounts)
+            IconButton(
+              icon: const Icon(Icons.table_view_rounded, color: Color(0xFF107C41)),
+              tooltip: 'Export Excel Workbook (.xlsx)',
+              onPressed: () async {
+                final activeSite = ref.read(authProvider).activeSite;
+                if (activeSite == null) return;
+                try {
+                  // Ensure latest stock transactions are also loaded for this site
+                  var stockList = ref.read(stockProvider).transactions;
+                  if (stockList.isEmpty) {
+                    await ref.read(stockProvider.notifier).loadTransactions(activeSite.id);
+                    stockList = ref.read(stockProvider).transactions;
+                  }
+                  await ExcelService.exportAndShareComprehensiveExcel(
+                    siteName: activeSite.name,
+                    siteId: activeSite.id,
+                    cashTransactions: cashState.transactions,
+                    stockTransactions: stockList,
+                  );
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Comprehensive Excel (Cash & Stock) exported!'),
+                        backgroundColor: Color(0xFF107C41),
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Export failed: $e'),
+                        backgroundColor: AppColors.rejected,
+                      ),
+                    );
+                  }
+                }
+              },
+            ),
+          const CacheActionButton(),
+          const OfflineSyncButton(),
+        ],
+      ),
       body: cashState.isLoading
           ? const Center(
               child: CircularProgressIndicator(color: AppColors.primary))
@@ -81,6 +132,22 @@ class _CashHistoryScreenState extends ConsumerState<CashHistoryScreen> {
                     );
                   },
                 ),
+      floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: AppColors.primary,
+        onPressed: () {
+          final activeSite = ref.read(authProvider).activeSite;
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const ExpenseFormScreen()),
+          ).then((_) {
+            if (activeSite != null) {
+              ref.read(cashProvider.notifier).loadTransactions(activeSite.id);
+            }
+          });
+        },
+        icon: const Icon(Icons.add_rounded, color: Colors.white),
+        label: const Text('Add Entry', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+      ),
     );
   }
 }
@@ -118,7 +185,11 @@ class _CashTile extends StatelessWidget {
                     style: AppTextStyles.caption.copyWith(color: AppColors.approved),
                   ),
                 ),
-              StatusBadge(status: transaction.status, compact: true),
+              StatusBadge(
+                status: transaction.status,
+                compact: true,
+                isOffline: transaction.id?.startsWith('offline_') ?? false,
+              ),
               if (transaction.isEditable) ...[
                 const SizedBox(width: 8),
                 const Icon(Icons.edit_outlined, size: 16, color: AppColors.primary),
@@ -126,6 +197,46 @@ class _CashTile extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
+          Text(
+            transaction.amountReceived > 0 && transaction.expenseAmount == 0
+                ? (transaction.customExpenseType ?? (transaction.partyName != null && transaction.partyName!.isNotEmpty ? 'Cash from ${transaction.partyName}' : 'Cash Received / Top-up'))
+                : transaction.displayExpenseTypeName,
+            style: AppTextStyles.h4.copyWith(color: AppColors.textPrimary),
+          ),
+          if (transaction.partyName != null || transaction.billNo != null) ...[
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 12,
+              runSpacing: 4,
+              children: [
+                if (transaction.partyName != null && transaction.partyName!.isNotEmpty)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.person_outline_rounded, size: 14, color: AppColors.primary),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Party: ${transaction.partyName!}',
+                        style: AppTextStyles.caption.copyWith(color: AppColors.primary, fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                if (transaction.billNo != null && transaction.billNo!.isNotEmpty)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.receipt_outlined, size: 14, color: AppColors.textSecondary),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Bill: #${transaction.billNo!}',
+                        style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 8),
           Row(
             children: [
               _MiniStat(
@@ -147,11 +258,68 @@ class _CashTile extends StatelessWidget {
               ),
             ],
           ),
-          if (transaction.remarks != null &&
-              transaction.remarks!.isNotEmpty) ...[
+          if (transaction.submitterName != null || transaction.supervisorReviewNote != null) ...[
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              children: [
+                if (transaction.submitterName != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceDark,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: AppColors.divider),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.person_outline, size: 11, color: AppColors.primary),
+                        const SizedBox(width: 4),
+                        Text(
+                          'By: ${transaction.submitterName}',
+                          style: AppTextStyles.bodySmall.copyWith(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                if (transaction.supervisorReviewNote != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.verified_outlined, size: 11, color: AppColors.primary),
+                        const SizedBox(width: 4),
+                        Text(
+                          transaction.supervisorReviewNote!,
+                          style: AppTextStyles.bodySmall.copyWith(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ],
+          if (transaction.cleanRemarks != null &&
+              transaction.cleanRemarks!.isNotEmpty) ...[
             const SizedBox(height: 10),
             Text(
-              transaction.remarks!,
+              transaction.cleanRemarks!,
               style: AppTextStyles.bodySmall
                   .copyWith(color: AppColors.textTertiary),
               maxLines: 2,
@@ -182,6 +350,8 @@ class _CashTile extends StatelessWidget {
               ),
             ),
           ],
+          if (transaction.photoUrls.isNotEmpty)
+            PhotoThumbnailStrip(photoUrls: transaction.photoUrls),
         ],
       ),
     );

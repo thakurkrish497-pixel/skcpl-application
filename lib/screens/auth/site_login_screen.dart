@@ -5,7 +5,13 @@ import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_text_styles.dart';
 import '../../core/utils/validators.dart';
 import '../../models/site_model.dart';
+import '../../models/site_staff_model.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/cash_provider.dart';
+import '../../providers/stock_provider.dart';
+import '../../providers/site_staff_provider.dart';
+import 'site_staff_selection_screen.dart';
+import '../attendance/punch_attendance_screen.dart';
 
 /// Login screen for site workers — uses site-specific credentials
 class SiteLoginScreen extends ConsumerStatefulWidget {
@@ -52,10 +58,51 @@ class _SiteLoginScreenState extends ConsumerState<SiteLoginScreen> {
 
     final authState = ref.read(authProvider);
     if (authState.hasSiteSession && mounted) {
-      if (widget.module == 'stock') {
-        Navigator.pushReplacementNamed(context, '/stock-choice');
+      final activeSite = authState.activeSite!;
+      // Pre-load transactions so live site balance & stock are immediately ready
+      await ref.read(cashProvider.notifier).loadTransactions(activeSite.id);
+
+      final targetModule = StaffModule.fromString(widget.module);
+
+      final rememberedStaff = await ref
+          .read(activeStaffProvider.notifier)
+          .loadRememberedStaff(activeSite.id, module: targetModule);
+
+      if (rememberedStaff != null && rememberedStaff.hasModule(targetModule)) {
+        // Staff already remembered & authorized! Directly proceed to destination module
+        if (widget.module == 'stock') {
+          await ref.read(stockProvider.notifier).loadTransactions(activeSite.id);
+          if (mounted) Navigator.pushReplacementNamed(context, '/stock-choice');
+        } else if (widget.module == 'report') {
+          if (mounted) Navigator.pushReplacementNamed(context, '/site-report');
+        } else if (widget.module == 'attendance') {
+          if (mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (_) => PunchAttendanceScreen(
+                  site: activeSite,
+                  staff: rememberedStaff,
+                ),
+              ),
+            );
+          }
+        } else {
+          if (mounted) Navigator.pushReplacementNamed(context, '/expense-form');
+        }
       } else {
-        Navigator.pushReplacementNamed(context, '/expense-form');
+        // No staff remembered yet: show staff member selection screen
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => SiteStaffSelectionScreen(
+                site: activeSite,
+                module: widget.module,
+              ),
+            ),
+          );
+        }
       }
     }
   }
@@ -208,6 +255,31 @@ class _SiteLoginScreenState extends ConsumerState<SiteLoginScreen> {
                         : const Text('Enter Site'),
                   ),
                 ).animate().fadeIn(delay: 500.ms),
+
+                const SizedBox(height: 32),
+
+                // Developer Credit
+                Center(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.code_rounded,
+                        size: 14,
+                        color: AppColors.isLight ? AppColors.primary : AppColors.waveCyan,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Made by — Krish Thakur',
+                        style: AppTextStyles.caption.copyWith(
+                          color: AppColors.isLight ? AppColors.primary : AppColors.waveCyan,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                    ],
+                  ),
+                ).animate().fadeIn(delay: 600.ms),
               ],
             ),
           ),

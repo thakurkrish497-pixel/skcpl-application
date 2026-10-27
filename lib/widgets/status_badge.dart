@@ -3,18 +3,23 @@ import '../core/constants/app_colors.dart';
 import '../core/constants/app_text_styles.dart';
 import '../models/stock_transaction_model.dart';
 
-/// Color-coded status badge widget for the approval workflow
+/// Color-coded status badge widget for the approval workflow (with offline support)
 class StatusBadge extends StatelessWidget {
   final TransactionStatus status;
   final bool compact;
+  final bool isOffline;
 
   const StatusBadge({
     super.key,
     required this.status,
     this.compact = false,
+    this.isOffline = false,
   });
 
   Color get _backgroundColor {
+    if (isOffline) {
+      return const Color(0x26F59E0B); // Amber tint
+    }
     switch (status) {
       case TransactionStatus.pendingAccounts:
         return AppColors.pendingSurface;
@@ -28,6 +33,9 @@ class StatusBadge extends StatelessWidget {
   }
 
   Color get _foregroundColor {
+    if (isOffline) {
+      return const Color(0xFFF59E0B); // Amber
+    }
     switch (status) {
       case TransactionStatus.pendingAccounts:
         return AppColors.pending;
@@ -41,6 +49,9 @@ class StatusBadge extends StatelessWidget {
   }
 
   IconData get _icon {
+    if (isOffline) {
+      return Icons.cloud_off_rounded;
+    }
     switch (status) {
       case TransactionStatus.pendingAccounts:
         return Icons.hourglass_top_rounded;
@@ -51,6 +62,13 @@ class StatusBadge extends StatelessWidget {
       case TransactionStatus.rejected:
         return Icons.cancel_outlined;
     }
+  }
+
+  String get _label {
+    if (isOffline) {
+      return 'Offline Queue';
+    }
+    return status.displayName;
   }
 
   @override
@@ -71,9 +89,9 @@ class StatusBadge extends StatelessWidget {
           Icon(_icon, size: compact ? 12 : 14, color: _foregroundColor),
           const SizedBox(width: 4),
           Text(
-            status.displayName,
+            _label,
             style: (compact ? AppTextStyles.caption : AppTextStyles.labelMedium)
-                .copyWith(color: _foregroundColor),
+                .copyWith(color: _foregroundColor, fontWeight: FontWeight.w600),
           ),
         ],
       ),

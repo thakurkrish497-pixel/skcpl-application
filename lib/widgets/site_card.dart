@@ -18,46 +18,64 @@ class SiteCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        decoration: BoxDecoration(
-          color: AppColors.cardDark,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.divider, width: 0.5),
-          boxShadow: [
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.cardDark,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: site.isHeadOffice
+              ? AppColors.waveCyan.withValues(alpha: 0.3)
+              : AppColors.cardBorder,
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.25),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+          if (site.isHeadOffice)
             BoxShadow(
-              color: Colors.black.withOpacity(0.2),
-              blurRadius: 8,
+              color: AppColors.waveCyan.withValues(alpha: 0.1),
+              blurRadius: 12,
               offset: const Offset(0, 2),
             ),
-          ],
-        ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            borderRadius: BorderRadius.circular(16),
-            onTap: onTap,
-            splashColor: AppColors.primarySurface,
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Site icon
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      gradient: AppColors.primaryGradient,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(
-                      Icons.construction_rounded,
-                      color: Colors.white,
-                      size: 24,
-                    ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: onTap,
+          splashColor: AppColors.primarySurface,
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Site icon with gradient
+                Container(
+                  padding: const EdgeInsets.all(11),
+                  decoration: BoxDecoration(
+                    gradient: site.isHeadOffice
+                        ? AppColors.waveGradient
+                        : AppColors.primaryGradient,
+                    borderRadius: BorderRadius.circular(13),
+                    boxShadow: [
+                      BoxShadow(
+                        color: (site.isHeadOffice ? AppColors.waveCyan : AppColors.primary)
+                            .withValues(alpha: 0.35),
+                        blurRadius: 10,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
                   ),
+                  child: Icon(
+                    site.isHeadOffice ? Icons.apartment_rounded : Icons.construction_rounded,
+                    color: Colors.white,
+                    size: 22,
+                  ),
+                ),
                   const SizedBox(height: 16),
                   // Site name
                   Text(
@@ -116,7 +134,6 @@ class SiteCard extends StatelessWidget {
             ),
           ),
         ),
-      ),
-    );
+      );
   }
 }

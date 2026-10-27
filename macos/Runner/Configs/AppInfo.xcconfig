@@ -5,10 +5,10 @@
 // 'flutter create' template.
 
 // The application's name. By default this is also the title of the Flutter window.
-PRODUCT_NAME = skcpl_app
+PRODUCT_NAME = SKCPL - Connect to Waves
 
 // The application's bundle identifier
-PRODUCT_BUNDLE_IDENTIFIER = com.example.skcplApp
+PRODUCT_BUNDLE_IDENTIFIER = com.skumarcreation.skcpl
 
 // The copyright displayed in application information
-PRODUCT_COPYRIGHT = Copyright © 2026 com.example. All rights reserved.
+PRODUCT_COPYRIGHT = Copyright © 2026 S. Kumar Creation Pvt. Ltd. Made by Krish Thakur. All rights reserved.

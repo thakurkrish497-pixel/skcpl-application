@@ -6,8 +6,12 @@ import '../../models/site_model.dart';
 import '../../providers/stock_provider.dart';
 import '../../providers/cash_provider.dart';
 import '../../providers/auth_provider.dart';
-import 'manage_dropdowns_screen.dart';
+import 'site_customization_screen.dart';
+import 'manage_site_staff_screen.dart';
 import 'site_history_screen.dart';
+import '../../services/excel_service.dart';
+import 'daily_site_reports_screen.dart';
+import '../../widgets/cache_manager_dialog.dart';
 import 'package:intl/intl.dart';
 
 class SiteDetailsScreen extends ConsumerWidget {
@@ -24,6 +28,21 @@ class SiteDetailsScreen extends ConsumerWidget {
       backgroundColor: AppColors.scaffoldDark,
       appBar: AppBar(
         title: Text(site.name),
+        actions: [
+          const CacheActionButton(),
+          IconButton(
+            icon: const Icon(Icons.record_voice_over_rounded, color: AppColors.primary),
+            tooltip: 'Daily Site Reports',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => DailySiteReportsScreen(initialSiteId: site.id),
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -60,7 +79,7 @@ class SiteDetailsScreen extends ConsumerWidget {
               style: AppTextStyles.h4.copyWith(color: AppColors.textPrimary)),
           const SizedBox(height: 12),
           
-          if (ref.read(authProvider).user?.role == 'admin') ...[
+          if (ref.read(authProvider).isAdmin) ...[
             ListTile(
               tileColor: AppColors.cardDark,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -70,18 +89,42 @@ class SiteDetailsScreen extends ConsumerWidget {
                   color: AppColors.primary.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(Icons.list_alt, color: AppColors.primary),
+                child: const Icon(Icons.tune_rounded, color: AppColors.primary),
               ),
-              title: Text('Manage Dropdowns', style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary)),
-              subtitle: Text('Vendors, Products, Units, Expenses', style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary)),
+              title: Text('Customize Site & Dropdowns', style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary)),
+              subtitle: Text('Vendors, materials, units, credentials & budget', style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary)),
               trailing: const Icon(Icons.chevron_right, color: AppColors.textTertiary),
               onTap: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => ManageDropdownsScreen(
-                      siteId: site.id,
-                      siteName: site.name,
+                    builder: (context) => SiteCustomizationScreen(
+                      site: site,
+                    ),
+                  ),
+                );
+              },
+            ),
+            ListTile(
+              tileColor: AppColors.cardDark,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.secondary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.people_alt_rounded, color: AppColors.secondary),
+              ),
+              title: Text('Manage Staff & Roles', style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary)),
+              subtitle: Text('Configure site team members, module permissions & login PINs', style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary)),
+              trailing: const Icon(Icons.chevron_right, color: AppColors.textTertiary),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ManageSiteStaffScreen(
+                      site: site,
                     ),
                   ),
                 );
@@ -116,6 +159,77 @@ class SiteDetailsScreen extends ConsumerWidget {
               );
             },
           ),
+          const SizedBox(height: 12),
+
+          ListTile(
+            tileColor: AppColors.cardDark,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            leading: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.record_voice_over_rounded, color: AppColors.primary),
+            ),
+            title: Text('Daily Site Reports', style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary)),
+            subtitle: Text('Voice-to-Text notes & site photos submitted by site team', style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary)),
+            trailing: const Icon(Icons.chevron_right, color: AppColors.textTertiary),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => DailySiteReportsScreen(initialSiteId: site.id),
+                ),
+              );
+            },
+          ),
+          if (ref.read(authProvider).isAdmin || ref.read(authProvider).isAccounts) ...[
+            const SizedBox(height: 12),
+            ListTile(
+              tileColor: AppColors.cardDark,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF107C41).withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.table_view_rounded, color: Color(0xFF107C41)),
+              ),
+              title: Text('Export Excel Workbook', style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary)),
+              subtitle: Text('Cashbook, deliveries & usage register (.xlsx)', style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary)),
+              trailing: const Icon(Icons.download_rounded, color: Color(0xFF107C41)),
+              onTap: () async {
+                final stockService = ref.read(stockServiceProvider);
+                final cashService = ref.read(cashServiceProvider);
+                final stockTx = await stockService.getTransactionsForSite(site.id);
+                final cashTx = await cashService.getTransactionsForSite(site.id);
+                try {
+                  await ExcelService.exportAndShareComprehensiveExcel(
+                    siteName: site.name,
+                    siteId: site.id,
+                    cashTransactions: cashTx,
+                    stockTransactions: stockTx,
+                  );
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Comprehensive Excel exported successfully!'),
+                        backgroundColor: Color(0xFF107C41),
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Export failed: $e'), backgroundColor: AppColors.rejected),
+                    );
+                  }
+                }
+              },
+            ),
+          ],
           
           const SizedBox(height: 24),
           

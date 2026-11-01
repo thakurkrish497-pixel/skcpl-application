@@ -13,10 +13,11 @@ import '../services/speech/speech_service.dart';
 import '../services/whisper_service.dart';
 import 'whisper_settings_dialog.dart';
 
-/// Reusable Voice-to-Text Microphone icon button that connects to any TextEditingController.
-/// Supports both:
-/// 1. Built-in Browser Live Dictation (100% Free, Zero API Key Required).
-/// 2. Groq / OpenAI Whisper AI (for extreme accuracy & Desktop runners).
+/// Reusable Voice-to-Text Microphone icon button for text fields.
+/// Matches DSR (Daily Site Report) voice input flow:
+/// - Supports Whisper AI (Extreme Accuracy) and Live Dictation
+/// - Manual mic tap to record & stop
+/// - Hindi, Hinglish, and English modes
 class VoiceInputIconButton extends StatelessWidget {
   final TextEditingController controller;
   final String? fieldLabel;
@@ -43,7 +44,7 @@ class VoiceInputIconButton extends StatelessWidget {
         size: iconSize,
         color: iconColor ?? AppColors.primary,
       ),
-      tooltip: 'Voice to Text (Boliye Hindi / English)',
+      tooltip: 'Voice to Text (Hindi / English)',
       onPressed: () {
         VoiceDictationDialog.show(
           context: context,
@@ -57,7 +58,7 @@ class VoiceInputIconButton extends StatelessWidget {
   }
 }
 
-/// Dialog presenting interactive voice dictation
+/// Voice Dictation Dialog designed to mirror the DSR voice interface.
 class VoiceDictationDialog extends StatefulWidget {
   final TextEditingController controller;
   final String? fieldLabel;
@@ -100,240 +101,230 @@ class _VoiceDictationDialogState extends State<VoiceDictationDialog> {
   late final SpeechRecognitionBase _speechRecognition;
   late final AudioRecorder _audioRecorder;
 
-  bool _useLiveDictation = true; // Default to free browser dictation when supported
-  bool _isRecording = false;
+  // Exact DSR defaults:
+  bool _useWhisperEngine = true; // Extreme Accuracy via Whisper by default
+  bool _isListening = false;
   bool _isTranscribing = false;
-  int _durationSeconds = 0;
-  Timer? _timer;
+  int _recordDurationSeconds = 0;
+  Timer? _recordTimer;
   String _selectedLanguage = 'hindi'; // 'hindi' | 'hinglish' | 'english'
   String _liveSpokenBuffer = '';
-  String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
     _speechRecognition = createSpeechRecognition();
     _audioRecorder = AudioRecorder();
-
-    // If browser speech recognition is not supported (e.g. desktop native), default to Whisper
-    _useLiveDictation = _speechRecognition.isSupported;
-
-    // Auto-start recording as soon as the dialog pops up for frictionless voice entry
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _startVoiceInput();
-    });
+    // Do NOT auto-record on open — matches DSR where the user taps when ready.
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
+    _recordTimer?.cancel();
     _speechRecognition.stop();
     _audioRecorder.dispose();
     super.dispose();
   }
 
-  void _startVoiceInput() {
-    if (_useLiveDictation && _speechRecognition.isSupported) {
-      _startLiveSpeechRecognition();
+  // ── 1. Live Voice-to-Text (SpeechRecognition) ──
+  void _toggleLiveVoiceToText() {
+    if (_isListening) {
+      _stopLiveListening();
     } else {
-      _startWhisperAudioRecording();
+      _startLiveListening();
     }
   }
 
-  void _stopVoiceInput() {
-    if (_useLiveDictation && _speechRecognition.isSupported) {
-      _stopLiveSpeechRecognition();
-    } else {
-      _stopWhisperAudioRecordingAndTranscribe();
-    }
-  }
-
-  // ── 1. Free Browser Live Speech Recognition (No API Key Required) ──
-  void _startLiveSpeechRecognition() {
+  void _startLiveListening() {
     setState(() {
-      _errorMessage = null;
+      _isListening = true;
       _liveSpokenBuffer = '';
-      _isRecording = true;
-      _durationSeconds = 0;
+      _recordDurationSeconds = 0;
     });
 
-    final langTag = _selectedLanguage == 'hindi'
+    _recordTimer?.cancel();
+    _recordTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() => _recordDurationSeconds++);
+    });
+
+    final liveLang = _selectedLanguage == 'hindi'
         ? 'hi-IN'
         : (_selectedLanguage == 'english' ? 'en-US' : 'en-IN');
 
-    try {
-      _speechRecognition.start(
-        lang: langTag,
-        onResult: (text, isFinal) {
-          if (mounted) {
-            setState(() {
-              _liveSpokenBuffer = text;
-            });
-          }
-        },
-        onEnd: () {
-          if (mounted) {
-            setState(() {
-              _isRecording = false;
-            });
-          }
-        },
-        onError: (err) {
-          if (mounted) {
-            setState(() {
-              _isRecording = false;
-              _errorMessage = err;
-            });
-          }
-        },
-      );
-
-      _timer?.cancel();
-      _timer = Timer.periodic(const Duration(seconds: 1), (t) {
-        if (mounted) setState(() => _durationSeconds++);
-      });
-    } catch (e) {
-      setState(() {
-        _isRecording = false;
-        _errorMessage = 'Could not start live dictation: $e';
-      });
-    }
+    _speechRecognition.start(
+      lang: liveLang,
+      onResult: (text, isFinal) {
+        if (mounted) {
+          setState(() {
+            _liveSpokenBuffer = text;
+          });
+        }
+      },
+      onEnd: () {
+        if (mounted) {
+          setState(() => _isListening = false);
+        }
+      },
+      onError: (err) {
+        if (mounted) {
+          setState(() => _isListening = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Speech notice: $err. You can switch to Whisper AI.'),
+              backgroundColor: AppColors.rejected,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        }
+      },
+    );
   }
 
-  void _stopLiveSpeechRecognition() {
-    _timer?.cancel();
+  void _stopLiveListening() {
+    _recordTimer?.cancel();
     _speechRecognition.stop();
-    setState(() => _isRecording = false);
+    setState(() => _isListening = false);
 
     if (_liveSpokenBuffer.trim().isNotEmpty) {
       _applyTextToController(_liveSpokenBuffer.trim());
       widget.onComplete?.call();
       Navigator.pop(context);
-    } else {
-      setState(() {
-        _errorMessage = 'No speech detected. Please speak into your microphone.';
-      });
     }
   }
 
-  // ── 2. Whisper Cloud AI Audio Recording ──
-  Future<void> _startWhisperAudioRecording() async {
-    final apiKey = await _whisperService.getApiKey();
-    if (apiKey == null || apiKey.trim().isEmpty) {
-      setState(() {
-        _isRecording = false;
-        _errorMessage = 'Whisper API key not set. Please configure your free Groq key or use Live Dictation.';
-      });
+  // ── 2. Whisper AI (Matches DSR Workflow) ──
+  Future<void> _recordAndTranscribeWithWhisper() async {
+    final hasKey = await _whisperService.getApiKey();
+    if (hasKey == null || hasKey.trim().isEmpty) {
+      if (mounted) {
+        final setupNow = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            backgroundColor: AppColors.surfaceDark,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+            title: const Text('Setup Free Groq / OpenAI Key', style: TextStyle(color: Colors.white)),
+            content: const Text(
+              'To enable ultra-accurate Whisper voice-to-text (99%+ accuracy for Hindi & English construction terms), '
+              'please enter a free Groq or OpenAI API key, or switch to Live Dictation mode.',
+              style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(ctx, false);
+                  setState(() => _useWhisperEngine = false);
+                },
+                child: const Text('Use Live Dictation'),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('Setup Key'),
+              ),
+            ],
+          ),
+        );
+        if (setupNow == true && mounted) {
+          WhisperSettingsDialog.show(context);
+        }
+      }
       return;
     }
 
-    setState(() {
-      _errorMessage = null;
-      _liveSpokenBuffer = '';
-    });
-
     try {
-      final hasPermission = await _audioRecorder.hasPermission();
-      if (!hasPermission) {
+      if (await _audioRecorder.hasPermission()) {
+        String? targetPath;
+        if (!kIsWeb) {
+          final tempDir = await getTemporaryDirectory();
+          targetPath = '${tempDir.path}/whisper_voice_${DateTime.now().millisecondsSinceEpoch}.m4a';
+        }
+
+        await _audioRecorder.start(
+          const RecordConfig(
+            encoder: kIsWeb ? AudioEncoder.opus : AudioEncoder.aacLc,
+          ),
+          path: targetPath ?? '',
+        );
+
         setState(() {
-          _errorMessage = 'Microphone permission denied. Please allow microphone access in browser settings.';
+          _isListening = true;
+          _recordDurationSeconds = 0;
+          _liveSpokenBuffer = '';
         });
-        return;
+
+        _recordTimer?.cancel();
+        _recordTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+          if (mounted) setState(() => _recordDurationSeconds++);
+        });
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Microphone permission denied. Please allow microphone in browser.')),
+          );
+        }
       }
-
-      String? targetPath;
-      if (!kIsWeb) {
-        final tempDir = await getTemporaryDirectory();
-        targetPath = '${tempDir.path}/whisper_voice_${DateTime.now().millisecondsSinceEpoch}.m4a';
-      }
-
-      await _audioRecorder.start(
-        const RecordConfig(
-          encoder: kIsWeb ? AudioEncoder.opus : AudioEncoder.aacLc,
-        ),
-        path: targetPath ?? '',
-      );
-
-      setState(() {
-        _isRecording = true;
-        _durationSeconds = 0;
-      });
-
-      _timer?.cancel();
-      _timer = Timer.periodic(const Duration(seconds: 1), (t) {
-        if (mounted) setState(() => _durationSeconds++);
-      });
     } catch (e) {
       if (mounted) {
-        setState(() {
-          _isRecording = false;
-          _errorMessage = 'Recording error: $e';
-        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Audio recorder error: $e')),
+        );
       }
     }
   }
 
-  Future<void> _stopWhisperAudioRecordingAndTranscribe() async {
-    _timer?.cancel();
+  Future<void> _stopWhisperRecordingAndTranscribe() async {
+    _recordTimer?.cancel();
     setState(() {
-      _isRecording = false;
+      _isListening = false;
       _isTranscribing = true;
-      _errorMessage = null;
     });
 
     try {
       final path = await _audioRecorder.stop();
-      if (path == null) {
-        throw Exception('No audio captured. Please speak into the microphone.');
-      }
-
-      Uint8List? bytes;
-      if (kIsWeb) {
-        final response = await http.get(Uri.parse(path));
-        bytes = response.bodyBytes;
-      } else {
-        final file = File(path);
-        if (await file.exists()) {
-          bytes = await file.readAsBytes();
-          try {
-            await file.delete();
-          } catch (_) {}
-        }
-      }
-
-      if (bytes == null || bytes.isEmpty) {
-        throw Exception('Audio file empty. Please try speaking again.');
-      }
-
-      final transcript = await _whisperService.transcribeAudio(
-        audioBytes: bytes,
-        fileName: kIsWeb ? 'audio.webm' : 'audio.m4a',
-        lang: _selectedLanguage,
-      );
-
-      if (mounted) {
-        setState(() {
-          _liveSpokenBuffer = transcript.trim();
-          _isTranscribing = false;
-        });
-
-        if (_liveSpokenBuffer.isNotEmpty) {
-          _applyTextToController(_liveSpokenBuffer);
-          widget.onComplete?.call();
-          Navigator.pop(context);
+      if (path != null) {
+        Uint8List? bytes;
+        if (kIsWeb) {
+          final res = await http.get(Uri.parse(path));
+          bytes = res.bodyBytes;
         } else {
-          setState(() {
-            _errorMessage = 'No speech detected. Please speak clearly into the microphone.';
-          });
+          final file = File(path);
+          if (await file.exists()) {
+            bytes = await file.readAsBytes();
+            await file.delete();
+          }
+        }
+
+        if (bytes != null && bytes.isNotEmpty) {
+          final transcript = await _whisperService.transcribeAudio(
+            audioBytes: bytes,
+            fileName: kIsWeb ? 'audio.webm' : 'audio.m4a',
+            lang: _selectedLanguage,
+          );
+
+          if (mounted && transcript.trim().isNotEmpty) {
+            _applyTextToController(transcript.trim());
+            widget.onComplete?.call();
+            Navigator.pop(context);
+            return;
+          }
         }
       }
     } catch (e) {
       if (mounted) {
-        setState(() {
-          _isTranscribing = false;
-          _errorMessage = e.toString().replaceFirst('Exception: ', '');
-        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceFirst('Exception: ', '')),
+            backgroundColor: AppColors.rejected,
+            duration: const Duration(seconds: 5),
+            action: SnackBarAction(
+              label: 'Settings',
+              textColor: Colors.white,
+              onPressed: () => WhisperSettingsDialog.show(context),
+            ),
+          ),
+        );
       }
+    } finally {
+      if (mounted) setState(() => _isTranscribing = false);
     }
   }
 
@@ -349,52 +340,125 @@ class _VoiceDictationDialogState extends State<VoiceDictationDialog> {
     );
   }
 
-  String _formatDuration(int seconds) {
+  String _formatTimer(int seconds) {
     final m = (seconds ~/ 60).toString().padLeft(2, '0');
     final s = (seconds % 60).toString().padLeft(2, '0');
     return '$m:$s';
   }
 
+  Widget _buildLanguagePill({
+    required String id,
+    required String flag,
+    required String title,
+    required String example,
+  }) {
+    final isSelected = _selectedLanguage == id;
+    final isLight = AppColors.isLight;
+
+    return InkWell(
+      onTap: _isListening || _isTranscribing ? null : () => setState(() => _selectedLanguage = id),
+      borderRadius: BorderRadius.circular(10),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? AppColors.primary.withValues(alpha: isLight ? 0.2 : 0.18)
+              : (isLight ? Colors.black.withValues(alpha: 0.04) : Colors.white.withValues(alpha: 0.05)),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isSelected ? AppColors.primary : Colors.transparent,
+            width: 1.2,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(flag, style: const TextStyle(fontSize: 13)),
+            const SizedBox(width: 6),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: isSelected
+                        ? (isLight ? AppColors.primaryDark : Colors.white)
+                        : (isLight ? AppColors.textSecondaryLight : Colors.white70),
+                    fontSize: 11,
+                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                  ),
+                ),
+                Text(
+                  example,
+                  style: TextStyle(
+                    color: isLight ? AppColors.textTertiary : Colors.white38,
+                    fontSize: 9,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isLight = AppColors.isLight;
-    final isWebDictationAvailable = _speechRecognition.isSupported;
 
     return AlertDialog(
       backgroundColor: isLight ? AppColors.surfaceLight : AppColors.surfaceDark,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(22),
         side: BorderSide(
           color: isLight ? AppColors.cardBorderLight : AppColors.cardBorderDark,
           width: 1,
         ),
       ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+      contentPadding: const EdgeInsets.all(22),
       content: SizedBox(
-        width: 370,
+        width: 390,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Header
+            // Top Header: Field Name & Settings
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Row(
                   children: [
-                    Icon(
-                      Icons.mic_rounded,
-                      color: _isRecording ? Colors.redAccent : AppColors.primary,
-                      size: 22,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      widget.fieldLabel != null
-                          ? 'Voice: ${widget.fieldLabel}'
-                          : 'Voice to Text',
-                      style: AppTextStyles.labelLarge.copyWith(
-                        color: isLight ? AppColors.textPrimaryLight : AppColors.textPrimaryDark,
-                        fontWeight: FontWeight.bold,
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(10),
                       ),
+                      child: const Icon(Icons.mic_rounded, color: AppColors.primary, size: 20),
+                    ),
+                    const SizedBox(width: 10),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.fieldLabel != null
+                              ? 'Voice: ${widget.fieldLabel}'
+                              : 'Voice-to-Text',
+                          style: AppTextStyles.labelLarge.copyWith(
+                            color: isLight ? AppColors.textPrimaryLight : AppColors.textPrimaryDark,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          'Same high-accuracy speech engine as DSR',
+                          style: TextStyle(
+                            color: isLight ? AppColors.textSecondaryLight : AppColors.textTertiaryDark,
+                            fontSize: 10,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -402,21 +466,16 @@ class _VoiceDictationDialogState extends State<VoiceDictationDialog> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.settings_rounded, size: 18),
-                      tooltip: 'Configure Whisper AI Key',
-                      color: AppColors.textTertiary,
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
+                      icon: const Icon(Icons.settings_rounded, size: 20),
+                      tooltip: 'Voice Settings (Groq / OpenAI Key)',
+                      color: isLight ? AppColors.textTertiary : Colors.white54,
                       onPressed: () => WhisperSettingsDialog.show(context),
                     ),
-                    const SizedBox(width: 8),
                     IconButton(
-                      icon: const Icon(Icons.close_rounded, size: 20),
-                      color: AppColors.textTertiary,
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
+                      icon: const Icon(Icons.close_rounded, size: 22),
+                      color: isLight ? AppColors.textTertiary : Colors.white54,
                       onPressed: () {
-                        _timer?.cancel();
+                        _recordTimer?.cancel();
                         _speechRecognition.stop();
                         _audioRecorder.stop();
                         Navigator.pop(context);
@@ -426,187 +485,85 @@ class _VoiceDictationDialogState extends State<VoiceDictationDialog> {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
 
-            // Mode Selector: Live Dictation (Free) vs Whisper AI
-            if (isWebDictationAvailable) ...[
-              Container(
-                padding: const EdgeInsets.all(3),
-                decoration: BoxDecoration(
-                  color: isLight ? Colors.black.withValues(alpha: 0.05) : Colors.white.withValues(alpha: 0.06),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: _isRecording || _isTranscribing
-                            ? null
-                            : () {
-                                setState(() {
-                                  _useLiveDictation = true;
-                                  _errorMessage = null;
-                                });
-                              },
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 150),
-                          padding: const EdgeInsets.symmetric(vertical: 6),
-                          decoration: BoxDecoration(
-                            color: _useLiveDictation
-                                ? AppColors.primary
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Center(
-                            child: Text(
-                              'Live (No Key)',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: _useLiveDictation ? FontWeight.bold : FontWeight.normal,
-                                color: _useLiveDictation
-                                    ? Colors.white
-                                    : (isLight ? AppColors.textSecondaryLight : Colors.white60),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: _isRecording || _isTranscribing
-                            ? null
-                            : () {
-                                setState(() {
-                                  _useLiveDictation = false;
-                                  _errorMessage = null;
-                                });
-                              },
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 150),
-                          padding: const EdgeInsets.symmetric(vertical: 6),
-                          decoration: BoxDecoration(
-                            color: !_useLiveDictation
-                                ? AppColors.primary
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Center(
-                            child: Text(
-                              'Whisper AI',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: !_useLiveDictation ? FontWeight.bold : FontWeight.normal,
-                                color: !_useLiveDictation
-                                    ? Colors.white
-                                    : (isLight ? AppColors.textSecondaryLight : Colors.white60),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+            // Engine Selector Tabs (Exact same as DSR)
+            Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: isLight ? Colors.black.withValues(alpha: 0.05) : AppColors.cardDark,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isLight ? AppColors.cardBorderLight : AppColors.divider,
                 ),
               ),
-              const SizedBox(height: 12),
-            ],
-
-            // Language Selector Chips
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
-                  _LanguageChip(
-                    label: '🇮🇳 Hindi (हिंदी)',
-                    isSelected: _selectedLanguage == 'hindi',
-                    onTap: _isRecording || _isTranscribing
-                        ? null
-                        : () => setState(() => _selectedLanguage = 'hindi'),
-                  ),
-                  const SizedBox(width: 6),
-                  _LanguageChip(
-                    label: 'Hinglish',
-                    isSelected: _selectedLanguage == 'hinglish',
-                    onTap: _isRecording || _isTranscribing
-                        ? null
-                        : () => setState(() => _selectedLanguage = 'hinglish'),
-                  ),
-                  const SizedBox(width: 6),
-                  _LanguageChip(
-                    label: 'English',
-                    isSelected: _selectedLanguage == 'english',
-                    onTap: _isRecording || _isTranscribing
-                        ? null
-                        : () => setState(() => _selectedLanguage = 'english'),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 18),
-
-            // Main Visual Status & Circular Mic Button
-            GestureDetector(
-              onTap: _isTranscribing
-                  ? null
-                  : () {
-                      if (_isRecording) {
-                        _stopVoiceInput();
-                      } else {
-                        _startVoiceInput();
-                      }
-                    },
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  if (_isRecording)
-                    Container(
-                      width: 96,
-                      height: 96,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.redAccent.withValues(alpha: 0.18),
-                      ),
-                    )
-                        .animate(onPlay: (c) => c.repeat(reverse: true))
-                        .scale(begin: const Offset(1, 1), end: const Offset(1.25, 1.25)),
-
-                  Container(
-                    width: 76,
-                    height: 76,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: _isRecording
-                          ? const LinearGradient(
-                              colors: [Color(0xFFEF4444), Color(0xFFDC2626)],
-                            )
-                          : const LinearGradient(
-                              colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
-                            ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: (_isRecording ? Colors.redAccent : AppColors.primary)
-                              .withValues(alpha: 0.4),
-                          blurRadius: 16,
-                          spreadRadius: 2,
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: _isListening || _isTranscribing
+                          ? null
+                          : () => setState(() => _useWhisperEngine = true),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        decoration: BoxDecoration(
+                          color: _useWhisperEngine ? AppColors.primary : Colors.transparent,
+                          borderRadius: BorderRadius.circular(9),
                         ),
-                      ],
-                    ),
-                    child: Center(
-                      child: _isTranscribing
-                          ? const SizedBox(
-                              width: 28,
-                              height: 28,
-                              child: CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2.8,
-                              ),
-                            )
-                          : Icon(
-                              _isRecording ? Icons.stop_rounded : Icons.mic_rounded,
-                              size: 38,
-                              color: Colors.white,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.auto_awesome,
+                              size: 13,
+                              color: _useWhisperEngine ? Colors.white : (isLight ? AppColors.textSecondaryLight : Colors.white70),
                             ),
+                            const SizedBox(width: 5),
+                            Text(
+                              'Whisper AI (Extreme)',
+                              style: TextStyle(
+                                color: _useWhisperEngine ? Colors.white : (isLight ? AppColors.textSecondaryLight : Colors.white70),
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: _isListening || _isTranscribing
+                          ? null
+                          : () => setState(() => _useWhisperEngine = false),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        decoration: BoxDecoration(
+                          color: !_useWhisperEngine ? AppColors.primary : Colors.transparent,
+                          borderRadius: BorderRadius.circular(9),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.mic,
+                              size: 13,
+                              color: !_useWhisperEngine ? Colors.white : (isLight ? AppColors.textSecondaryLight : Colors.white70),
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              'Live Dictation',
+                              style: TextStyle(
+                                color: !_useWhisperEngine ? Colors.white : (isLight ? AppColors.textSecondaryLight : Colors.white70),
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -614,15 +571,43 @@ class _VoiceDictationDialogState extends State<VoiceDictationDialog> {
             ),
             const SizedBox(height: 14),
 
-            // Live Spoken / Recording Label
+            // Language Selector Pills (Hindi, Hinglish, English)
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                _buildLanguagePill(
+                  id: 'hindi',
+                  flag: '🇮🇳',
+                  title: 'हिन्दी (Hindi)',
+                  example: '50 बैग सीमेंट लगा',
+                ),
+                _buildLanguagePill(
+                  id: 'hinglish',
+                  flag: '🇮🇳',
+                  title: 'Hinglish',
+                  example: '50 bag cement laga',
+                ),
+                _buildLanguagePill(
+                  id: 'english',
+                  flag: '🇬🇧',
+                  title: 'English',
+                  example: '50 bags cement used',
+                ),
+              ],
+            ),
+            const SizedBox(height: 18),
+
+            // Dynamic Status Text
             Text(
               _isTranscribing
-                  ? '⚡ Converting speech to text...'
-                  : (_isRecording
+                  ? '⚡ Groq Whisper converting speech to text...'
+                  : (_isListening
                       ? '🔴 Recording... Boliye'
                       : 'Tap Mic to Start Speaking'),
               style: AppTextStyles.h4.copyWith(
-                color: _isRecording
+                color: _isListening
                     ? Colors.redAccent
                     : (isLight ? AppColors.textPrimaryLight : AppColors.textPrimaryDark),
                 fontWeight: FontWeight.bold,
@@ -632,26 +617,93 @@ class _VoiceDictationDialogState extends State<VoiceDictationDialog> {
             const SizedBox(height: 4),
 
             Text(
-              _isRecording
-                  ? 'Time: ${_formatDuration(_durationSeconds)} • Tap button when done'
-                  : (_useLiveDictation
-                      ? 'Free browser speech recognition active'
-                      : 'Groq/OpenAI cloud speech engine'),
+              _isListening
+                  ? 'Duration: ${_formatTimer(_recordDurationSeconds)} — Tap button again when done'
+                  : (_useWhisperEngine
+                      ? 'Groq Whisper turbo engine • Sub-second transcription'
+                      : 'Live word-by-word streaming dictation'),
               style: AppTextStyles.bodySmall.copyWith(
-                color: _isRecording ? Colors.redAccent : AppColors.textTertiary,
+                color: _isListening ? Colors.redAccent : AppColors.textTertiary,
+                fontSize: 11,
               ),
               textAlign: TextAlign.center,
             ),
+            const SizedBox(height: 18),
 
-            // Live Spoken Text Preview Box
+            // DSR Large Circular Mic Button
+            GestureDetector(
+              onTap: _isTranscribing
+                  ? null
+                  : () {
+                      if (_useWhisperEngine) {
+                        if (_isListening) {
+                          _stopWhisperRecordingAndTranscribe();
+                        } else {
+                          _recordAndTranscribeWithWhisper();
+                        }
+                      } else {
+                        _toggleLiveVoiceToText();
+                      }
+                    },
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  if (_isListening)
+                    Container(
+                      width: 120,
+                      height: 120,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.redAccent.withValues(alpha: 0.2),
+                      ),
+                    ).animate(onPlay: (c) => c.repeat(reverse: true)).scale(
+                          begin: const Offset(1.0, 1.0),
+                          end: const Offset(1.22, 1.22),
+                          duration: 800.ms,
+                        ),
+                  Container(
+                    width: 84,
+                    height: 84,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: _isListening
+                          ? const LinearGradient(colors: [Colors.redAccent, Colors.red])
+                          : AppColors.primaryGradient,
+                      boxShadow: [
+                        BoxShadow(
+                          color: (_isListening ? Colors.red : AppColors.primary).withValues(alpha: 0.4),
+                          blurRadius: 16,
+                          spreadRadius: 2,
+                        ),
+                      ],
+                    ),
+                    child: _isTranscribing
+                        ? const Center(
+                            child: SizedBox(
+                              width: 28,
+                              height: 28,
+                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3),
+                            ),
+                          )
+                        : Icon(
+                            _isListening ? Icons.stop_rounded : Icons.mic_rounded,
+                            color: Colors.white,
+                            size: 38,
+                          ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Live Spoken Buffer Preview (if streaming live dictation)
             if (_liveSpokenBuffer.isNotEmpty) ...[
               const SizedBox(height: 14),
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   color: isLight ? const Color(0xFFE0F2FE) : const Color(0xFF0F2347),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(10),
                   border: Border.all(
                     color: isLight ? const Color(0xFFBAE6FD) : AppColors.primary.withValues(alpha: 0.4),
                   ),
@@ -659,87 +711,23 @@ class _VoiceDictationDialogState extends State<VoiceDictationDialog> {
                 child: Text(
                   _liveSpokenBuffer,
                   style: TextStyle(
-                    fontSize: 13,
-                    color: isLight ? AppColors.textPrimaryLight : Colors.white,
-                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                    color: isLight ? const Color(0xFF0369A1) : Colors.white,
                   ),
                   textAlign: TextAlign.center,
                 ),
               ),
             ],
 
-            if (_errorMessage != null) ...[
-              const SizedBox(height: 14),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: AppColors.rejected.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: AppColors.rejected.withValues(alpha: 0.3)),
-                ),
-                child: Column(
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.info_outline_rounded, color: AppColors.rejected, size: 16),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            _errorMessage!,
-                            style: const TextStyle(color: AppColors.rejected, fontSize: 11),
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (!_useLiveDictation && isWebDictationAvailable) ...[
-                      const SizedBox(height: 6),
-                      TextButton.icon(
-                        icon: const Icon(Icons.swap_horiz_rounded, size: 14),
-                        label: const Text('Switch to Free Live Dictation (No Key)', style: TextStyle(fontSize: 11)),
-                        onPressed: () {
-                          setState(() {
-                            _useLiveDictation = true;
-                            _errorMessage = null;
-                          });
-                          _startVoiceInput();
-                        },
-                      ),
-                    ],
-                    if (_useLiveDictation) ...[
-                      const SizedBox(height: 6),
-                      TextButton.icon(
-                        icon: const Icon(Icons.smart_toy_rounded, size: 14),
-                        label: const Text('Switch to Whisper AI Mode', style: TextStyle(fontSize: 11)),
-                        onPressed: () {
-                          setState(() {
-                            _useLiveDictation = false;
-                            _errorMessage = null;
-                          });
-                        },
-                      ),
-                    ],
-                    if (!_useLiveDictation) ...[
-                      const SizedBox(height: 4),
-                      TextButton.icon(
-                        icon: const Icon(Icons.key_rounded, size: 14),
-                        label: const Text('Enter Free Groq / OpenAI Key', style: TextStyle(fontSize: 11)),
-                        onPressed: () => WhisperSettingsDialog.show(context),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ],
-
             const SizedBox(height: 18),
 
-            // Action Buttons
+            // Bottom Buttons
             Row(
               children: [
                 Expanded(
                   child: OutlinedButton(
                     onPressed: () {
-                      _timer?.cancel();
+                      _recordTimer?.cancel();
                       _speechRecognition.stop();
                       _audioRecorder.stop();
                       Navigator.pop(context);
@@ -762,81 +750,36 @@ class _VoiceDictationDialogState extends State<VoiceDictationDialog> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: _isTranscribing
-                        ? null
-                        : () {
-                            if (_isRecording) {
-                              _stopVoiceInput();
-                            } else {
-                              _startVoiceInput();
-                            }
-                          },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _isRecording ? Colors.redAccent : AppColors.primary,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                if (_liveSpokenBuffer.isNotEmpty) ...[
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        _applyTextToController(_liveSpokenBuffer.trim());
+                        widget.onComplete?.call();
+                        Navigator.pop(context);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
                       ),
-                    ),
-                    child: Text(
-                      _isRecording ? 'Done (बस)' : 'Speak',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
+                      child: const Text(
+                        'Apply Text',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
                       ),
                     ),
                   ),
-                ),
+                ],
               ],
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _LanguageChip extends StatelessWidget {
-  final String label;
-  final bool isSelected;
-  final VoidCallback? onTap;
-
-  const _LanguageChip({
-    required this.label,
-    required this.isSelected,
-    this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? AppColors.primary
-              : (AppColors.isLight ? Colors.black.withValues(alpha: 0.04) : Colors.white.withValues(alpha: 0.08)),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isSelected ? AppColors.primary : Colors.transparent,
-            width: 1,
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: isSelected
-                ? Colors.white
-                : (AppColors.isLight ? AppColors.textPrimaryLight : Colors.white70),
-            fontSize: 12,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-          ),
         ),
       ),
     );

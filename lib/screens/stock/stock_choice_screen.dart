@@ -73,9 +73,11 @@ class _StockChoiceScreenState extends ConsumerState<StockChoiceScreen> {
           OfflineSyncButton(),
         ],
       ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+      body: activeSite?.isHeadOffice == true
+          ? _buildHeadOfficeGuard(context, activeSite!)
+          : SafeArea(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -597,6 +599,147 @@ class _StockChoiceScreenState extends ConsumerState<StockChoiceScreen> {
                   ),
                 ),
               ).animate().fadeIn(delay: 500.ms),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeadOfficeGuard(BuildContext context, dynamic activeSite) {
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 540),
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: AppColors.cardDark,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: AppColors.waveCyan.withOpacity(0.4)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.3),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.waveCyan.withOpacity(0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.apartment_rounded,
+                  color: AppColors.waveCyan,
+                  size: 48,
+                ),
+              ),
+              const SizedBox(height: 18),
+              Text(
+                activeSite.name,
+                style: AppTextStyles.h3.copyWith(color: AppColors.textPrimary),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.waveCyan.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Text(
+                  'HEAD OFFICE / HQ',
+                  style: TextStyle(
+                    color: AppColors.waveCyan,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.1,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Head Office (Indore Office) does not maintain site construction materials (Cement, Steel, Aggregates, Sand, etc.). Stock management is strictly designated for active construction project sites.',
+                style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary, height: 1.4),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              const Divider(color: AppColors.divider),
+              const SizedBox(height: 16),
+              Text(
+                'Available Head Office Modules:',
+                style: AppTextStyles.labelMedium.copyWith(
+                  color: AppColors.textPrimary,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 14),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF0F766E),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  icon: const Icon(Icons.how_to_reg_rounded, size: 20),
+                  label: const Text('Mark Office Attendance'),
+                  onPressed: () {
+                    final staff = ref.read(activeStaffProvider);
+                    if (staff != null) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => PunchAttendanceScreen(
+                            site: activeSite,
+                            staff: staff,
+                          ),
+                        ),
+                      );
+                    } else {
+                      Navigator.pushReplacementNamed(context, '/site-staff-selection');
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.primary,
+                    side: const BorderSide(color: AppColors.primary),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  icon: const Icon(Icons.description_rounded, size: 20),
+                  label: const Text('Daily Work Report (DSR)'),
+                  onPressed: () {
+                    Navigator.pushReplacementNamed(context, '/site-report');
+                  },
+                ),
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: TextButton.icon(
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.textSecondary,
+                  ),
+                  icon: const Icon(Icons.swap_horiz_rounded, size: 18),
+                  label: const Text('Switch to a Construction Site'),
+                  onPressed: () {
+                    Navigator.pushReplacementNamed(context, '/sites');
+                  },
+                ),
+              ),
             ],
           ),
         ),

@@ -27,7 +27,10 @@ class SiteModel {
   bool get isHeadOffice =>
       name.toLowerCase().contains('head office') ||
       name.toLowerCase().contains('indore office') ||
-      name.toLowerCase().trim() == 'indore';
+      name.toLowerCase().trim() == 'indore' ||
+      name.toLowerCase().contains('corporate office') ||
+      address?.toLowerCase().contains('[head office]') == true ||
+      address?.toLowerCase().contains('[office]') == true;
 
   factory SiteModel.fromJson(Map<String, dynamic> json) {
     return SiteModel(

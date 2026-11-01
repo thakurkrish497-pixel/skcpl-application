@@ -26,6 +26,7 @@ import '../../services/dropdown_service.dart';
 import '../../services/excel_service.dart';
 import '../../providers/role_access_provider.dart';
 import '../../widgets/voice_input_field.dart';
+import '../../providers/sla_alert_provider.dart';
 
 enum CashEntryMode { expense, received }
 
@@ -452,6 +453,59 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
           children: [
             if (isLocked)
               const LockedFormBanner().animate().fadeIn(),
+
+            // ── Missed Cashbook Entry Warning Banner for Worker ──
+            Builder(
+              builder: (context) {
+                final missedDates = ref.watch(missedCashbookForWorkerProvider);
+                if (missedDates.isEmpty) return const SizedBox.shrink();
+
+                final formattedDates = missedDates
+                    .map((d) => DateFormat('dd MMM yyyy').format(d))
+                    .join(', ');
+
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 16),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFEF3C7),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFFF59E0B), width: 1.2),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.warning_amber_rounded, color: Color(0xFFB45309), size: 24),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              '⚠️ Action Required: Missed Cashbook Entry',
+                              style: TextStyle(
+                                color: Color(0xFF92400E),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'No cash transactions recorded for this site on $formattedDates. Please submit daily cash entries or opening balance immediately.',
+                              style: const TextStyle(
+                                color: Color(0xFF78350F),
+                                fontSize: 12,
+                                height: 1.3,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ).animate().shake(duration: 400.ms);
+              },
+            ),
 
             // ── TOP HERO: Live Site Cash in Hand Balance (Visible Before Entering Inputs) ──
             Container(

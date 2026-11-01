@@ -240,6 +240,9 @@ void showSlaAlertsModal(BuildContext context, WidgetRef ref) {
                       itemBuilder: (context, index) {
                         final alert = alerts[index];
                         final isStock = alert.type == SlaAlertType.pendingStock;
+                        final isMissedCash = alert.type == SlaAlertType.missedCashbook;
+                        final badgeColor = isMissedCash ? const Color(0xFFF59E0B) : const Color(0xFFEF4444);
+                        final badgeLabel = isMissedCash ? 'MISSED ENTRY' : '${alert.hoursElapsed}H OVERDUE';
 
                         return Container(
                           padding: const EdgeInsets.all(12),
@@ -247,7 +250,7 @@ void showSlaAlertsModal(BuildContext context, WidgetRef ref) {
                             color: AppColors.cardDark,
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                              color: const Color(0xFFEF4444).withValues(alpha: 0.4),
+                              color: badgeColor.withValues(alpha: 0.4),
                             ),
                           ),
                           child: Row(
@@ -256,14 +259,16 @@ void showSlaAlertsModal(BuildContext context, WidgetRef ref) {
                               Container(
                                 padding: const EdgeInsets.all(8),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFEF4444).withValues(alpha: 0.15),
+                                  color: badgeColor.withValues(alpha: 0.15),
                                   shape: BoxShape.circle,
                                 ),
                                 child: Icon(
-                                  isStock
-                                      ? Icons.inventory_2_rounded
-                                      : Icons.account_balance_wallet_rounded,
-                                  color: const Color(0xFFEF4444),
+                                  isMissedCash
+                                      ? Icons.warning_amber_rounded
+                                      : (isStock
+                                          ? Icons.inventory_2_rounded
+                                          : Icons.account_balance_wallet_rounded),
+                                  color: badgeColor,
                                   size: 18,
                                 ),
                               ),
@@ -278,11 +283,11 @@ void showSlaAlertsModal(BuildContext context, WidgetRef ref) {
                                           padding: const EdgeInsets.symmetric(
                                               horizontal: 6, vertical: 2),
                                           decoration: BoxDecoration(
-                                            color: const Color(0xFFEF4444),
+                                            color: badgeColor,
                                             borderRadius: BorderRadius.circular(4),
                                           ),
                                           child: Text(
-                                            '${alert.hoursElapsed}H OVERDUE',
+                                            badgeLabel,
                                             style: const TextStyle(
                                               color: Colors.white,
                                               fontSize: 9,

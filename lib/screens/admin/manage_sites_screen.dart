@@ -37,6 +37,7 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
 
     bool seedStandardDropdowns = true;
     bool showExtraDropdownOptions = false;
+    bool isHeadOffice = false;
     bool isCreating = false;
 
     showDialog(
@@ -46,7 +47,7 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
         builder: (context, setDialogState) => AlertDialog(
           backgroundColor: AppColors.surfaceDark,
           title: Text(
-            'Create New Construction Site',
+            isHeadOffice ? 'Create Head Office (HQ)' : 'Create New Construction Site',
             style: AppTextStyles.h3.copyWith(color: AppColors.textPrimary),
           ),
           content: Form(
@@ -56,6 +57,127 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  Text(
+                    'LOCATION TYPE',
+                    style: AppTextStyles.overline
+                        .copyWith(color: AppColors.textTertiary),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: AppColors.cardDark,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.divider),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => setDialogState(() {
+                              isHeadOffice = false;
+                              seedStandardDropdowns = true;
+                            }),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 150),
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              decoration: BoxDecoration(
+                                color: !isHeadOffice ? AppColors.primary : Colors.transparent,
+                                borderRadius: BorderRadius.circular(9),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.foundation_rounded,
+                                    size: 15,
+                                    color: !isHeadOffice ? Colors.white : AppColors.textSecondary,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Construction Site',
+                                    style: TextStyle(
+                                      color: !isHeadOffice ? Colors.white : AppColors.textSecondary,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => setDialogState(() {
+                              isHeadOffice = true;
+                              seedStandardDropdowns = false;
+                              if (nameController.text.trim().isEmpty) {
+                                nameController.text = 'Indore Head Office';
+                              }
+                              if (addressController.text.trim().isEmpty) {
+                                addressController.text = 'Indore, MP [Head Office]';
+                              }
+                              if (loginIdController.text.trim().isEmpty) {
+                                loginIdController.text = 'indore-office';
+                              }
+                            }),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 150),
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              decoration: BoxDecoration(
+                                color: isHeadOffice ? AppColors.waveCyan : Colors.transparent,
+                                borderRadius: BorderRadius.circular(9),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.apartment_rounded,
+                                    size: 15,
+                                    color: isHeadOffice ? Colors.black : AppColors.textSecondary,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Head Office (HQ)',
+                                    style: TextStyle(
+                                      color: isHeadOffice ? Colors.black : AppColors.textSecondary,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  if (isHeadOffice)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppColors.waveCyan.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppColors.waveCyan.withValues(alpha: 0.35)),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.info_outline_rounded, color: AppColors.waveCyan, size: 16),
+                          SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Head Office is enabled for Attendance, Office Staff, and Daily Work Reports. Construction Stock (Cement/Steel) is excluded.',
+                              style: TextStyle(color: Colors.white70, fontSize: 11),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   Text(
                     'BASIC SITE CREDENTIALS',
                     style: AppTextStyles.overline
@@ -224,9 +346,14 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                       final dropdownService = ref.read(dropdownServiceProvider);
 
                       try {
+                        final rawAddress = addressController.text.trim();
+                        final addressToSave = isHeadOffice && !rawAddress.toLowerCase().contains('[head office]')
+                            ? '$rawAddress [Head Office]'.trim()
+                            : rawAddress;
+
                         final newSite = await siteService.createSite(
                           name: nameController.text.trim(),
-                          address: addressController.text.trim(),
+                          address: addressToSave,
                           loginId: loginIdController.text.trim(),
                           password: passwordController.text,
                           createdBy:
@@ -397,110 +524,209 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
     final budgetController =
         TextEditingController(text: site.allocatedBudget.toString());
     final formKey = GlobalKey<FormState>();
+    bool isHeadOffice = site.isHeadOffice;
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.surfaceDark,
-        title: Text('Edit Site Details',
-            style: AppTextStyles.h3.copyWith(color: AppColors.textPrimary)),
-        content: Form(
-          key: formKey,
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  controller: nameController,
-                  validator: (v) => Validators.required(v, 'Site Name'),
-                  style: AppTextStyles.bodyMedium
-                      .copyWith(color: AppColors.textPrimary),
-                  decoration: const InputDecoration(labelText: 'Site Name'),
-                ),
-                const SizedBox(height: 14),
-                TextFormField(
-                  controller: addressController,
-                  style: AppTextStyles.bodyMedium
-                      .copyWith(color: AppColors.textPrimary),
-                  decoration: const InputDecoration(labelText: 'Address'),
-                ),
-                const SizedBox(height: 14),
-                TextFormField(
-                  controller: budgetController,
-                  keyboardType: TextInputType.number,
-                  validator: (v) {
-                    if (v == null || v.isEmpty) return 'Required';
-                    if (double.tryParse(v) == null) return 'Must be a number';
-                    return null;
-                  },
-                  style: AppTextStyles.bodyMedium
-                      .copyWith(color: AppColors.textPrimary),
-                  decoration:
-                      const InputDecoration(labelText: 'Allocated Budget'),
-                ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.approved,
-                      side: const BorderSide(color: AppColors.approved),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                    icon: const Icon(Icons.location_on_rounded, size: 18),
-                    label: const Text('Configure Attendance Area (Google Maps & GPS)'),
-                    onPressed: () {
-                      Navigator.pop(context);
-                      _showAttendanceAreaDialog(site);
-                    },
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: AppColors.surfaceDark,
+          title: Text(
+            isHeadOffice ? 'Edit Head Office Details' : 'Edit Site Details',
+            style: AppTextStyles.h3.copyWith(color: AppColors.textPrimary),
+          ),
+          content: Form(
+            key: formKey,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'LOCATION TYPE',
+                    style: AppTextStyles.overline
+                        .copyWith(color: AppColors.textTertiary),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: AppColors.cardDark,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.divider),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => setDialogState(() => isHeadOffice = false),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 150),
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              decoration: BoxDecoration(
+                                color: !isHeadOffice ? AppColors.primary : Colors.transparent,
+                                borderRadius: BorderRadius.circular(9),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.foundation_rounded,
+                                    size: 15,
+                                    color: !isHeadOffice ? Colors.white : AppColors.textSecondary,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Construction Site',
+                                    style: TextStyle(
+                                      color: !isHeadOffice ? Colors.white : AppColors.textSecondary,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => setDialogState(() => isHeadOffice = true),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 150),
+                              padding: const EdgeInsets.symmetric(vertical: 8),
+                              decoration: BoxDecoration(
+                                color: isHeadOffice ? AppColors.waveCyan : Colors.transparent,
+                                borderRadius: BorderRadius.circular(9),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.apartment_rounded,
+                                    size: 15,
+                                    color: isHeadOffice ? Colors.black : AppColors.textSecondary,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'Head Office (HQ)',
+                                    style: TextStyle(
+                                      color: isHeadOffice ? Colors.black : AppColors.textSecondary,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  TextFormField(
+                    controller: nameController,
+                    validator: (v) => Validators.required(v, 'Site Name'),
+                    style: AppTextStyles.bodyMedium
+                        .copyWith(color: AppColors.textPrimary),
+                    decoration: const InputDecoration(labelText: 'Site Name'),
+                  ),
+                  const SizedBox(height: 14),
+                  TextFormField(
+                    controller: addressController,
+                    style: AppTextStyles.bodyMedium
+                        .copyWith(color: AppColors.textPrimary),
+                    decoration: const InputDecoration(labelText: 'Address'),
+                  ),
+                  const SizedBox(height: 14),
+                  TextFormField(
+                    controller: budgetController,
+                    keyboardType: TextInputType.number,
+                    validator: (v) {
+                      if (v == null || v.isEmpty) return 'Required';
+                      if (double.tryParse(v) == null) return 'Must be a number';
+                      return null;
+                    },
+                    style: AppTextStyles.bodyMedium
+                        .copyWith(color: AppColors.textPrimary),
+                    decoration:
+                        const InputDecoration(labelText: 'Allocated Budget'),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.approved,
+                        side: const BorderSide(color: AppColors.approved),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      icon: const Icon(Icons.location_on_rounded, size: 18),
+                      label: const Text('Configure Attendance Area (Google Maps & GPS)'),
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _showAttendanceAreaDialog(site);
+                      },
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text('Cancel',
-                style: TextStyle(color: AppColors.textSecondary)),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (!formKey.currentState!.validate()) return;
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text('Cancel',
+                  style: TextStyle(color: AppColors.textSecondary)),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (!formKey.currentState!.validate()) return;
 
-              final siteService = ref.read(siteServiceProvider);
-              try {
-                await siteService.updateSite(site.id, {
-                  'name': nameController.text.trim(),
-                  'address': addressController.text.trim(),
-                  'allocated_budget':
-                      double.tryParse(budgetController.text) ?? 0.0,
-                });
-                ref.invalidate(allSitesProvider);
-                if (context.mounted) Navigator.pop(context);
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Site updated successfully!'),
-                      backgroundColor: AppColors.approved,
-                    ),
-                  );
+                final siteService = ref.read(siteServiceProvider);
+                try {
+                  var rawAddr = addressController.text.trim();
+                  if (isHeadOffice) {
+                    if (!rawAddr.toLowerCase().contains('[head office]')) {
+                      rawAddr = '$rawAddr [Head Office]'.trim();
+                    }
+                  } else {
+                    rawAddr = rawAddr.replaceAll(RegExp(r'\[Head Office\]', caseSensitive: false), '').trim();
+                  }
+
+                  await siteService.updateSite(site.id, {
+                    'name': nameController.text.trim(),
+                    'address': rawAddr,
+                    'allocated_budget':
+                        double.tryParse(budgetController.text) ?? 0.0,
+                  });
+                  ref.invalidate(allSitesProvider);
+                  if (context.mounted) Navigator.pop(context);
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Site updated successfully!'),
+                        backgroundColor: AppColors.approved,
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Error: $e'),
+                        backgroundColor: AppColors.rejected,
+                      ),
+                    );
+                  }
                 }
-              } catch (e) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Error: $e'),
-                      backgroundColor: AppColors.rejected,
-                    ),
-                  );
-                }
-              }
-            },
-            child: const Text('Save Changes'),
-          ),
-        ],
+              },
+              child: const Text('Save Changes'),
+            ),
+          ],
+        ),
       ),
     );
   }

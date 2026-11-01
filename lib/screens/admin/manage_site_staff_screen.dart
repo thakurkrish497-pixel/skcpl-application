@@ -24,14 +24,9 @@ class _ManageSiteStaffScreenState extends ConsumerState<ManageSiteStaffScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
-  // Tab indices: 0 = All Staff, 1 = Attendance, 2 = Cashbook, 3 = Daily Report, 4 = Stock
-  static const List<String> _tabNames = [
-    'All Staff',
-    'Attendance',
-    'Cashbook',
-    'Daily Report',
-    'Stock',
-  ];
+  List<String> get _tabNames => widget.site.isHeadOffice
+      ? const ['All Staff', 'Attendance', 'Daily Report']
+      : const ['All Staff', 'Attendance', 'Cashbook', 'Daily Report', 'Stock'];
 
   @override
   void initState() {
@@ -52,6 +47,16 @@ class _ManageSiteStaffScreenState extends ConsumerState<ManageSiteStaffScreen>
   }
 
   StaffModule? get _filterModuleForTab {
+    if (widget.site.isHeadOffice) {
+      switch (_tabController.index) {
+        case 1:
+          return StaffModule.attendance;
+        case 2:
+          return StaffModule.report;
+        default:
+          return null;
+      }
+    }
     switch (_tabController.index) {
       case 1:
         return StaffModule.attendance;
@@ -67,6 +72,7 @@ class _ManageSiteStaffScreenState extends ConsumerState<ManageSiteStaffScreen>
   }
 
   void _showAddStaffDialog([SiteStaffModel? existing, StaffModule? defaultModule]) {
+    final isOffice = widget.site.isHeadOffice;
     final isEditing = existing != null;
     final nameController = TextEditingController(text: existing?.name ?? '');
     final pinController = TextEditingController(text: existing?.pin ?? '1234');
@@ -83,7 +89,9 @@ class _ManageSiteStaffScreenState extends ConsumerState<ManageSiteStaffScreen>
         ? existing.modules.toSet()
         : (defaultModule != null
             ? {defaultModule}
-            : {StaffModule.attendance, StaffModule.cashbook, StaffModule.report});
+            : (isOffice
+                ? {StaffModule.attendance, StaffModule.report}
+                : {StaffModule.attendance, StaffModule.cashbook, StaffModule.report}));
 
     showDialog(
       context: context,
@@ -99,7 +107,9 @@ class _ManageSiteStaffScreenState extends ConsumerState<ManageSiteStaffScreen>
               ),
               const SizedBox(width: 8),
               Text(
-                isEditing ? 'Edit Staff Member' : 'Add Staff Member',
+                isEditing
+                    ? (isOffice ? 'Edit Office Staff Profile' : 'Edit Staff Member')
+                    : (isOffice ? 'Add Office Staff Member' : 'Add Staff Member'),
                 style: AppTextStyles.h4,
               ),
             ],
@@ -115,10 +125,10 @@ class _ManageSiteStaffScreenState extends ConsumerState<ManageSiteStaffScreen>
                   TextField(
                     controller: nameController,
                     style: const TextStyle(color: AppColors.textPrimary),
-                    decoration: const InputDecoration(
-                      labelText: 'Full Name *',
+                    decoration: InputDecoration(
+                      labelText: isOffice ? 'Employee Full Name *' : 'Full Name *',
                       hintText: 'e.g. Ram Sharma',
-                      prefixIcon: Icon(Icons.person_outline),
+                      prefixIcon: const Icon(Icons.person_outline),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -148,11 +158,16 @@ class _ManageSiteStaffScreenState extends ConsumerState<ManageSiteStaffScreen>
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'If an option is unticked, this employee will NOT see their name in that feature.',
+                          isOffice
+                              ? 'Indore Head Office staff can be authorized for Attendance and Daily Work Reports.'
+                              : 'If an option is unticked, this employee will NOT see their name in that feature.',
                           style: AppTextStyles.bodySmall.copyWith(color: AppColors.textTertiary, fontSize: 11),
                         ),
                         const Divider(height: 16),
                         ...StaffModule.values.map((mod) {
+                          if (isOffice && mod != StaffModule.attendance && mod != StaffModule.report) {
+                            return const SizedBox.shrink();
+                          }
                           final isChecked = selectedModules.contains(mod);
                           return CheckboxListTile(
                             contentPadding: EdgeInsets.zero,
@@ -424,9 +439,9 @@ class _ManageSiteStaffScreenState extends ConsumerState<ManageSiteStaffScreen>
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Manage Site Staff'),
+            Text(widget.site.isHeadOffice ? 'Manage Head Office Staff' : 'Manage Site Staff'),
             Text(
-              widget.site.name,
+              widget.site.isHeadOffice ? '${widget.site.name} (Indore HQ)' : widget.site.name,
               style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
             ),
           ],
@@ -446,13 +461,19 @@ class _ManageSiteStaffScreenState extends ConsumerState<ManageSiteStaffScreen>
           labelColor: AppColors.primary,
           unselectedLabelColor: AppColors.textSecondary,
           isScrollable: true,
-          tabs: [
-            _buildTab('All Staff', Icons.people_outline, staffState.staffList, null),
-            _buildTab('Attendance', Icons.how_to_reg_outlined, staffState.staffList, StaffModule.attendance),
-            _buildTab('Cashbook', Icons.account_balance_wallet_outlined, staffState.staffList, StaffModule.cashbook),
-            _buildTab('Daily Report', Icons.assignment_outlined, staffState.staffList, StaffModule.report),
-            _buildTab('Stock', Icons.inventory_2_outlined, staffState.staffList, StaffModule.stock),
-          ],
+          tabs: widget.site.isHeadOffice
+              ? [
+                  _buildTab('All Office Staff', Icons.people_outline, staffState.staffList, null),
+                  _buildTab('Attendance', Icons.how_to_reg_outlined, staffState.staffList, StaffModule.attendance),
+                  _buildTab('Daily Report', Icons.assignment_outlined, staffState.staffList, StaffModule.report),
+                ]
+              : [
+                  _buildTab('All Staff', Icons.people_outline, staffState.staffList, null),
+                  _buildTab('Attendance', Icons.how_to_reg_outlined, staffState.staffList, StaffModule.attendance),
+                  _buildTab('Cashbook', Icons.account_balance_wallet_outlined, staffState.staffList, StaffModule.cashbook),
+                  _buildTab('Daily Report', Icons.assignment_outlined, staffState.staffList, StaffModule.report),
+                  _buildTab('Stock', Icons.inventory_2_outlined, staffState.staffList, StaffModule.stock),
+                ],
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -462,7 +483,7 @@ class _ManageSiteStaffScreenState extends ConsumerState<ManageSiteStaffScreen>
         label: Text(
           _filterModuleForTab != null
               ? 'Add ${_filterModuleForTab!.displayName} Staff'
-              : 'Add Staff Member',
+              : (widget.site.isHeadOffice ? 'Add Office Staff Member' : 'Add Staff Member'),
           style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
       ),
@@ -470,13 +491,19 @@ class _ManageSiteStaffScreenState extends ConsumerState<ManageSiteStaffScreen>
           ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
           : TabBarView(
               controller: _tabController,
-              children: [
-                _buildFilteredStaffList(staffState.staffList, null),
-                _buildFilteredStaffList(staffState.staffList, StaffModule.attendance),
-                _buildFilteredStaffList(staffState.staffList, StaffModule.cashbook),
-                _buildFilteredStaffList(staffState.staffList, StaffModule.report),
-                _buildFilteredStaffList(staffState.staffList, StaffModule.stock),
-              ],
+              children: widget.site.isHeadOffice
+                  ? [
+                      _buildFilteredStaffList(staffState.staffList, null),
+                      _buildFilteredStaffList(staffState.staffList, StaffModule.attendance),
+                      _buildFilteredStaffList(staffState.staffList, StaffModule.report),
+                    ]
+                  : [
+                      _buildFilteredStaffList(staffState.staffList, null),
+                      _buildFilteredStaffList(staffState.staffList, StaffModule.attendance),
+                      _buildFilteredStaffList(staffState.staffList, StaffModule.cashbook),
+                      _buildFilteredStaffList(staffState.staffList, StaffModule.report),
+                      _buildFilteredStaffList(staffState.staffList, StaffModule.stock),
+                    ],
             ),
     );
   }

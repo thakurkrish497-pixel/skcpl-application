@@ -13,6 +13,7 @@ import '../../widgets/offline_indicator.dart';
 import '../../widgets/photo_thumbnail_strip.dart';
 import '../../widgets/cache_manager_dialog.dart';
 import '../../services/excel_service.dart';
+import '../../providers/sla_alert_provider.dart';
 import 'expense_form_screen.dart';
 
 /// Cash book history for the active site
@@ -88,50 +89,137 @@ class _CashHistoryScreenState extends ConsumerState<CashHistoryScreen> {
           const OfflineSyncButton(),
         ],
       ),
-      body: cashState.isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: AppColors.primary))
-          : cashState.transactions.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.account_balance_wallet_outlined,
-                          color: AppColors.textTertiary, size: 64),
-                      const SizedBox(height: 16),
-                      Text('No Entries Yet',
-                          style: AppTextStyles.h3
-                              .copyWith(color: AppColors.textPrimary)),
-                    ],
+      body: Builder(
+        builder: (context) {
+          if (cashState.isLoading) {
+            return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+          }
+
+          final missedDates = ref.watch(missedCashbookForWorkerProvider);
+
+          Widget? missedBanner;
+          if (missedDates.isNotEmpty) {
+            final formattedDates = missedDates
+                .map((d) => DateFormat('dd MMM yyyy').format(d))
+                .join(', ');
+            missedBanner = Container(
+              margin: const EdgeInsets.only(bottom: 14),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF3C7),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFF59E0B), width: 1.2),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.warning_amber_rounded, color: Color(0xFFB45309), size: 24),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          '⚠️ Action Required: Missed Cashbook Entry',
+                          style: TextStyle(
+                            color: Color(0xFF92400E),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'No cash entries were recorded on $formattedDates. Please record daily cashbook entries.',
+                          style: const TextStyle(
+                            color: Color(0xFF78350F),
+                            fontSize: 12,
+                            height: 1.3,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFFD97706),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                          ),
+                          icon: const Icon(Icons.add_circle_outline, size: 16),
+                          label: const Text('Record Cashbook Entry Now'),
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (_) => const ExpenseFormScreen()),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
                   ),
-                )
-              : ListView.separated(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: cashState.transactions.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 10),
-                  itemBuilder: (context, index) {
-                    final tx = cashState.transactions[index];
-                    return InkWell(
-                      onTap: () {
-                        if (tx.isEditable || ref.read(authProvider).isAdmin) {
-                          Navigator.push(context, MaterialPageRoute(
-                            builder: (_) => ExpenseFormScreen(existingTransaction: tx),
-                          )).then((didUpdate) {
-                            if (didUpdate == true) {
-                              ref.read(cashProvider.notifier).loadTransactions(ref.read(authProvider).activeSite!.id);
-                            }
-                          });
-                        } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('This submission has been reviewed and is locked.')),
-                          );
-                        }
-                      },
-                      borderRadius: BorderRadius.circular(14),
-                      child: _CashTile(transaction: tx),
+                ],
+              ),
+            );
+          }
+
+          if (cashState.transactions.isEmpty) {
+            return Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  if (missedBanner != null) missedBanner,
+                  Expanded(
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.account_balance_wallet_outlined,
+                              color: AppColors.textTertiary, size: 64),
+                          const SizedBox(height: 16),
+                          Text('No Entries Yet',
+                              style: AppTextStyles.h3
+                                  .copyWith(color: AppColors.textPrimary)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          return ListView.separated(
+            padding: const EdgeInsets.all(16),
+            itemCount: cashState.transactions.length + (missedBanner != null ? 1 : 0),
+            separatorBuilder: (_, __) => const SizedBox(height: 10),
+            itemBuilder: (context, index) {
+              if (missedBanner != null && index == 0) {
+                return missedBanner;
+              }
+              final txIndex = missedBanner != null ? index - 1 : index;
+              final tx = cashState.transactions[txIndex];
+              return InkWell(
+                onTap: () {
+                  if (tx.isEditable || ref.read(authProvider).isAdmin) {
+                    Navigator.push(context, MaterialPageRoute(
+                      builder: (_) => ExpenseFormScreen(existingTransaction: tx),
+                    )).then((didUpdate) {
+                      if (didUpdate == true) {
+                        ref.read(cashProvider.notifier).loadTransactions(ref.read(authProvider).activeSite!.id);
+                      }
+                    });
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('This submission has been reviewed and is locked.')),
                     );
-                  },
-                ),
+                  }
+                },
+                borderRadius: BorderRadius.circular(14),
+                child: _CashTile(transaction: tx),
+              );
+            },
+          );
+        },
+      ),
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: AppColors.primary,
         onPressed: () {

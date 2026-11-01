@@ -13,6 +13,7 @@ enum SlaAlertType {
   pendingStock,
   pendingCash,
   pendingDsr,
+  missedCashbook,
 }
 
 class SlaAlert {
@@ -170,7 +171,120 @@ final slaAlertsProvider = Provider<List<SlaAlert>>((ref) {
     }
   }
 
+  // 4. Check Missed Cashbook Entries for Active Construction Sites (> 24 hours / Evening Cut-off)
+  final yesterday = now.subtract(const Duration(days: 1));
+  final checkTodayMissed = now.hour >= 18;
+
+  for (final site in sites) {
+    if (site.isHeadOffice) continue; // Only construction sites check cashbook entries
+
+    // Check yesterday's cash entries
+    final hasYesterdayEntry = cashState.transactions.any((tx) =>
+        tx.siteId == site.id &&
+        tx.status != TransactionStatus.rejected &&
+        tx.date.year == yesterday.year &&
+        tx.date.month == yesterday.month &&
+        tx.date.day == yesterday.day);
+
+    if (!hasYesterdayEntry) {
+      final yDateKey = '${yesterday.year}_${yesterday.month}_${yesterday.day}';
+      final alertId = 'missed_cash_${site.id}_$yDateKey';
+      final alert = SlaAlert(
+        id: alertId,
+        type: SlaAlertType.missedCashbook,
+        title: '⚠️ Missed Cashbook Entry (${site.name})',
+        message: 'No cash transactions recorded for ${site.name} on yesterday (${yesterday.day}/${yesterday.month}).',
+        siteId: site.id,
+        siteName: site.name,
+        hoursElapsed: now.difference(DateTime(yesterday.year, yesterday.month, yesterday.day, 20)).inHours.clamp(1, 999),
+        createdAt: DateTime(yesterday.year, yesterday.month, yesterday.day, 20),
+      );
+      alerts.add(alert);
+
+      NotificationService.showSlaNotification(
+        title: 'SKCPL Alert: Cashbook Entry Missed',
+        body: 'Site ${site.name} has missed cashbook entry for yesterday (${yesterday.day}/${yesterday.month}).',
+        alertKey: alertId,
+      );
+    }
+
+    if (checkTodayMissed) {
+      final hasTodayEntry = cashState.transactions.any((tx) =>
+          tx.siteId == site.id &&
+          tx.status != TransactionStatus.rejected &&
+          tx.date.year == now.year &&
+          tx.date.month == now.month &&
+          tx.date.day == now.day);
+
+      if (!hasTodayEntry) {
+        final tDateKey = '${now.year}_${now.month}_${now.day}';
+        final alertId = 'missed_cash_today_${site.id}_$tDateKey';
+        final alert = SlaAlert(
+          id: alertId,
+          type: SlaAlertType.missedCashbook,
+          title: '⚠️ Today\'s Cashbook Pending (${site.name})',
+          message: 'No cash transactions recorded yet for ${site.name} today. Evening cut-off passed.',
+          siteId: site.id,
+          siteName: site.name,
+          hoursElapsed: (now.hour - 18).clamp(1, 24),
+          createdAt: DateTime(now.year, now.month, now.day, 18),
+        );
+        alerts.add(alert);
+      }
+    }
+  }
+
   // Sort by most overdue first
   alerts.sort((a, b) => b.hoursElapsed.compareTo(a.hoursElapsed));
   return alerts;
+});
+
+/// Provider for the Site Worker to check if their active site has missed cashbook entries
+final missedCashbookForWorkerProvider = Provider<List<DateTime>>((ref) {
+  final activeSite = ref.watch(authProvider).activeSite;
+  if (activeSite == null || activeSite.isHeadOffice) return const [];
+
+  final cashState = ref.watch(cashProvider);
+  final now = DateTime.now();
+  final yesterday = now.subtract(const Duration(days: 1));
+  final missed = <DateTime>[];
+
+  // 1. Check yesterday
+  final hasYesterday = cashState.transactions.any((tx) =>
+      tx.siteId == activeSite.id &&
+      tx.status != TransactionStatus.rejected &&
+      tx.date.year == yesterday.year &&
+      tx.date.month == yesterday.month &&
+      tx.date.day == yesterday.day);
+
+  if (!hasYesterday) {
+    missed.add(yesterday);
+  }
+
+  // 2. Check today after 6:00 PM
+  if (now.hour >= 18) {
+    final hasToday = cashState.transactions.any((tx) =>
+        tx.siteId == activeSite.id &&
+        tx.status != TransactionStatus.rejected &&
+        tx.date.year == now.year &&
+        tx.date.month == now.month &&
+        tx.date.day == now.day);
+    if (!hasToday) {
+      missed.add(now);
+    }
+  }
+
+  // Trigger worker notification if missed entries exist
+  if (missed.isNotEmpty) {
+    final d = missed.first;
+    final dKey = '${d.year}_${d.month}_${d.day}';
+    final isYesterday = d.day == yesterday.day;
+    NotificationService.showSlaNotification(
+      title: '⚠️ Missed Cashbook Entry (${activeSite.name})',
+      body: 'No cash entries recorded for ${isYesterday ? "yesterday" : "today"} at ${activeSite.name}. Tap to submit.',
+      alertKey: 'worker_missed_cash_${activeSite.id}_$dKey',
+    );
+  }
+
+  return missed;
 });

@@ -86,10 +86,11 @@ void main() {
       );
 
       final alerts = container.read(slaAlertsProvider);
-      expect(alerts.length, 1);
-      expect(alerts.first.siteName, 'Hatpipliya');
-      expect(alerts.first.hoursElapsed, greaterThanOrEqualTo(36));
-      expect(alerts.first.message, contains('Cement UltraTech'));
+      final stockAlerts = alerts.where((a) => a.type == SlaAlertType.pendingStock).toList();
+      expect(stockAlerts.length, 1);
+      expect(stockAlerts.first.siteName, 'Hatpipliya');
+      expect(stockAlerts.first.hoursElapsed, greaterThanOrEqualTo(36));
+      expect(stockAlerts.first.message, contains('Cement UltraTech'));
     });
 
     test('Site Worker NEVER receives approval SLA alerts (not worker task)', () {
@@ -135,7 +136,33 @@ void main() {
       );
 
       final alerts = container.read(slaAlertsProvider);
-      expect(alerts.length, 1);
+      final stockAlerts = alerts.where((a) => a.type == SlaAlertType.pendingStock).toList();
+      expect(stockAlerts.length, 1);
+    });
+
+    test('missedCashbook alert generated for site with no cash entries', () {
+      final adminUser = UserModel(
+        id: 'user-admin-1',
+        email: 'admin@skcpl.com',
+        role: UserRole.admin,
+        isActive: true,
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
+
+      final container = ProviderContainer(
+        overrides: [
+          authProvider.overrideWith((ref) => AuthNotifierMock(adminUser)),
+          stockProvider.overrideWith((ref) => StockNotifierMock([])),
+          cashProvider.overrideWith((ref) => CashNotifierMock([])),
+          activeSitesProvider.overrideWith((ref) => [site]),
+        ],
+      );
+
+      final alerts = container.read(slaAlertsProvider);
+      final missedCashAlerts = alerts.where((a) => a.type == SlaAlertType.missedCashbook).toList();
+      expect(missedCashAlerts.isNotEmpty, isTrue);
+      expect(missedCashAlerts.first.siteName, 'Hatpipliya');
     });
   });
 }

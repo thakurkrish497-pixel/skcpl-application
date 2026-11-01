@@ -147,6 +147,11 @@ class _VoiceDictationDialogState extends State<VoiceDictationDialog> {
       if (mounted) setState(() => _recordDurationSeconds++);
     });
 
+    // Baseline prefix to append if there was existing text (matches DSR live typing)
+    final initialPrefix = widget.append && widget.controller.text.trim().isNotEmpty
+        ? '${widget.controller.text.trim()} '
+        : '';
+
     final liveLang = _selectedLanguage == 'hindi'
         ? 'hi-IN'
         : (_selectedLanguage == 'english' ? 'en-US' : 'en-IN');
@@ -157,6 +162,11 @@ class _VoiceDictationDialogState extends State<VoiceDictationDialog> {
         if (mounted) {
           setState(() {
             _liveSpokenBuffer = text;
+            // Live stream words into the controller immediately (just like DSR!)
+            widget.controller.text = '$initialPrefix$text'.trim();
+            widget.controller.selection = TextSelection.fromPosition(
+              TextPosition(offset: widget.controller.text.length),
+            );
           });
         }
       },

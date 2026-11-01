@@ -34,20 +34,39 @@ class SpeechRecognitionWeb implements SpeechRecognitionBase {
       recognition.lang = lang;
 
       recognition.onResult.listen((event) {
-        final results = event.results;
-        if (results != null) {
-          String combined = '';
-          bool anyFinal = false;
-          for (var i = 0; i < results.length; i++) {
-            final res = results[i];
-            final alt = res.item(0);
-            if (alt.transcript != null) {
-              combined += '${alt.transcript!} ';
-              // ignore: unnecessary_null_comparison
-              if (res.isFinal == true) anyFinal = true;
+        try {
+          final dynamic dynEvent = event;
+          final dynamic results = dynEvent.results;
+          if (results != null) {
+            String combined = '';
+            bool anyFinal = false;
+            final dynamic rawLength = results.length;
+            final int length = (rawLength is int) ? rawLength : int.tryParse(rawLength.toString()) ?? 0;
+            for (var i = 0; i < length; i++) {
+              final dynamic res = results[i];
+              if (res != null) {
+                dynamic alt;
+                try {
+                  alt = res[0];
+                } catch (_) {
+                  try {
+                    alt = res.item(0);
+                  } catch (_) {}
+                }
+                if (alt != null && alt.transcript != null) {
+                  combined += '${alt.transcript} ';
+                  try {
+                    if (res.isFinal == true) anyFinal = true;
+                  } catch (_) {}
+                }
+              }
+            }
+            if (combined.trim().isNotEmpty) {
+              onResult(combined.trim(), anyFinal);
             }
           }
-          onResult(combined.trim(), anyFinal);
+        } catch (e) {
+          // ignore parsing error
         }
       });
 

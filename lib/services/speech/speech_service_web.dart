@@ -62,7 +62,7 @@ class SpeechRecognitionWeb implements SpeechRecognitionBase {
           } else if (code == 'no-speech') {
             errDesc = 'No speech detected. Please speak clearly into your microphone.';
           } else if (code == 'network') {
-            errDesc = 'Network error during recognition. Please check your internet connection.';
+            errDesc = 'Browser blocked speech service. If you are using Brave Browser, Google speech servers are blocked by default for privacy.\n\nFix 1: Open in Google Chrome or Safari (works out-of-the-box).\nFix 2: In Brave, go to brave://settings/system and turn ON "Use Google services for speech recognition".\nFix 3: Switch to Whisper AI tab.';
           } else if (code == 'audio-capture') {
             errDesc = 'No microphone was found. Ensure a microphone is connected.';
           } else if (code.isNotEmpty) {

@@ -705,6 +705,19 @@ class _VoiceDictationDialogState extends State<VoiceDictationDialog> {
                         },
                       ),
                     ],
+                    if (_useLiveDictation) ...[
+                      const SizedBox(height: 6),
+                      TextButton.icon(
+                        icon: const Icon(Icons.smart_toy_rounded, size: 14),
+                        label: const Text('Switch to Whisper AI Mode', style: TextStyle(fontSize: 11)),
+                        onPressed: () {
+                          setState(() {
+                            _useLiveDictation = false;
+                            _errorMessage = null;
+                          });
+                        },
+                      ),
+                    ],
                     if (!_useLiveDictation) ...[
                       const SizedBox(height: 4),
                       TextButton.icon(

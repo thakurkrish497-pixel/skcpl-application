@@ -45,8 +45,8 @@ class _RecordSiteReportScreenState extends ConsumerState<RecordSiteReportScreen>
   late final SpeechRecognitionBase _speechRecognition;
   late final AudioRecorder _audioRecorder;
 
-  // Voice-to-Text State
-  bool _useWhisperEngine = true; // Extreme accuracy via Groq Whisper by default
+  // Voice-to-Text State: Default to 100% Free Live Voice Dictation (Zero API keys needed)
+  bool _useWhisperEngine = false;
   bool _isListening = false;
   bool _isTranscribing = false;
   String _selectedLanguage = 'hindi'; // 'hindi' | 'hinglish' | 'english'
@@ -162,31 +162,9 @@ class _RecordSiteReportScreenState extends ConsumerState<RecordSiteReportScreen>
   Future<void> _recordAndTranscribeWithWhisper() async {
     final hasKey = await _whisperService.getApiKey();
     if (hasKey == null || hasKey.trim().isEmpty) {
-      if (mounted) {
-        final setupNow = await showDialog<bool>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            backgroundColor: AppColors.surfaceDark,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-            title: const Text('Setup Free Groq / OpenAI Key', style: TextStyle(color: Colors.white)),
-            content: const Text(
-              'To enable ultra-accurate Whisper voice-to-text (99%+ accuracy for Hindi & English construction terms), '
-              'please enter a free Groq or OpenAI API key.',
-              style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
-            ),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Setup Key'),
-              ),
-            ],
-          ),
-        );
-        if (setupNow == true && mounted) {
-          WhisperSettingsDialog.show(context);
-        }
-      }
+      // Seamlessly fallback to Live Dictation if no Whisper key is configured
+      setState(() => _useWhisperEngine = false);
+      _startLiveListening();
       return;
     }
 

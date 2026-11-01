@@ -101,8 +101,8 @@ class _VoiceDictationDialogState extends State<VoiceDictationDialog> {
   late final SpeechRecognitionBase _speechRecognition;
   late final AudioRecorder _audioRecorder;
 
-  // Exact DSR defaults:
-  bool _useWhisperEngine = true; // Extreme Accuracy via Whisper by default
+  // Default to 100% Free Live Voice Dictation (Zero keys, Zero setup required)
+  bool _useWhisperEngine = false;
   bool _isListening = false;
   bool _isTranscribing = false;
   int _recordDurationSeconds = 0;
@@ -192,41 +192,13 @@ class _VoiceDictationDialogState extends State<VoiceDictationDialog> {
     }
   }
 
-  // ── 2. Whisper AI (Matches DSR Workflow) ──
+  // ── 2. Whisper AI ──
   Future<void> _recordAndTranscribeWithWhisper() async {
     final hasKey = await _whisperService.getApiKey();
     if (hasKey == null || hasKey.trim().isEmpty) {
-      if (mounted) {
-        final setupNow = await showDialog<bool>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            backgroundColor: AppColors.surfaceDark,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-            title: const Text('Setup Free Groq / OpenAI Key', style: TextStyle(color: Colors.white)),
-            content: const Text(
-              'To enable ultra-accurate Whisper voice-to-text (99%+ accuracy for Hindi & English construction terms), '
-              'please enter a free Groq or OpenAI API key, or switch to Live Dictation mode.',
-              style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(ctx, false);
-                  setState(() => _useWhisperEngine = false);
-                },
-                child: const Text('Use Live Dictation'),
-              ),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('Setup Key'),
-              ),
-            ],
-          ),
-        );
-        if (setupNow == true && mounted) {
-          WhisperSettingsDialog.show(context);
-        }
-      }
+      // If no key configured, fallback directly to Live Dictation (Zero popups!)
+      setState(() => _useWhisperEngine = false);
+      _startLiveListening();
       return;
     }
 

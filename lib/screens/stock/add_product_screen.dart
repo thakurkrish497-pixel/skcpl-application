@@ -20,6 +20,7 @@ import '../../providers/site_staff_provider.dart';
 import '../../providers/role_access_provider.dart';
 import '../../services/dropdown_service.dart';
 import '../../models/site_staff_model.dart';
+import '../../widgets/voice_input_field.dart';
 
 /// Add Product (Inbound) form with real-time tax calculation
 /// and conditional locking based on approval status
@@ -76,6 +77,13 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final siteId = widget.existingTransaction?.siteId ?? ref.read(authProvider).activeSite?.id;
+      if (siteId != null) {
+        ref.read(stockProvider.notifier).loadCurrentStock(siteId);
+      }
+    });
+
     // Attach listeners for real-time tax calculation
     _quantityController.addListener(_calculateFinalAmount);
     _rateController.addListener(_calculateFinalAmount);
@@ -366,6 +374,14 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
     final productsAsync = ref.watch(dropdownProvider((category: DropdownCategory.product, siteId: siteId)));
     final unitsAsync = ref.watch(dropdownProvider((category: DropdownCategory.metricUnit, siteId: siteId)));
     final stockState = ref.watch(stockProvider);
+    final isLight = AppColors.isLight;
+
+    final stockItem = (_selectedProductId != null && _selectedProductId != 'OTHER')
+        ? stockState.currentStock.where((s) => s['product_id'] == _selectedProductId).firstOrNull
+        : null;
+    final currentInHand = (stockItem?['current_stock'] as num?)?.toDouble() ?? 0.0;
+    final unitName = stockItem?['metric_unit'] ?? '';
+    final enteredQty = double.tryParse(_quantityController.text) ?? 0.0;
 
     return Scaffold(
       backgroundColor: AppColors.scaffoldDark,
@@ -467,9 +483,15 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
                       readOnly: isLocked,
                       validator: (v) => v == null || v.trim().isEmpty ? 'Enter vendor / party name' : null,
                       style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Enter Vendor / Party Name',
-                        prefixIcon: Icon(Icons.edit_note, color: AppColors.textTertiary, size: 20),
+                        prefixIcon: const Icon(Icons.edit_note, color: AppColors.textTertiary, size: 20),
+                        suffixIcon: isLocked
+                            ? null
+                            : VoiceInputIconButton(
+                                controller: _unregisteredVendorController,
+                                fieldLabel: 'Vendor Name',
+                              ),
                       ),
                     ).animate().fadeIn(),
                   ],
@@ -530,6 +552,49 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
                     onChanged: isLocked ? null : (val) => setState(() => _selectedProductId = val),
                     validator: (v) => Validators.dropdownRequired(v, 'Product'),
                   ),
+                  if (stockItem != null) ...[
+                    Container(
+                      margin: const EdgeInsets.only(top: 10),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: isLight ? const Color(0xFFF0FDF4) : const Color(0xFF064E3B).withValues(alpha: 0.4),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: const Color(0xFF10B981),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.inventory_2_rounded, color: Color(0xFF10B981), size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Already in Hand at Site:',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: isLight ? AppColors.textPrimaryLight : AppColors.textPrimaryDark,
+                                  ),
+                                ),
+                                Text(
+                                  '$currentInHand $unitName',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w800,
+                                    color: isLight ? const Color(0xFF047857) : const Color(0xFF34D399),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ).animate().fadeIn(),
+                  ],
                   if (_selectedProductId == 'OTHER') ...[
                     const SizedBox(height: 14),
                     TextFormField(
@@ -540,11 +605,17 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
                           : null,
                       style: AppTextStyles.bodyMedium
                           .copyWith(color: AppColors.textPrimary),
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Enter Product / Material Name',
                         hintText: 'e.g. Birla White Cement, PVC Pipe 4"',
-                        prefixIcon: Icon(Icons.edit_note_rounded,
+                        prefixIcon: const Icon(Icons.edit_note_rounded,
                             color: AppColors.primary, size: 20),
+                        suffixIcon: isLocked
+                            ? null
+                            : VoiceInputIconButton(
+                                controller: _customProductController,
+                                fieldLabel: 'Product Name',
+                              ),
                       ),
                     ).animate().fadeIn(),
                   ],
@@ -616,19 +687,37 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
             const SizedBox(height: 18),
 
             // ── Quantity ──
-            TextFormField(
-              controller: _quantityController,
-              readOnly: isLocked,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              validator: (v) => Validators.positiveNumber(v, 'Quantity'),
-              style: AppTextStyles.bodyMedium.copyWith(
-                color: AppColors.textPrimary,
-              ),
-              decoration: const InputDecoration(
-                labelText: 'Quantity',
-                prefixIcon: Icon(Icons.production_quantity_limits_rounded,
-                    color: AppColors.textTertiary, size: 20),
-              ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextFormField(
+                  controller: _quantityController,
+                  readOnly: isLocked,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  validator: (v) => Validators.positiveNumber(v, 'Quantity'),
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    color: AppColors.textPrimary,
+                  ),
+                  decoration: InputDecoration(
+                    labelText: 'Quantity',
+                    prefixIcon: const Icon(Icons.production_quantity_limits_rounded,
+                        color: AppColors.textTertiary, size: 20),
+                    suffixText: unitName.isNotEmpty ? unitName : null,
+                  ),
+                ),
+                if (stockItem != null && enteredQty > 0)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6, left: 4),
+                    child: Text(
+                      'New total stock on site: ${(currentInHand + enteredQty).toStringAsFixed(1)} $unitName (+${enteredQty})',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: isLight ? const Color(0xFF047857) : const Color(0xFF34D399),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+              ],
             ).animate().fadeIn(delay: 400.ms),
 
             const SizedBox(height: 18),
@@ -735,14 +824,20 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
               style: AppTextStyles.bodyMedium.copyWith(
                 color: AppColors.textPrimary,
               ),
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Remarks (Optional)',
                 alignLabelWithHint: true,
-                prefixIcon: Padding(
+                prefixIcon: const Padding(
                   padding: EdgeInsets.only(bottom: 48),
                   child: Icon(Icons.notes_rounded,
                       color: AppColors.textTertiary, size: 20),
                 ),
+                suffixIcon: isLocked
+                    ? null
+                    : VoiceInputIconButton(
+                        controller: _remarksController,
+                        fieldLabel: 'Remarks',
+                      ),
               ),
             ).animate().fadeIn(delay: 600.ms),
 

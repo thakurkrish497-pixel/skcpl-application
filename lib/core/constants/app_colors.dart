@@ -8,7 +8,7 @@ class AppColors {
   AppColors._();
 
   /// Reactive state indicating if Light Mode is currently active
-  static bool isLight = false;
+  static bool isLight = true;
 
   // ── Dark Mode Palette ──
   static const Color appBackgroundDark = Color(0xFF070D1E);
@@ -21,16 +21,16 @@ class AppColors {
   static const Color textSecondaryDark = Color(0xFF94A3B8);
   static const Color textTertiaryDark  = Color(0xFF64748B);
 
-  // ── Light Mode Palette (Executive White & Logo Blue) ──
-  static const Color appBackgroundLight = Color(0xFFF1F5F9); // Crisp slate-100 ice white
+  // ── Light Mode Palette (Executive Light / Sky Blue Theme) ──
+  static const Color appBackgroundLight = Color(0xFFF0F7FF); // Crisp sky-blue tinted background
   static const Color surfaceLight       = Color(0xFFFFFFFF); // Pure white
   static const Color cardLight          = Color(0xFFFFFFFF); // Pure white
-  static const Color cardLightAlt       = Color(0xFFF8FAFC); // Slate-50 soft card backing
-  static const Color cardBorderLight    = Color(0xFFE2E8F0); // Slate-200 clean border
-  static const Color dividerLight       = Color(0xFFE2E8F0); // Slate-200 divider
-  static const Color textPrimaryLight   = Color(0xFF0F172A); // Slate-900 deep navy
-  static const Color textSecondaryLight = Color(0xFF475569); // Slate-600 subtext
-  static const Color textTertiaryLight  = Color(0xFF94A3B8); // Slate-400 caption
+  static const Color cardLightAlt       = Color(0xFFE0F2FE); // Soft sky-blue card backing
+  static const Color cardBorderLight    = Color(0xFFBAE6FD); // Sky-200 clean border
+  static const Color dividerLight       = Color(0xFFBAE6FD); // Sky-200 divider
+  static const Color textPrimaryLight   = Color(0xFF0C4A6E); // Deep ocean/navy for maximum clarity
+  static const Color textSecondaryLight = Color(0xFF0369A1); // Sky blue subtext
+  static const Color textTertiaryLight  = Color(0xFF64748B); // Slate-500 caption
 
   // ── Legacy Aliases as const (Guarantees 100% compile-time compatibility) ──
   static const Color appBackground   = appBackgroundDark;

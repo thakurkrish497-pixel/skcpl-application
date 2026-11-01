@@ -19,7 +19,7 @@ class AppBackgroundWatermark extends StatelessWidget {
     final isLight = AppColors.isLight;
 
     return Material(
-      color: AppColors.appBackground,
+      color: isLight ? AppColors.appBackgroundLight : AppColors.appBackgroundDark,
       child: Stack(
         fit: StackFit.expand,
         children: [

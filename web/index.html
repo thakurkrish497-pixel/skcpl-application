@@ -31,6 +31,18 @@
 
   <title>SKCPL - Connect to Waves</title>
   <link rel="manifest" href="manifest.json">
+  <script>
+    // Unregister any rogue service workers from other projects on this port
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function(registrations) {
+        for (var r of registrations) {
+          if (!r.active || !r.active.scriptURL.includes('flutter')) {
+            r.unregister();
+          }
+        }
+      });
+    }
+  </script>
 </head>
 <body>
   <script src="flutter_bootstrap.js" async></script>

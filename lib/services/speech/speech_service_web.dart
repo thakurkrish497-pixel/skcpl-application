@@ -53,7 +53,25 @@ class SpeechRecognitionWeb implements SpeechRecognitionBase {
 
       recognition.onError.listen((event) {
         _isListening = false;
-        onError(event.toString());
+        String errDesc = 'Speech recognition error';
+        try {
+          final dynamic dyn = event;
+          final code = dyn.error?.toString() ?? '';
+          if (code == 'not-allowed') {
+            errDesc = 'Microphone permission denied. Please allow microphone access in browser settings.';
+          } else if (code == 'no-speech') {
+            errDesc = 'No speech detected. Please speak clearly into your microphone.';
+          } else if (code == 'network') {
+            errDesc = 'Network error during recognition. Please check your internet connection.';
+          } else if (code == 'audio-capture') {
+            errDesc = 'No microphone was found. Ensure a microphone is connected.';
+          } else if (code.isNotEmpty) {
+            errDesc = code;
+          }
+        } catch (_) {
+          errDesc = event.toString();
+        }
+        onError(errDesc);
       });
 
       recognition.onEnd.listen((_) {

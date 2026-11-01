@@ -20,6 +20,7 @@ import '../../providers/site_staff_provider.dart';
 import '../../providers/role_access_provider.dart';
 import '../../services/dropdown_service.dart';
 import '../../models/site_staff_model.dart';
+import '../../widgets/voice_input_field.dart';
 
 /// Use Product (Outbound) form — simplified, no vendor/rate/tax
 class UseProductScreen extends ConsumerStatefulWidget {
@@ -58,6 +59,7 @@ class _UseProductScreenState extends ConsumerState<UseProductScreen> {
   @override
   void initState() {
     super.initState();
+    _quantityController.addListener(() => setState(() {}));
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final siteId = widget.existingTransaction?.siteId ?? ref.read(authProvider).activeSite?.id;
       if (siteId != null) {
@@ -312,6 +314,16 @@ class _UseProductScreenState extends ConsumerState<UseProductScreen> {
     final productsAsync = ref.watch(dropdownProvider((category: DropdownCategory.product, siteId: siteId)));
     final unitsAsync = ref.watch(dropdownProvider((category: DropdownCategory.metricUnit, siteId: siteId)));
     final stockState = ref.watch(stockProvider);
+    final isLight = AppColors.isLight;
+
+    final stockItem = (_selectedProductId != null && _selectedProductId != 'OTHER')
+        ? stockState.currentStock.where((s) => s['product_id'] == _selectedProductId).firstOrNull
+        : null;
+    final availableStock = (stockItem?['current_stock'] as num?)?.toDouble() ?? 0.0;
+    final totalInbound = (stockItem?['total_inbound'] as num?)?.toDouble() ?? 0.0;
+    final totalOutbound = (stockItem?['total_outbound'] as num?)?.toDouble() ?? 0.0;
+    final unitName = stockItem?['metric_unit'] ?? '';
+    final enteredQty = double.tryParse(_quantityController.text) ?? 0.0;
 
     return Scaffold(
       backgroundColor: AppColors.scaffoldDark,
@@ -422,6 +434,70 @@ class _UseProductScreenState extends ConsumerState<UseProductScreen> {
                     onChanged: isLocked ? null : (val) => setState(() => _selectedProductId = val),
                     validator: (v) => Validators.dropdownRequired(v, 'Product'),
                   ),
+                  if (stockItem != null) ...[
+                    Container(
+                      margin: const EdgeInsets.only(top: 10),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: availableStock > 0
+                            ? (isLight ? const Color(0xFFDCFCE7) : const Color(0xFF064E3B).withValues(alpha: 0.4))
+                            : (isLight ? const Color(0xFFFEE2E2) : const Color(0xFF7F1D1D).withValues(alpha: 0.4)),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: availableStock > 0 ? const Color(0xFF10B981) : AppColors.rejected,
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            availableStock > 0 ? Icons.check_circle_rounded : Icons.warning_amber_rounded,
+                            color: availableStock > 0 ? const Color(0xFF10B981) : AppColors.rejected,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      'Current Stock in Hand:',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: isLight ? AppColors.textPrimaryLight : AppColors.textPrimaryDark,
+                                      ),
+                                    ),
+                                    Text(
+                                      '$availableStock $unitName',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w800,
+                                        color: availableStock > 0
+                                            ? (isLight ? const Color(0xFF047857) : const Color(0xFF34D399))
+                                            : AppColors.rejected,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Received on site: $totalInbound $unitName • Previously used: $totalOutbound $unitName',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: isLight ? AppColors.textSecondaryLight : Colors.white60,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ).animate().fadeIn(),
+                  ],
                   if (_selectedProductId == 'OTHER') ...[
                     const SizedBox(height: 14),
                     TextFormField(
@@ -432,11 +508,17 @@ class _UseProductScreenState extends ConsumerState<UseProductScreen> {
                           : null,
                       style: AppTextStyles.bodyMedium
                           .copyWith(color: AppColors.textPrimary),
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Enter Product / Material Name',
                         hintText: 'e.g. Birla White Cement, PVC Pipe 4"',
-                        prefixIcon: Icon(Icons.edit_note_rounded,
+                        prefixIcon: const Icon(Icons.edit_note_rounded,
                             color: AppColors.primary, size: 20),
+                        suffixIcon: isLocked
+                            ? null
+                            : VoiceInputIconButton(
+                                controller: _customProductController,
+                                fieldLabel: 'Product Name',
+                              ),
                       ),
                     ).animate().fadeIn(),
                   ],
@@ -508,19 +590,60 @@ class _UseProductScreenState extends ConsumerState<UseProductScreen> {
             const SizedBox(height: 18),
 
             // Quantity
-            TextFormField(
-              controller: _quantityController,
-              readOnly: isLocked,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              validator: (v) => Validators.positiveNumber(v, 'Quantity'),
-              style: AppTextStyles.bodyMedium.copyWith(
-                color: AppColors.textPrimary,
-              ),
-              decoration: const InputDecoration(
-                labelText: 'Quantity Used',
-                prefixIcon: Icon(Icons.remove_circle_outline_rounded,
-                    color: AppColors.textTertiary, size: 20),
-              ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextFormField(
+                  controller: _quantityController,
+                  readOnly: isLocked,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  validator: (v) => Validators.positiveNumber(v, 'Quantity'),
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    color: AppColors.textPrimary,
+                  ),
+                  decoration: InputDecoration(
+                    labelText: 'Quantity Used',
+                    prefixIcon: const Icon(Icons.remove_circle_outline_rounded,
+                        color: AppColors.textTertiary, size: 20),
+                    suffixText: unitName.isNotEmpty ? unitName : null,
+                  ),
+                ),
+                if (stockItem != null && enteredQty > availableStock) ...[
+                  Container(
+                    margin: const EdgeInsets.only(top: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: AppColors.rejected.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppColors.rejected),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.error_outline_rounded, color: AppColors.rejected, size: 16),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Warning: Entered quantity ($enteredQty) exceeds current stock in hand ($availableStock $unitName)!',
+                            style: const TextStyle(color: AppColors.rejected, fontSize: 11, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ] else if (stockItem != null && enteredQty > 0) ...[
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6, left: 4),
+                    child: Text(
+                      'Remaining stock after this use: ${(availableStock - enteredQty).toStringAsFixed(1)} $unitName',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: isLight ? const Color(0xFF047857) : const Color(0xFF34D399),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
             ).animate().fadeIn(delay: 400.ms),
 
             const SizedBox(height: 18),
@@ -533,14 +656,20 @@ class _UseProductScreenState extends ConsumerState<UseProductScreen> {
               style: AppTextStyles.bodyMedium.copyWith(
                 color: AppColors.textPrimary,
               ),
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Remarks (Optional)',
                 alignLabelWithHint: true,
-                prefixIcon: Padding(
+                prefixIcon: const Padding(
                   padding: EdgeInsets.only(bottom: 48),
                   child: Icon(Icons.notes_rounded,
                       color: AppColors.textTertiary, size: 20),
                 ),
+                suffixIcon: isLocked
+                    ? null
+                    : VoiceInputIconButton(
+                        controller: _remarksController,
+                        fieldLabel: 'Remarks',
+                      ),
               ),
             ).animate().fadeIn(delay: 500.ms),
 

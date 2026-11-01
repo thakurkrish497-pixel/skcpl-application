@@ -25,6 +25,7 @@ import '../../providers/site_staff_provider.dart';
 import '../../services/dropdown_service.dart';
 import '../../services/excel_service.dart';
 import '../../providers/role_access_provider.dart';
+import '../../widgets/voice_input_field.dart';
 
 enum CashEntryMode { expense, received }
 
@@ -369,6 +370,19 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     final currentBalance = _getCurrentSiteBalance(cashState.transactions, siteId);
     final projectedBalance = _getProjectedBalance(currentBalance);
     final currencyFmt = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 2);
+    final activeSite = ref.watch(authProvider).activeSite;
+    final siteName = widget.existingTransaction?.siteName ?? activeSite?.name ?? 'Site';
+    final isLight = AppColors.isLight;
+
+    double siteTotalReceived = 0.0;
+    double siteTotalExpense = 0.0;
+    for (final t in cashState.transactions) {
+      if (siteId != null && t.siteId != siteId) continue;
+      if (t.status != TransactionStatus.rejected) {
+        siteTotalReceived += t.amountReceived;
+        siteTotalExpense += t.expenseAmount;
+      }
+    }
 
     return Scaffold(
       backgroundColor: AppColors.scaffoldDark,
@@ -438,6 +452,191 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
           children: [
             if (isLocked)
               const LockedFormBanner().animate().fadeIn(),
+
+            // ── TOP HERO: Live Site Cash in Hand Balance (Visible Before Entering Inputs) ──
+            Container(
+              padding: const EdgeInsets.all(18),
+              margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: isLight
+                      ? [const Color(0xFFE0F2FE), const Color(0xFFBAE6FD)]
+                      : [const Color(0xFF0C1D3B), const Color(0xFF132A54)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: isLight ? const Color(0xFF7DD3FC) : AppColors.primary.withValues(alpha: 0.35),
+                  width: 1.2,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.primary.withValues(alpha: 0.1),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.account_balance_wallet_rounded,
+                                color: AppColors.primary, size: 20),
+                          ),
+                          const SizedBox(width: 10),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '$siteName Cashbook',
+                                style: AppTextStyles.labelMedium.copyWith(
+                                  color: isLight ? AppColors.textPrimaryLight : AppColors.textPrimaryDark,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Text(
+                                'Current Balance at Site',
+                                style: AppTextStyles.bodySmall.copyWith(
+                                  color: isLight ? AppColors.textSecondaryLight : AppColors.textTertiaryDark,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: currentBalance >= 0
+                              ? AppColors.approved.withValues(alpha: 0.15)
+                              : AppColors.rejected.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: currentBalance >= 0 ? AppColors.approved : AppColors.rejected,
+                            width: 0.8,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            CircleAvatar(
+                              radius: 3,
+                              backgroundColor: currentBalance >= 0 ? AppColors.approved : AppColors.rejected,
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              currentBalance >= 0 ? 'Live Balance' : 'Low / Deficit',
+                              style: TextStyle(
+                                color: currentBalance >= 0 ? AppColors.approved : AppColors.rejected,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    cashState.isLoading && cashState.transactions.isEmpty
+                        ? 'Syncing live balance...'
+                        : currencyFmt.format(currentBalance),
+                    style: AppTextStyles.h2.copyWith(
+                      color: currentBalance >= 0
+                          ? (isLight ? const Color(0xFF047857) : AppColors.approved)
+                          : AppColors.rejected,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Divider(
+                    color: isLight ? const Color(0xFFBAE6FD) : AppColors.dividerDark,
+                    height: 1,
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.arrow_downward_rounded, color: AppColors.approved, size: 14),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Received: ${currencyFmt.format(siteTotalReceived)}',
+                            style: AppTextStyles.bodySmall.copyWith(
+                              color: isLight ? AppColors.textSecondaryLight : Colors.white70,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Row(
+                        children: [
+                          const Icon(Icons.arrow_upward_rounded, color: AppColors.rejected, size: 14),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Spent: ${currencyFmt.format(siteTotalExpense)}',
+                            style: AppTextStyles.bodySmall.copyWith(
+                              color: isLight ? AppColors.textSecondaryLight : Colors.white70,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  if ((_entryMode == CashEntryMode.expense && (double.tryParse(_expenseAmountController.text) ?? 0) > 0) ||
+                      (_entryMode == CashEntryMode.received && (double.tryParse(_amountReceivedController.text) ?? 0) > 0)) ...[
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: isLight ? Colors.white.withValues(alpha: 0.8) : Colors.black.withValues(alpha: 0.3),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            _entryMode == CashEntryMode.expense
+                                ? 'Est. after expense (-${currencyFmt.format(double.tryParse(_expenseAmountController.text) ?? 0)}):'
+                                : 'Est. after inflow (+${currencyFmt.format(double.tryParse(_amountReceivedController.text) ?? 0)}):',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: isLight ? AppColors.textPrimaryLight : AppColors.textPrimaryDark,
+                            ),
+                          ),
+                          Text(
+                            currencyFmt.format(projectedBalance),
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: projectedBalance >= 0 ? AppColors.approved : AppColors.rejected,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ).animate().fadeIn(duration: 300.ms).slideY(begin: -0.05),
 
             // ── Segmented Toggle: Expense vs Cash Received ──
             if (!isLocked) ...[
@@ -609,11 +808,17 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                             ? 'Please enter custom expense type'
                             : null,
                         style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
-                        decoration: const InputDecoration(
+                        decoration: InputDecoration(
                           labelText: 'Enter Custom Expense Type *',
                           hintText: 'e.g. Indar Civil Cont., Mess Exp, Vehicle Repair',
-                          prefixIcon: Icon(Icons.edit_note_rounded,
+                          prefixIcon: const Icon(Icons.edit_note_rounded,
                               color: AppColors.primary, size: 20),
+                          suffixIcon: isLocked
+                              ? null
+                              : VoiceInputIconButton(
+                                  controller: _customExpenseTypeController,
+                                  fieldLabel: 'Expense Type',
+                                ),
                         ),
                       ).animate().fadeIn(),
                     ],
@@ -644,10 +849,16 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                       controller: _partyNameController,
                       readOnly: isLocked,
                       style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Party / Vendor (Optional)',
                         hintText: 'e.g. Sharma Hardware',
-                        prefixIcon: Icon(Icons.person_outline_rounded, color: AppColors.textTertiary, size: 20),
+                        prefixIcon: const Icon(Icons.person_outline_rounded, color: AppColors.textTertiary, size: 20),
+                        suffixIcon: isLocked
+                            ? null
+                            : VoiceInputIconButton(
+                                controller: _partyNameController,
+                                fieldLabel: 'Party Name',
+                              ),
                       ),
                     ),
                   ),
@@ -665,14 +876,20 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                     ? 'Please enter description of expense'
                     : null,
                 style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Description of Expenses *',
                   hintText: 'e.g. Sabji, oil / JCB 5.18 hr / Tractor diesel 30L / Auto rent',
                   alignLabelWithHint: true,
-                  prefixIcon: Padding(
+                  prefixIcon: const Padding(
                     padding: EdgeInsets.only(bottom: 24),
                     child: Icon(Icons.notes_rounded, color: AppColors.textTertiary, size: 20),
                   ),
+                  suffixIcon: isLocked
+                      ? null
+                      : VoiceInputIconButton(
+                          controller: _remarksController,
+                          fieldLabel: 'Description of Expense',
+                        ),
                 ),
               ).animate().fadeIn(delay: 250.ms),
 
@@ -714,11 +931,17 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                 controller: _customExpenseTypeController,
                 readOnly: isLocked,
                 style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Received From / Head',
                   hintText: 'e.g. Indore Office, Bank Transfer, Head Office Advance',
-                  prefixIcon: Icon(Icons.account_balance_rounded,
+                  prefixIcon: const Icon(Icons.account_balance_rounded,
                       color: AppColors.primary, size: 20),
+                  suffixIcon: isLocked
+                      ? null
+                      : VoiceInputIconButton(
+                          controller: _customExpenseTypeController,
+                          fieldLabel: 'Received From',
+                        ),
                 ),
               ).animate().fadeIn(delay: 250.ms),
 
@@ -745,10 +968,16 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                       controller: _partyNameController,
                       readOnly: isLocked,
                       style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: 'Party / Depositor (Optional)',
                         hintText: 'e.g. Indore Office',
-                        prefixIcon: Icon(Icons.person_outline_rounded, color: AppColors.textTertiary, size: 20),
+                        prefixIcon: const Icon(Icons.person_outline_rounded, color: AppColors.textTertiary, size: 20),
+                        suffixIcon: isLocked
+                            ? null
+                            : VoiceInputIconButton(
+                                controller: _partyNameController,
+                                fieldLabel: 'Party / Depositor',
+                              ),
                       ),
                     ),
                   ),
@@ -763,14 +992,20 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                 readOnly: isLocked,
                 maxLines: 2,
                 style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Description / Narration (Optional)',
                   hintText: 'e.g. Advance cash received for site kickoff / NEFT Ref #1234',
                   alignLabelWithHint: true,
-                  prefixIcon: Padding(
+                  prefixIcon: const Padding(
                     padding: EdgeInsets.only(bottom: 24),
                     child: Icon(Icons.notes_rounded, color: AppColors.textTertiary, size: 20),
                   ),
+                  suffixIcon: isLocked
+                      ? null
+                      : VoiceInputIconButton(
+                          controller: _remarksController,
+                          fieldLabel: 'Description / Narration',
+                        ),
                 ),
               ).animate().fadeIn(delay: 300.ms),
             ],

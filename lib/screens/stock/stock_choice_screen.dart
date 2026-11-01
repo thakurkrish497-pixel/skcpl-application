@@ -12,17 +12,39 @@ import '../../widgets/skcpl_brand_logo.dart';
 import '../auth/site_staff_selection_screen.dart';
 import '../attendance/punch_attendance_screen.dart';
 import '../../widgets/offline_indicator.dart';
+import '../../providers/stock_provider.dart';
 
 /// Screen presenting choices: Add Product (Inbound) and Use Product (Outbound)
-class StockChoiceScreen extends ConsumerWidget {
+class StockChoiceScreen extends ConsumerStatefulWidget {
   const StockChoiceScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<StockChoiceScreen> createState() => _StockChoiceScreenState();
+}
+
+class _StockChoiceScreenState extends ConsumerState<StockChoiceScreen> {
+  bool _isStockExpanded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final activeSite = ref.read(authProvider).activeSite;
+      if (activeSite != null) {
+        ref.read(stockProvider.notifier).loadCurrentStock(activeSite.id);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final activeSite = ref.watch(authProvider).activeSite;
     final activeStaff = ref.watch(activeStaffProvider);
     final hasStockPermission =
         activeStaff == null || activeStaff.hasModule(StaffModule.stock);
+    final stockState = ref.watch(stockProvider);
+    final currentStock = stockState.currentStock;
+    final isLight = AppColors.isLight;
 
     return Scaffold(
       backgroundColor: AppColors.scaffoldDark,
@@ -211,7 +233,7 @@ class StockChoiceScreen extends ConsumerWidget {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              'Stock module access has been turned off for ${activeStaff?.name}. Inward and Outward stock operations are locked.',
+                              'Stock module access has been turned off for ${activeStaff.name}. Inward and Outward stock operations are locked.',
                               style: AppTextStyles.bodySmall.copyWith(
                                 color: AppColors.textSecondary,
                               ),
@@ -248,6 +270,244 @@ class StockChoiceScreen extends ConsumerWidget {
                 ).animate().shake(),
               ],
 
+              // ── SITE STOCK BALANCE IN HAND OVERVIEW (Visible before entering) ──
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(18),
+                margin: const EdgeInsets.only(bottom: 24),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: isLight
+                        ? [const Color(0xFFF0FDF4), const Color(0xFFDCFCE7)]
+                        : [const Color(0xFF062319), const Color(0xFF0B3828)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: isLight ? const Color(0xFF86EFAC) : const Color(0xFF10B981).withValues(alpha: 0.35),
+                    width: 1.2,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF10B981).withValues(alpha: 0.1),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Icon(Icons.inventory_2_rounded,
+                                  color: Color(0xFF10B981), size: 20),
+                            ),
+                            const SizedBox(width: 10),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Site Stock Balance in Hand',
+                                  style: AppTextStyles.labelMedium.copyWith(
+                                    color: isLight ? AppColors.textPrimaryLight : AppColors.textPrimaryDark,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Text(
+                                  activeSite != null ? '${activeSite.name} Materials' : 'Available on Site',
+                                  style: AppTextStyles.bodySmall.copyWith(
+                                    color: isLight ? AppColors.textSecondaryLight : AppColors.textTertiaryDark,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: const Color(0xFF10B981),
+                              width: 0.8,
+                            ),
+                          ),
+                          child: Text(
+                            '${currentStock.length} Item${currentStock.length == 1 ? '' : 's'}',
+                            style: const TextStyle(
+                              color: Color(0xFF10B981),
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+
+                    if (stockState.isLoading && currentStock.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 8),
+                        child: Row(
+                          children: [
+                            SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF10B981)),
+                            ),
+                            SizedBox(width: 10),
+                            Text('Syncing live stock in hand...', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                          ],
+                        ),
+                      )
+                    else if (currentStock.isEmpty)
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: isLight ? Colors.white.withValues(alpha: 0.7) : Colors.black.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.info_outline_rounded,
+                                size: 16, color: isLight ? AppColors.textSecondaryLight : Colors.white60),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'No stock recorded yet on this site. Use "+ Add Product" to record your first inbound stock delivery.',
+                                style: AppTextStyles.bodySmall.copyWith(
+                                  color: isLight ? AppColors.textSecondaryLight : Colors.white70,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    else ...[
+                      // Material stock items list
+                      ...((_isStockExpanded ? currentStock : currentStock.take(3)).map((item) {
+                        final productName = item['product_name'] ?? 'Material';
+                        final stock = (item['current_stock'] as num?)?.toDouble() ?? 0.0;
+                        final unit = item['metric_unit'] ?? '';
+                        final inbound = (item['total_inbound'] as num?)?.toDouble() ?? 0.0;
+                        final outbound = (item['total_outbound'] as num?)?.toDouble() ?? 0.0;
+                        final isLow = stock <= 0;
+
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: isLight ? Colors.white.withValues(alpha: 0.8) : Colors.black.withValues(alpha: 0.25),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: isLow
+                                  ? AppColors.rejected.withValues(alpha: 0.3)
+                                  : (isLight ? const Color(0xFFBAE6FD) : Colors.white.withValues(alpha: 0.08)),
+                              width: 0.8,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 4,
+                                backgroundColor: isLow ? AppColors.rejected : const Color(0xFF10B981),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      productName,
+                                      style: AppTextStyles.bodySmall.copyWith(
+                                        color: isLight ? AppColors.textPrimaryLight : AppColors.textPrimaryDark,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    Text(
+                                      'In: $inbound $unit • Used: $outbound $unit',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: isLight ? AppColors.textSecondaryLight : Colors.white54,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    '$stock $unit',
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w800,
+                                      color: isLow
+                                          ? AppColors.rejected
+                                          : (isLight ? const Color(0xFF047857) : const Color(0xFF34D399)),
+                                    ),
+                                  ),
+                                  Text(
+                                    isLow ? 'Out of stock' : 'In hand',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w500,
+                                      color: isLow ? AppColors.rejected : Colors.grey,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        );
+                      })),
+
+                      if (currentStock.length > 3)
+                        InkWell(
+                          onTap: () => setState(() => _isStockExpanded = !_isStockExpanded),
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  _isStockExpanded
+                                      ? 'Show Less'
+                                      : 'Show All ${currentStock.length} Materials',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: isLight ? const Color(0xFF0284c7) : AppColors.waveCyan,
+                                  ),
+                                ),
+                                Icon(
+                                  _isStockExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                                  size: 16,
+                                  color: isLight ? const Color(0xFF0284c7) : AppColors.waveCyan,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                    ],
+                  ],
+                ),
+              ).animate().fadeIn(duration: 300.ms),
+
               Text(
                 'What would you like to do?',
                 style: AppTextStyles.h2.copyWith(color: AppColors.textPrimary),
@@ -278,7 +538,7 @@ class StockChoiceScreen extends ConsumerWidget {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text(
-                            'Access Denied: Stock module access is turned off for ${activeStaff?.name}.',
+                            'Access Denied: Stock module access is turned off for ${activeStaff.name}.',
                           ),
                           backgroundColor: AppColors.rejected,
                         ),
@@ -307,7 +567,7 @@ class StockChoiceScreen extends ConsumerWidget {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text(
-                            'Access Denied: Stock module access is turned off for ${activeStaff?.name}.',
+                            'Access Denied: Stock module access is turned off for ${activeStaff.name}.',
                           ),
                           backgroundColor: AppColors.rejected,
                         ),

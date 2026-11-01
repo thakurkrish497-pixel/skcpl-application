@@ -7,7 +7,7 @@ const String _kThemePrefKey = 'app_theme_mode';
 
 /// Notifier to manage active App ThemeMode (Dark Mode vs Light Mode) with persistence
 class ThemeNotifier extends StateNotifier<ThemeMode> {
-  ThemeNotifier() : super(ThemeMode.dark) {
+  ThemeNotifier() : super(ThemeMode.light) {
     _loadSavedTheme();
   }
 
@@ -15,12 +15,13 @@ class ThemeNotifier extends StateNotifier<ThemeMode> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final savedTheme = prefs.getString(_kThemePrefKey);
-      if (savedTheme == 'light') {
-        state = ThemeMode.light;
-        AppColors.isLight = true;
-      } else {
+      if (savedTheme == 'dark') {
         state = ThemeMode.dark;
         AppColors.isLight = false;
+      } else {
+        // Default to Light / Sky Blue mode for testing
+        state = ThemeMode.light;
+        AppColors.isLight = true;
       }
     } catch (e) {
       debugPrint('Error loading saved theme: $e');

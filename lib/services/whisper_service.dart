@@ -10,8 +10,6 @@ class WhisperService {
   static const String _keyGroqApiKey = 'whisper_groq_api_key';
   static const String _keyOpenAiApiKey = 'whisper_openai_api_key';
   static const String _keySelectedProvider = 'whisper_selected_provider'; // 'groq' | 'openai'
-  static const String defaultGroqApiKey = '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';
-
 
   Future<String?> getApiKey() async {
     final prefs = await SharedPreferences.getInstance();
@@ -23,7 +21,7 @@ class WhisperService {
     if (saved != null && saved.trim().isNotEmpty) {
       return saved;
     }
-    return defaultGroqApiKey;
+    return null;
   }
 
   Future<void> saveApiKey(String key, {String? provider}) async {
@@ -122,11 +120,17 @@ class WhisperService {
       }
       return '';
     } else {
+      if (response.statusCode == 401) {
+        throw Exception('Invalid API Key for ${isGroq ? "Groq" : "OpenAI"}. Please tap the Settings (⚙️) icon to enter a valid key, or switch to Live (No Key) mode.');
+      } else if (response.statusCode == 429) {
+        throw Exception('Rate limit exceeded for ${isGroq ? "Groq" : "OpenAI"}. Please wait a few seconds or switch to Live (No Key) mode.');
+      }
       try {
         final errJson = jsonDecode(response.body);
         final errMsg = errJson['error']?['message'] ?? response.body;
         throw Exception('Transcription error (${response.statusCode}): $errMsg');
-      } catch (_) {
+      } catch (e) {
+        if (e is Exception) rethrow;
         throw Exception('Transcription failed (${response.statusCode}): ${response.body}');
       }
     }

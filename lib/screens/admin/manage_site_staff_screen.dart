@@ -239,10 +239,10 @@ class _ManageSiteStaffScreenState extends ConsumerState<ManageSiteStaffScreen>
                         child: TextField(
                           controller: designationController,
                           style: const TextStyle(color: AppColors.textPrimary),
-                          decoration: const InputDecoration(
-                            labelText: 'Designation / Trade',
-                            hintText: 'e.g. Senior Mason',
-                            prefixIcon: Icon(Icons.work_outline),
+                          decoration: InputDecoration(
+                            labelText: isOffice ? 'Designation / Department' : 'Designation / Trade',
+                            hintText: isOffice ? 'e.g. Accounts, HR, Manager' : 'e.g. Senior Mason',
+                            prefixIcon: const Icon(Icons.work_outline),
                           ),
                         ),
                       ),
@@ -370,8 +370,8 @@ class _ManageSiteStaffScreenState extends ConsumerState<ManageSiteStaffScreen>
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       content: Text(isEditing
-                          ? 'Staff member updated!'
-                          : 'Staff member "$name" saved with ${selectedModules.length} module(s)!'),
+                          ? (isOffice ? 'Office employee updated!' : 'Staff member updated!')
+                          : '${isOffice ? "Office employee" : "Staff member"} "$name" saved with ${selectedModules.length} module(s)!'),
                       backgroundColor: AppColors.approved,
                     ),
                   );
@@ -384,7 +384,9 @@ class _ManageSiteStaffScreenState extends ConsumerState<ManageSiteStaffScreen>
                   );
                 }
               },
-              child: Text(isEditing ? 'Save Changes' : 'Save Staff Profile'),
+              child: Text(isEditing
+                  ? 'Save Changes'
+                  : (isOffice ? 'Save Office Employee' : 'Save Staff Profile')),
             ),
           ],
         ),
@@ -566,7 +568,9 @@ class _ManageSiteStaffScreenState extends ConsumerState<ManageSiteStaffScreen>
                 Text(
                   module != null
                       ? '${module.displayName} Team (${filteredStaff.length})'
-                      : 'All Site Team (${filteredStaff.length})',
+                      : (widget.site.isHeadOffice
+                          ? 'All Office Team (${filteredStaff.length})'
+                          : 'All Site Team (${filteredStaff.length})'),
                   style: AppTextStyles.h4.copyWith(fontSize: 15),
                 ),
                 Container(
@@ -599,11 +603,27 @@ class _ManageSiteStaffScreenState extends ConsumerState<ManageSiteStaffScreen>
   }
 
   Widget _buildWorkflowBanner(StaffModule? module) {
+    final isOffice = widget.site.isHeadOffice;
+
+    final String flowTitle = isOffice
+        ? 'Head Office Operations & Attendance'
+        : 'Multi-Tier Approval Workflow';
+
     final String flowDescription;
-    if (module == StaffModule.attendance) {
-      flowDescription = 'Staff Punches ➔ Project Head Review ➔ Admin Approval (No Accounts verification)';
+    if (isOffice) {
+      if (module == StaffModule.attendance) {
+        flowDescription = 'Office Employee Check-In ➔ GPS Geofenced Verification ➔ Admin Attendance Record';
+      } else if (module == StaffModule.report) {
+        flowDescription = 'Office Daily Work Report (DSR) ➔ Submitted by Employee ➔ Reviewed by Admin';
+      } else {
+        flowDescription = 'Office Employee Profile ➔ Attendance Check-In & Daily Work Reports (DSR)';
+      }
     } else {
-      flowDescription = 'Site Worker Entry ➔ Project Head Approval ➔ Accounts Review ➔ Admin Approval';
+      if (module == StaffModule.attendance) {
+        flowDescription = 'Staff Punches ➔ Project Head Review ➔ Admin Approval (No Accounts verification)';
+      } else {
+        flowDescription = 'Site Worker Entry ➔ Project Head Approval ➔ Accounts Review ➔ Admin Approval';
+      }
     }
 
     return Container(
@@ -616,8 +636,8 @@ class _ManageSiteStaffScreenState extends ConsumerState<ManageSiteStaffScreen>
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(
-            Icons.account_tree_rounded,
+          Icon(
+            isOffice ? Icons.corporate_fare_rounded : Icons.account_tree_rounded,
             size: 20,
             color: AppColors.waveCyan,
           ),
@@ -627,7 +647,7 @@ class _ManageSiteStaffScreenState extends ConsumerState<ManageSiteStaffScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Multi-Tier Approval Workflow',
+                  flowTitle,
                   style: AppTextStyles.bodyMedium.copyWith(
                     fontWeight: FontWeight.bold,
                     color: AppColors.waveCyan,
@@ -793,19 +813,29 @@ class _ManageSiteStaffScreenState extends ConsumerState<ManageSiteStaffScreen>
   }
 
   Widget _buildEmptyState(StaffModule? module) {
-    final title = module != null ? module.displayName : 'Staff Members';
+    final isOffice = widget.site.isHeadOffice;
+    final title = module != null
+        ? module.displayName
+        : (isOffice ? 'Office Staff' : 'Staff Members');
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.person_outline, size: 56, color: AppColors.textTertiary),
+            Icon(
+              isOffice ? Icons.corporate_fare_rounded : Icons.person_outline,
+              size: 56,
+              color: AppColors.textTertiary,
+            ),
             const SizedBox(height: 16),
             Text('No $title Configured', style: AppTextStyles.h4),
             const SizedBox(height: 8),
             Text(
-              'Add site workers and supervisors for $title at ${widget.site.name}. You can tick all features they are authorized to access.',
+              isOffice
+                  ? 'Add office employees and managers for $title at ${widget.site.name}. Authorize them for Attendance and Daily Work Reports.'
+                  : 'Add site workers and supervisors for $title at ${widget.site.name}. You can tick all features they are authorized to access.',
               textAlign: TextAlign.center,
               style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
             ),
@@ -817,7 +847,10 @@ class _ManageSiteStaffScreenState extends ConsumerState<ManageSiteStaffScreen>
               ),
               onPressed: () => _showAddStaffDialog(null, module),
               icon: const Icon(Icons.person_add_rounded, color: Colors.white),
-              label: Text('Add First Staff Member', style: const TextStyle(color: Colors.white)),
+              label: Text(
+                isOffice ? 'Add First Office Employee' : 'Add First Staff Member',
+                style: const TextStyle(color: Colors.white),
+              ),
             ),
           ],
         ),

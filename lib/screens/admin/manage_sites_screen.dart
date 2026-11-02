@@ -1336,6 +1336,15 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                                                   site: site),
                                         ),
                                       );
+                                    } else if (val == 'manage_staff') {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) =>
+                                              ManageSiteStaffScreen(
+                                                  site: site),
+                                        ),
+                                      );
                                     } else if (val == 'edit_basic') {
                                       _showEditSiteDialog(site);
                                     } else if (val == 'deactivate') {
@@ -1362,58 +1371,80 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                                         ],
                                       ),
                                     ),
-                                    const PopupMenuItem(
-                                      value: 'customize',
-                                      child: Row(
-                                        children: [
-                                          Icon(Icons.tune_rounded,
-                                              size: 18,
-                                              color: AppColors.primary),
-                                          SizedBox(width: 8),
-                                          Text('Customize Site & Dropdowns',
-                                              style: TextStyle(
-                                                  color: AppColors.primary)),
-                                        ],
-                                      ),
-                                    ),
-                                    const PopupMenuItem(
-                                      value: 'edit_basic',
-                                      child: Row(
-                                        children: [
-                                          Icon(Icons.edit_outlined,
-                                              size: 18,
-                                              color: AppColors.textSecondary),
-                                          SizedBox(width: 8),
-                                          Text('Edit Basic Details'),
-                                        ],
-                                      ),
-                                    ),
-                                    if (site.isActive)
+                                    if (!site.isHeadOffice)
                                       const PopupMenuItem(
-                                        value: 'deactivate',
+                                        value: 'customize',
                                         child: Row(
                                           children: [
-                                            Icon(Icons.block_rounded,
+                                            Icon(Icons.tune_rounded,
                                                 size: 18,
-                                                color: AppColors.rejected),
+                                                color: AppColors.primary),
                                             SizedBox(width: 8),
-                                            Text('Deactivate Site',
+                                            Text('Customize Site & Dropdowns',
                                                 style: TextStyle(
-                                                    color: AppColors.rejected)),
+                                                    color: AppColors.primary)),
                                           ],
                                         ),
                                       )
                                     else
                                       const PopupMenuItem(
+                                        value: 'manage_staff',
+                                        child: Row(
+                                          children: [
+                                            Icon(Icons.people_rounded,
+                                                size: 18,
+                                                color: AppColors.waveCyan),
+                                            SizedBox(width: 8),
+                                            Text('Manage Office Staff',
+                                                style: TextStyle(
+                                                    color: AppColors.waveCyan)),
+                                          ],
+                                        ),
+                                      ),
+                                    PopupMenuItem(
+                                      value: 'edit_basic',
+                                      child: Row(
+                                        children: [
+                                          const Icon(Icons.edit_outlined,
+                                              size: 18,
+                                              color: AppColors.textSecondary),
+                                          const SizedBox(width: 8),
+                                          Text(site.isHeadOffice
+                                              ? 'Edit Head Office Details'
+                                              : 'Edit Basic Details'),
+                                        ],
+                                      ),
+                                    ),
+                                    if (site.isActive)
+                                      PopupMenuItem(
+                                        value: 'deactivate',
+                                        child: Row(
+                                          children: [
+                                            const Icon(Icons.block_rounded,
+                                                size: 18,
+                                                color: AppColors.rejected),
+                                            const SizedBox(width: 8),
+                                            Text(site.isHeadOffice
+                                                ? 'Deactivate Office'
+                                                : 'Deactivate Site',
+                                                style: const TextStyle(
+                                                    color: AppColors.rejected)),
+                                          ],
+                                        ),
+                                      )
+                                    else
+                                      PopupMenuItem(
                                         value: 'activate',
                                         child: Row(
                                           children: [
-                                            Icon(Icons.check_circle_outline,
+                                            const Icon(Icons.check_circle_outline,
                                                 size: 18,
                                                 color: AppColors.approved),
-                                            SizedBox(width: 8),
-                                            Text('Activate Site',
-                                                style: TextStyle(
+                                            const SizedBox(width: 8),
+                                            Text(site.isHeadOffice
+                                                ? 'Activate Office'
+                                                : 'Activate Site',
+                                                style: const TextStyle(
                                                     color: AppColors.approved)),
                                           ],
                                         ),
@@ -1450,28 +1481,52 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                                 ),
                               ),
                               const Spacer(),
-                              ElevatedButton.icon(
-                                onPressed: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) =>
-                                          SiteCustomizationScreen(site: site),
-                                    ),
-                                  );
-                                },
-                                icon: const Icon(Icons.tune_rounded, size: 16),
-                                label: const Text('Customize Site'),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor:
-                                      AppColors.primary.withOpacity(0.15),
-                                  foregroundColor: AppColors.primary,
-                                  elevation: 0,
-                                  visualDensity: VisualDensity.compact,
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 12, vertical: 6),
+                               if (site.isHeadOffice)
+                                ElevatedButton.icon(
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) =>
+                                            ManageSiteStaffScreen(site: site),
+                                      ),
+                                    );
+                                  },
+                                  icon: const Icon(Icons.people_rounded, size: 16),
+                                  label: const Text('Manage Staff'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor:
+                                        AppColors.waveCyan.withOpacity(0.15),
+                                    foregroundColor: AppColors.waveCyan,
+                                    elevation: 0,
+                                    visualDensity: VisualDensity.compact,
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 6),
+                                  ),
+                                )
+                              else
+                                ElevatedButton.icon(
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) =>
+                                            SiteCustomizationScreen(site: site),
+                                      ),
+                                    );
+                                  },
+                                  icon: const Icon(Icons.tune_rounded, size: 16),
+                                  label: const Text('Customize Site'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor:
+                                        AppColors.primary.withOpacity(0.15),
+                                    foregroundColor: AppColors.primary,
+                                    elevation: 0,
+                                    visualDensity: VisualDensity.compact,
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 6),
+                                  ),
                                 ),
-                              ),
                             ],
                           ),
                         ),

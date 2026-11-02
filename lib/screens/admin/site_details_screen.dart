@@ -79,7 +79,7 @@ class SiteDetailsScreen extends ConsumerWidget {
               style: AppTextStyles.h4.copyWith(color: AppColors.textPrimary)),
           const SizedBox(height: 12),
           
-          if (ref.read(authProvider).isAdmin) ...[
+          if (ref.read(authProvider).isAdmin && !site.isHeadOffice) ...[
             ListTile(
               tileColor: AppColors.cardDark,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),

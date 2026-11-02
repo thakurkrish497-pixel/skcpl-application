@@ -1,10 +1,15 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_text_styles.dart';
 import '../../models/site_model.dart';
 import '../../models/site_staff_model.dart';
 import '../../providers/site_staff_provider.dart';
+import '../../services/storage_service.dart';
+import '../../widgets/photo_viewer_dialog.dart';
 import 'employee_performance_screen.dart';
 
 /// Screen for Admin to manage site staff (Workers and Supervisors) with unified
@@ -71,6 +76,54 @@ class _ManageSiteStaffScreenState extends ConsumerState<ManageSiteStaffScreen>
     }
   }
 
+  Future<void> _pickDocPhoto({
+    required BuildContext docCtx,
+    required void Function(Uint8List bytes, String fileName) onPicked,
+  }) async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: docCtx,
+      backgroundColor: AppColors.surfaceDark,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (bCtx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.textTertiary,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 14),
+            ListTile(
+              leading: const Icon(Icons.camera_alt_rounded, color: AppColors.primary),
+              title: const Text('Take Photo with Camera', style: TextStyle(color: Colors.white)),
+              onTap: () => Navigator.pop(bCtx, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_rounded, color: AppColors.secondary),
+              title: const Text('Choose from Gallery / Files', style: TextStyle(color: Colors.white)),
+              onTap: () => Navigator.pop(bCtx, ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (source == null) return;
+    final picker = ImagePicker();
+    final xfile = await picker.pickImage(source: source, imageQuality: 85);
+    if (xfile != null) {
+      final bytes = await xfile.readAsBytes();
+      onPicked(bytes, xfile.name);
+    }
+  }
+
   void _showAddStaffDialog([SiteStaffModel? existing, StaffModule? defaultModule]) {
     final isOffice = widget.site.isHeadOffice;
     final isEditing = existing != null;
@@ -81,6 +134,16 @@ class _ManageSiteStaffScreenState extends ConsumerState<ManageSiteStaffScreen>
     final designationController = TextEditingController(text: existing?.designation ?? '');
     final fatherNameController = TextEditingController(text: existing?.fatherName ?? '');
     final descController = TextEditingController(text: existing?.description ?? '');
+
+    DateTime? selectedDob = existing?.dateOfBirth;
+    final aadharController = TextEditingController(text: existing?.aadharNumber ?? '');
+    final panController = TextEditingController(text: existing?.panNumber ?? '');
+    Uint8List? aadharBytes;
+    String? aadharFileName;
+    String? currentAadharUrl = existing?.aadharCardUrl;
+    Uint8List? panBytes;
+    String? panFileName;
+    String? currentPanUrl = existing?.panCardUrl;
 
     SiteStaffRole selectedRole = existing?.role ?? SiteStaffRole.worker;
 
@@ -289,6 +352,325 @@ class _ManageSiteStaffScreenState extends ConsumerState<ManageSiteStaffScreen>
                       prefixIcon: Icon(Icons.info_outline),
                     ),
                   ),
+                  const SizedBox(height: 16),
+
+                  // ── Verification & KYC Documents ──
+                  Row(
+                    children: [
+                      const Icon(Icons.verified_user_outlined, color: AppColors.waveCyan, size: 16),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Birth Date & KYC Verification Documents:',
+                        style: AppTextStyles.bodySmall.copyWith(
+                          color: AppColors.waveCyan,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Date of Birth Field
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: AppColors.cardDark,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppColors.divider),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.cake_outlined, color: AppColors.goldAccent, size: 20),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Date of Birth',
+                                style: TextStyle(color: AppColors.textTertiary, fontSize: 10),
+                              ),
+                              Text(
+                                selectedDob != null
+                                    ? '${DateFormat('dd MMM yyyy').format(selectedDob!)}${selectedDob != null ? ' (${DateTime.now().year - selectedDob!.year} yrs old)' : ''}'
+                                    : 'Tap to select Birth Date',
+                                style: TextStyle(
+                                  color: selectedDob != null ? Colors.white : AppColors.textSecondary,
+                                  fontWeight: selectedDob != null ? FontWeight.bold : FontWeight.normal,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        if (selectedDob != null)
+                          IconButton(
+                            icon: const Icon(Icons.clear, size: 16, color: AppColors.textTertiary),
+                            onPressed: () => setDialogState(() => selectedDob = null),
+                          ),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.surfaceDark,
+                            foregroundColor: AppColors.waveCyan,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            minimumSize: Size.zero,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                              side: const BorderSide(color: AppColors.divider),
+                            ),
+                          ),
+                          onPressed: () async {
+                            final now = DateTime.now();
+                            final picked = await showDatePicker(
+                              context: context,
+                              initialDate: selectedDob ?? DateTime(1995, 1, 1),
+                              firstDate: DateTime(1940),
+                              lastDate: now,
+                              builder: (context, child) {
+                                return Theme(
+                                  data: ThemeData.dark().copyWith(
+                                    colorScheme: const ColorScheme.dark(
+                                      primary: AppColors.waveCyan,
+                                      onPrimary: Colors.black,
+                                      surface: AppColors.surfaceDark,
+                                      onSurface: Colors.white,
+                                    ),
+                                  ),
+                                  child: child!,
+                                );
+                              },
+                            );
+                            if (picked != null) {
+                              setDialogState(() => selectedDob = picked);
+                            }
+                          },
+                          icon: const Icon(Icons.calendar_month_rounded, size: 14),
+                          label: const Text('Pick Date', style: TextStyle(fontSize: 11)),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Aadhar Card / Extra Document Field & Attachment
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.cardDark,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppColors.divider),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.badge_outlined, color: AppColors.waveCyan, size: 18),
+                            const SizedBox(width: 8),
+                            const Text(
+                              'Extra Verification Document (Aadhar)',
+                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                            ),
+                            const Spacer(),
+                            if (aadharBytes != null || (currentAadharUrl != null && currentAadharUrl!.isNotEmpty))
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AppColors.approved.withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: const Row(
+                                  children: [
+                                    Icon(Icons.check_circle, color: AppColors.approved, size: 12),
+                                    SizedBox(width: 4),
+                                    Text('Doc Attached', style: TextStyle(color: AppColors.approved, fontSize: 10, fontWeight: FontWeight.bold)),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: aadharController,
+                          keyboardType: TextInputType.number,
+                          style: const TextStyle(color: AppColors.textPrimary),
+                          decoration: const InputDecoration(
+                            labelText: 'Aadhar / ID Number (Optional)',
+                            hintText: 'e.g. 5421 8976 1234',
+                            prefixIcon: Icon(Icons.fingerprint_rounded),
+                            isDense: true,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            if (aadharBytes != null) ...[
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(6),
+                                child: Image.memory(aadharBytes!, width: 44, height: 44, fit: BoxFit.cover),
+                              ),
+                              const SizedBox(width: 8),
+                            ] else if (currentAadharUrl != null && currentAadharUrl!.isNotEmpty) ...[
+                              InkWell(
+                                onTap: () => PhotoViewerDialog.show(context, [currentAadharUrl!]),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(6),
+                                  child: Image.network(currentAadharUrl!, width: 44, height: 44, fit: BoxFit.cover),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                            ],
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: AppColors.waveCyan,
+                                  side: const BorderSide(color: AppColors.waveCyan),
+                                  padding: const EdgeInsets.symmetric(vertical: 8),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
+                                onPressed: () => _pickDocPhoto(
+                                  docCtx: context,
+                                  onPicked: (bytes, name) {
+                                    setDialogState(() {
+                                      aadharBytes = bytes;
+                                      aadharFileName = name;
+                                    });
+                                  },
+                                ),
+                                icon: const Icon(Icons.upload_file_rounded, size: 16),
+                                label: Text(
+                                  aadharBytes != null || (currentAadharUrl != null && currentAadharUrl!.isNotEmpty)
+                                      ? 'Change Document Photo / Scan'
+                                      : 'Attach Aadhar / ID Photo or Scan',
+                                  style: const TextStyle(fontSize: 11),
+                                ),
+                              ),
+                            ),
+                            if (aadharBytes != null || (currentAadharUrl != null && currentAadharUrl!.isNotEmpty))
+                              IconButton(
+                                icon: const Icon(Icons.delete_outline, color: AppColors.rejected, size: 18),
+                                tooltip: 'Remove Document',
+                                onPressed: () => setDialogState(() {
+                                  aadharBytes = null;
+                                  currentAadharUrl = null;
+                                }),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // PAN Card Field & Attachment
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.cardDark,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppColors.divider),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.credit_card_rounded, color: AppColors.goldAccent, size: 18),
+                            const SizedBox(width: 8),
+                            const Text(
+                              'PAN Card Details (Optional)',
+                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                            ),
+                            const Spacer(),
+                            if (panBytes != null || (currentPanUrl != null && currentPanUrl!.isNotEmpty))
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AppColors.approved.withOpacity(0.2),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: const Row(
+                                  children: [
+                                    Icon(Icons.check_circle, color: AppColors.approved, size: 12),
+                                    SizedBox(width: 4),
+                                    Text('Card Attached', style: TextStyle(color: AppColors.approved, fontSize: 10, fontWeight: FontWeight.bold)),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        TextField(
+                          controller: panController,
+                          textCapitalization: TextCapitalization.characters,
+                          style: const TextStyle(color: AppColors.textPrimary),
+                          decoration: const InputDecoration(
+                            labelText: 'PAN Number (10 Characters)',
+                            hintText: 'e.g. ABCDE1234F',
+                            prefixIcon: Icon(Icons.credit_card_outlined),
+                            isDense: true,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            if (panBytes != null) ...[
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(6),
+                                child: Image.memory(panBytes!, width: 44, height: 44, fit: BoxFit.cover),
+                              ),
+                              const SizedBox(width: 8),
+                            ] else if (currentPanUrl != null && currentPanUrl!.isNotEmpty) ...[
+                              InkWell(
+                                onTap: () => PhotoViewerDialog.show(context, [currentPanUrl!]),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(6),
+                                  child: Image.network(currentPanUrl!, width: 44, height: 44, fit: BoxFit.cover),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                            ],
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: AppColors.goldAccent,
+                                  side: const BorderSide(color: AppColors.goldAccent),
+                                  padding: const EdgeInsets.symmetric(vertical: 8),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
+                                onPressed: () => _pickDocPhoto(
+                                  docCtx: context,
+                                  onPicked: (bytes, name) {
+                                    setDialogState(() {
+                                      panBytes = bytes;
+                                      panFileName = name;
+                                    });
+                                  },
+                                ),
+                                icon: const Icon(Icons.upload_file_rounded, size: 16),
+                                label: Text(
+                                  panBytes != null || (currentPanUrl != null && currentPanUrl!.isNotEmpty)
+                                      ? 'Change PAN Photo / Scan'
+                                      : 'Attach PAN Card Photo or Scan',
+                                  style: const TextStyle(fontSize: 11),
+                                ),
+                              ),
+                            ),
+                            if (panBytes != null || (currentPanUrl != null && currentPanUrl!.isNotEmpty))
+                              IconButton(
+                                icon: const Icon(Icons.delete_outline, color: AppColors.rejected, size: 18),
+                                tooltip: 'Remove Card',
+                                onPressed: () => setDialogState(() {
+                                  panBytes = null;
+                                  currentPanUrl = null;
+                                }),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -330,8 +712,40 @@ class _ManageSiteStaffScreenState extends ConsumerState<ManageSiteStaffScreen>
                 final designation = designationController.text.trim().isEmpty ? null : designationController.text.trim();
                 final father = fatherNameController.text.trim().isEmpty ? null : fatherNameController.text.trim();
                 final desc = descController.text.trim().isEmpty ? null : descController.text.trim();
+                final aadharNum = aadharController.text.trim().isEmpty ? null : aadharController.text.trim();
+                final panNum = panController.text.trim().isEmpty ? null : panController.text.trim().toUpperCase();
 
                 try {
+                  // Upload Aadhar card photo if a new file was chosen
+                  String? finalAadharUrl = currentAadharUrl;
+                  if (aadharBytes != null) {
+                    try {
+                      final storage = StorageService();
+                      final cleanName = aadharFileName ?? 'aadhar.jpg';
+                      finalAadharUrl = await storage.uploadPhotoBytes(
+                        aadharBytes!,
+                        fileName: 'aadhar_${name}_$cleanName',
+                      );
+                    } catch (uploadErr) {
+                      debugPrint('Aadhar upload error: $uploadErr');
+                    }
+                  }
+
+                  // Upload PAN card photo if a new file was chosen
+                  String? finalPanUrl = currentPanUrl;
+                  if (panBytes != null) {
+                    try {
+                      final storage = StorageService();
+                      final cleanName = panFileName ?? 'pan.jpg';
+                      finalPanUrl = await storage.uploadPhotoBytes(
+                        panBytes!,
+                        fileName: 'pan_${name}_$cleanName',
+                      );
+                    } catch (uploadErr) {
+                      debugPrint('PAN upload error: $uploadErr');
+                    }
+                  }
+
                   if (isEditing) {
                     final updated = existing.copyWith(
                       name: name,
@@ -343,6 +757,11 @@ class _ManageSiteStaffScreenState extends ConsumerState<ManageSiteStaffScreen>
                       designation: designation,
                       fatherName: father,
                       description: desc,
+                      dateOfBirth: selectedDob,
+                      aadharNumber: aadharNum,
+                      aadharCardUrl: finalAadharUrl,
+                      panNumber: panNum,
+                      panCardUrl: finalPanUrl,
                     );
                     await ref
                         .read(siteStaffProvider(widget.site.id).notifier)
@@ -360,6 +779,11 @@ class _ManageSiteStaffScreenState extends ConsumerState<ManageSiteStaffScreen>
                       designation: designation,
                       fatherName: father,
                       description: desc,
+                      dateOfBirth: selectedDob,
+                      aadharNumber: aadharNum,
+                      aadharCardUrl: finalAadharUrl,
+                      panNumber: panNum,
+                      panCardUrl: finalPanUrl,
                       createdAt: DateTime.now(),
                     );
                     await ref
@@ -807,6 +1231,162 @@ class _ManageSiteStaffScreenState extends ConsumerState<ManageSiteStaffScreen>
               );
             }).toList(),
           ),
+          // KYC Information Section (Date of Birth, Aadhar Card, PAN Card)
+          if (staff.dateOfBirth != null ||
+              (staff.aadharNumber != null && staff.aadharNumber!.isNotEmpty) ||
+              staff.hasAadharCard ||
+              (staff.panNumber != null && staff.panNumber!.isNotEmpty) ||
+              staff.hasPanCard) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceDark.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.divider.withValues(alpha: 0.5)),
+              ),
+              child: Wrap(
+                spacing: 12,
+                runSpacing: 6,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  if (staff.dateOfBirth != null) () {
+                    final now = DateTime.now();
+                    final isBirthdayToday = staff.dateOfBirth!.month == now.month && staff.dateOfBirth!.day == now.day;
+                    return Container(
+                      padding: isBirthdayToday ? const EdgeInsets.symmetric(horizontal: 6, vertical: 2) : EdgeInsets.zero,
+                      decoration: isBirthdayToday ? BoxDecoration(
+                        color: AppColors.goldAccent.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: AppColors.goldAccent.withValues(alpha: 0.6)),
+                      ) : null,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(isBirthdayToday ? Icons.cake_rounded : Icons.cake_outlined, size: 14, color: AppColors.goldAccent),
+                          const SizedBox(width: 4),
+                          Text(
+                            isBirthdayToday
+                                ? '🎂 Birthday Today! (${DateFormat('dd MMM').format(staff.dateOfBirth!)}, ${staff.age ?? 0} yrs)'
+                                : 'DOB: ${DateFormat('dd MMM yyyy').format(staff.dateOfBirth!)}${staff.age != null ? ' (${staff.age} yrs)' : ''}',
+                            style: AppTextStyles.bodySmall.copyWith(
+                              fontSize: 11,
+                              color: isBirthdayToday ? AppColors.goldAccent : AppColors.textPrimary,
+                              fontWeight: isBirthdayToday ? FontWeight.bold : FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }(),
+                  if ((staff.aadharNumber != null && staff.aadharNumber!.isNotEmpty) || staff.hasAadharCard)
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.badge_outlined, size: 14, color: AppColors.waveCyan),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Aadhar: ${(staff.maskedAadhar != null && staff.maskedAadhar!.isNotEmpty) ? staff.maskedAadhar! : 'Attached'}',
+                          style: AppTextStyles.bodySmall.copyWith(
+                            fontSize: 11,
+                            color: AppColors.textPrimary,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        if (staff.hasAadharCard) ...[
+                          const SizedBox(width: 6),
+                          InkWell(
+                            onTap: () {
+                              PhotoViewerDialog.show(
+                                context,
+                                [staff.aadharCardUrl!],
+                                initialIndex: 0,
+                              );
+                            },
+                            borderRadius: BorderRadius.circular(4),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AppColors.waveCyan.withValues(alpha: 0.18),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: AppColors.waveCyan.withValues(alpha: 0.4)),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.remove_red_eye_rounded, size: 11, color: AppColors.waveCyan),
+                                  SizedBox(width: 3),
+                                  Text(
+                                    'View Doc',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.waveCyan,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  if ((staff.panNumber != null && staff.panNumber!.isNotEmpty) || staff.hasPanCard)
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.credit_card_rounded, size: 14, color: AppColors.goldAccent),
+                        const SizedBox(width: 4),
+                        Text(
+                          'PAN: ${staff.panNumber ?? 'Attached'}',
+                          style: AppTextStyles.bodySmall.copyWith(
+                            fontSize: 11,
+                            color: AppColors.textPrimary,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        if (staff.hasPanCard) ...[
+                          const SizedBox(width: 6),
+                          InkWell(
+                            onTap: () {
+                              PhotoViewerDialog.show(
+                                context,
+                                [staff.panCardUrl!],
+                                initialIndex: 0,
+                              );
+                            },
+                            borderRadius: BorderRadius.circular(4),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AppColors.goldAccent.withValues(alpha: 0.18),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: AppColors.goldAccent.withValues(alpha: 0.4)),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.remove_red_eye_rounded, size: 11, color: AppColors.goldAccent),
+                                  SizedBox(width: 3),
+                                  Text(
+                                    'View PAN',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.goldAccent,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );

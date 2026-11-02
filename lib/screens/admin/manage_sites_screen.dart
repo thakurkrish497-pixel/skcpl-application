@@ -15,6 +15,7 @@ import '../../widgets/language_toggle_button.dart';
 import '../../widgets/skcpl_brand_logo.dart';
 import 'site_details_screen.dart';
 import 'site_customization_screen.dart';
+import 'manage_site_staff_screen.dart';
 
 /// Admin screen for creating and managing construction sites
 class ManageSitesScreen extends ConsumerStatefulWidget {
@@ -179,19 +180,19 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                       ),
                     ),
                   Text(
-                    'BASIC SITE CREDENTIALS',
+                    isHeadOffice ? 'HEAD OFFICE CREDENTIALS' : 'BASIC SITE CREDENTIALS',
                     style: AppTextStyles.overline
                         .copyWith(color: AppColors.textTertiary),
                   ),
                   const SizedBox(height: 10),
                   TextFormField(
                     controller: nameController,
-                    validator: (v) => Validators.required(v, 'Site Name'),
+                    validator: (v) => Validators.required(v, isHeadOffice ? 'Office Name' : 'Site Name'),
                     style: AppTextStyles.bodyMedium
                         .copyWith(color: AppColors.textPrimary),
-                    decoration: const InputDecoration(
-                      labelText: 'Site Name',
-                      prefixIcon: Icon(Icons.business_rounded),
+                    decoration: InputDecoration(
+                      labelText: isHeadOffice ? 'Head Office Name (e.g. Indore Head Office)' : 'Site Name',
+                      prefixIcon: Icon(isHeadOffice ? Icons.apartment_rounded : Icons.business_rounded),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -199,9 +200,9 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                     controller: addressController,
                     style: AppTextStyles.bodyMedium
                         .copyWith(color: AppColors.textPrimary),
-                    decoration: const InputDecoration(
-                      labelText: 'Location / Address',
-                      prefixIcon: Icon(Icons.place_rounded),
+                    decoration: InputDecoration(
+                      labelText: isHeadOffice ? 'Head Office Address / City' : 'Location / Address',
+                      prefixIcon: const Icon(Icons.place_rounded),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -210,10 +211,12 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                     validator: (v) => Validators.required(v, 'Login ID'),
                     style: AppTextStyles.bodyMedium
                         .copyWith(color: AppColors.textPrimary),
-                    decoration: const InputDecoration(
-                      labelText: 'Site Login ID',
-                      prefixIcon: Icon(Icons.badge_rounded),
-                      helperText: 'Unique ID for site workers to sign in',
+                    decoration: InputDecoration(
+                      labelText: isHeadOffice ? 'Head Office Login ID' : 'Site Login ID',
+                      prefixIcon: const Icon(Icons.badge_rounded),
+                      helperText: isHeadOffice
+                          ? 'Unique ID for office staff to sign in'
+                          : 'Unique ID for site workers to sign in',
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -221,15 +224,16 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                     controller: budgetController,
                     keyboardType: TextInputType.number,
                     validator: (v) {
+                      if (isHeadOffice) return null;
                       if (v == null || v.isEmpty) return 'Required';
                       if (double.tryParse(v) == null) return 'Must be a number';
                       return null;
                     },
                     style: AppTextStyles.bodyMedium
                         .copyWith(color: AppColors.textPrimary),
-                    decoration: const InputDecoration(
-                      labelText: 'Allocated Budget (₹)',
-                      prefixIcon: Icon(Icons.currency_rupee_rounded),
+                    decoration: InputDecoration(
+                      labelText: isHeadOffice ? 'Operating Budget (₹) (Optional)' : 'Allocated Budget (₹)',
+                      prefixIcon: const Icon(Icons.currency_rupee_rounded),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -239,90 +243,92 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                     obscureText: true,
                     style: AppTextStyles.bodyMedium
                         .copyWith(color: AppColors.textPrimary),
-                    decoration: const InputDecoration(
-                      labelText: 'Site Worker Password',
-                      prefixIcon: Icon(Icons.lock_outline_rounded),
+                    decoration: InputDecoration(
+                      labelText: isHeadOffice ? 'Office Staff Access Password' : 'Site Worker Password',
+                      prefixIcon: const Icon(Icons.lock_outline_rounded),
                     ),
                   ),
-                  const SizedBox(height: 18),
 
-                  // Dropdowns & Customization Option
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppColors.cardDark,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppColors.divider, width: 0.5),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        CheckboxListTile(
-                          contentPadding: EdgeInsets.zero,
-                          value: seedStandardDropdowns,
-                          activeColor: AppColors.primary,
-                          title: Text(
-                            'Initialize with Standard Dropdowns',
-                            style: AppTextStyles.labelMedium
-                                .copyWith(color: AppColors.textPrimary),
+                  // Dropdowns & Customization Option (Only for Construction Sites)
+                  if (!isHeadOffice) ...[
+                    const SizedBox(height: 18),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppColors.cardDark,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppColors.divider, width: 0.5),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          CheckboxListTile(
+                            contentPadding: EdgeInsets.zero,
+                            value: seedStandardDropdowns,
+                            activeColor: AppColors.primary,
+                            title: Text(
+                              'Initialize with Standard Dropdowns',
+                              style: AppTextStyles.labelMedium
+                                  .copyWith(color: AppColors.textPrimary),
+                            ),
+                            subtitle: Text(
+                              'Adds standard cement, steel, bricks, vendors, units & expense categories for this site.',
+                              style: AppTextStyles.bodySmall
+                                  .copyWith(color: AppColors.textTertiary),
+                            ),
+                            onChanged: (val) {
+                              setDialogState(
+                                  () => seedStandardDropdowns = val ?? true);
+                            },
                           ),
-                          subtitle: Text(
-                            'Adds standard cement, steel, bricks, vendors, units & expense categories for this site.',
-                            style: AppTextStyles.bodySmall
-                                .copyWith(color: AppColors.textTertiary),
-                          ),
-                          onChanged: (val) {
-                            setDialogState(
-                                () => seedStandardDropdowns = val ?? true);
-                          },
-                        ),
-                        InkWell(
-                          onTap: () {
-                            setDialogState(() => showExtraDropdownOptions =
-                                !showExtraDropdownOptions);
-                          },
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 4),
-                            child: Row(
-                              children: [
-                                Text(
-                                  showExtraDropdownOptions
-                                      ? 'Hide initial custom items ▲'
-                                      : 'Add initial site-specific items now ▼',
-                                  style: AppTextStyles.caption
-                                      .copyWith(color: AppColors.primary),
-                                ),
-                              ],
+                          InkWell(
+                            onTap: () {
+                              setDialogState(() => showExtraDropdownOptions =
+                                  !showExtraDropdownOptions);
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 4),
+                              child: Row(
+                                children: [
+                                  Text(
+                                    showExtraDropdownOptions
+                                        ? 'Hide initial custom items ▲'
+                                        : 'Add initial site-specific items now ▼',
+                                    style: AppTextStyles.caption
+                                        .copyWith(color: AppColors.primary),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                        if (showExtraDropdownOptions) ...[
-                          const SizedBox(height: 10),
-                          TextFormField(
-                            controller: extraVendorsController,
-                            style: AppTextStyles.bodySmall
-                                .copyWith(color: AppColors.textPrimary),
-                            decoration: const InputDecoration(
-                              labelText: 'Initial Vendors (comma separated)',
-                              hintText: 'e.g. Verma Traders, Ganga Sand Depot',
-                              isDense: true,
+                          if (showExtraDropdownOptions) ...[
+                            const SizedBox(height: 10),
+                            TextFormField(
+                              controller: extraVendorsController,
+                              style: AppTextStyles.bodySmall
+                                  .copyWith(color: AppColors.textPrimary),
+                              decoration: const InputDecoration(
+                                labelText: 'Initial Vendors (comma separated)',
+                                hintText: 'e.g. Verma Traders, Ganga Sand Depot',
+                                isDense: true,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 10),
-                          TextFormField(
-                            controller: extraProductsController,
-                            style: AppTextStyles.bodySmall
-                                .copyWith(color: AppColors.textPrimary),
-                            decoration: const InputDecoration(
-                              labelText: 'Initial Materials (comma separated)',
-                              hintText: 'e.g. RMC 30, Fly Ash Bricks',
-                              isDense: true,
+                            const SizedBox(height: 10),
+                            TextFormField(
+                              controller: extraProductsController,
+                              style: AppTextStyles.bodySmall
+                                  .copyWith(color: AppColors.textPrimary),
+                              decoration: const InputDecoration(
+                                labelText: 'Initial Materials (comma separated)',
+                                hintText: 'e.g. RMC 30, Fly Ash Bricks',
+                                isDense: true,
+                              ),
                             ),
-                          ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),
@@ -351,19 +357,23 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                             ? '$rawAddress [Head Office]'.trim()
                             : rawAddress;
 
+                        final currentUser = ref.read(authProvider).user;
+                        final userId = currentUser?.id ??
+                            ref.read(authServiceProvider).currentUserId ??
+                            '24721aa3-ae89-4f10-8a19-29fdcd9137de';
+
                         final newSite = await siteService.createSite(
                           name: nameController.text.trim(),
                           address: addressToSave,
                           loginId: loginIdController.text.trim(),
                           password: passwordController.text,
-                          createdBy:
-                              ref.read(authServiceProvider).currentUserId!,
+                          createdBy: userId,
                           allocatedBudget:
                               double.tryParse(budgetController.text) ?? 0.0,
                         );
 
-                        // Seed dropdowns if requested
-                        if (seedStandardDropdowns) {
+                        // Seed dropdowns only if requested and it is NOT a Head Office
+                        if (!isHeadOffice && seedStandardDropdowns) {
                           final extraVendors = extraVendorsController.text
                               .split(',')
                               .map((s) => s.trim())
@@ -388,7 +398,7 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                         ref.invalidate(allSitesProvider);
                         if (dialogCtx.mounted) Navigator.pop(dialogCtx);
 
-                        // Prompt admin to customize now or edit anytime later
+                        // Prompt admin to customize or manage staff
                         if (mounted) {
                           _showSiteCreatedSuccessSheet(newSite);
                         }
@@ -413,7 +423,7 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                         color: Colors.white,
                       ),
                     )
-                  : const Text('Create Site'),
+                  : Text(isHeadOffice ? 'Create Head Office' : 'Create Site'),
             ),
           ],
         ),
@@ -422,6 +432,7 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
   }
 
   void _showSiteCreatedSuccessSheet(SiteModel site) {
+    final isOffice = site.isHeadOffice;
     showModalBottomSheet(
       context: context,
       backgroundColor: AppColors.surfaceDark,
@@ -439,24 +450,27 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: AppColors.approvedSurface,
+                    color: (isOffice ? AppColors.waveCyan : AppColors.approved).withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(Icons.check_circle_rounded,
-                      color: AppColors.approved, size: 28),
+                  child: Icon(
+                    isOffice ? Icons.apartment_rounded : Icons.check_circle_rounded,
+                    color: isOffice ? AppColors.waveCyan : AppColors.approved,
+                    size: 28,
+                  ),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Site Created!',
-                          style: AppTextStyles.h3
-                              .copyWith(color: AppColors.textPrimary)),
+                      Text(
+                        isOffice ? 'Head Office Created!' : 'Site Created!',
+                        style: AppTextStyles.h3.copyWith(color: AppColors.textPrimary),
+                      ),
                       Text(
                         site.name,
-                        style: AppTextStyles.bodyMedium
-                            .copyWith(color: AppColors.textSecondary),
+                        style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary),
                       ),
                     ],
                   ),
@@ -465,9 +479,10 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              'Your site is live! You can customize its vendors, materials, units, budget, and credentials now, or edit it anytime from Manage Sites.',
-              style: AppTextStyles.bodyMedium
-                  .copyWith(color: AppColors.textSecondary),
+              isOffice
+                  ? 'Your Head Office is live! You can add office staff for attendance and daily work reports, and configure GPS geofencing.'
+                  : 'Your site is live! You can customize its vendors, materials, units, budget, and credentials now, or edit it anytime from Manage Sites.',
+              style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary),
             ),
             const SizedBox(height: 24),
             Row(
@@ -497,17 +512,29 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                 Expanded(
                   flex: 2,
                   child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: isOffice ? AppColors.primary : null,
+                    ),
                     onPressed: () {
                       Navigator.pop(bottomCtx);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => SiteCustomizationScreen(site: site),
-                        ),
-                      );
+                      if (isOffice) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ManageSiteStaffScreen(site: site),
+                          ),
+                        );
+                      } else {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => SiteCustomizationScreen(site: site),
+                          ),
+                        );
+                      }
                     },
-                    icon: const Icon(Icons.tune_rounded),
-                    label: const Text('Customize'),
+                    icon: Icon(isOffice ? Icons.people_rounded : Icons.tune_rounded),
+                    label: Text(isOffice ? 'Manage Staff' : 'Customize'),
                   ),
                 ),
               ],
@@ -628,31 +655,40 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                   const SizedBox(height: 14),
                   TextFormField(
                     controller: nameController,
-                    validator: (v) => Validators.required(v, 'Site Name'),
+                    validator: (v) => Validators.required(v, isHeadOffice ? 'Office Name' : 'Site Name'),
                     style: AppTextStyles.bodyMedium
                         .copyWith(color: AppColors.textPrimary),
-                    decoration: const InputDecoration(labelText: 'Site Name'),
+                    decoration: InputDecoration(
+                      labelText: isHeadOffice ? 'Head Office Name' : 'Site Name',
+                      prefixIcon: Icon(isHeadOffice ? Icons.apartment_rounded : Icons.business_rounded),
+                    ),
                   ),
                   const SizedBox(height: 14),
                   TextFormField(
                     controller: addressController,
                     style: AppTextStyles.bodyMedium
                         .copyWith(color: AppColors.textPrimary),
-                    decoration: const InputDecoration(labelText: 'Address'),
+                    decoration: InputDecoration(
+                      labelText: isHeadOffice ? 'Office Address / City' : 'Address',
+                      prefixIcon: const Icon(Icons.place_rounded),
+                    ),
                   ),
                   const SizedBox(height: 14),
                   TextFormField(
                     controller: budgetController,
                     keyboardType: TextInputType.number,
                     validator: (v) {
+                      if (isHeadOffice) return null;
                       if (v == null || v.isEmpty) return 'Required';
                       if (double.tryParse(v) == null) return 'Must be a number';
                       return null;
                     },
                     style: AppTextStyles.bodyMedium
                         .copyWith(color: AppColors.textPrimary),
-                    decoration:
-                        const InputDecoration(labelText: 'Allocated Budget'),
+                    decoration: InputDecoration(
+                      labelText: isHeadOffice ? 'Operating Budget (₹) (Optional)' : 'Allocated Budget',
+                      prefixIcon: const Icon(Icons.currency_rupee_rounded),
+                    ),
                   ),
                   const SizedBox(height: 16),
                   SizedBox(
@@ -723,7 +759,7 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                   }
                 }
               },
-              child: const Text('Save Changes'),
+              child: Text(isHeadOffice ? 'Save Head Office' : 'Save Changes'),
             ),
           ],
         ),

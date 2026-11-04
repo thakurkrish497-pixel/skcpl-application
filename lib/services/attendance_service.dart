@@ -212,7 +212,7 @@ class AttendanceService {
       lateMinutes = diffMinutes;
     }
 
-    // Check geofence if coordinates are provided
+    // Check geofence if coordinates and site pin are provided
     bool isWithinSite = true;
     double? distanceMeters;
     if (latitude != null && longitude != null && policy.latitude != null && policy.longitude != null) {
@@ -223,6 +223,18 @@ class AttendanceService {
         siteLng: policy.longitude!,
       );
       isWithinSite = distanceMeters <= policy.allowedRadiusMeters;
+      if (!isWithinSite) {
+        final distStr = distanceMeters >= 1000
+            ? '${(distanceMeters / 1000).toStringAsFixed(1)} km'
+            : '${distanceMeters.toStringAsFixed(0)} meters';
+        throw Exception(
+          'Outside Site Boundary: You are $distStr away from $siteName. Attendance punch is locked to within ${policy.allowedRadiusMeters.toStringAsFixed(0)}m of site coordinates.',
+        );
+      }
+    } else if (policy.latitude != null && policy.longitude != null && (latitude == null || longitude == null)) {
+      throw Exception(
+        'GPS Location Required: Attendance for $siteName is geofenced and requires active GPS verification.',
+      );
     }
 
     final record = AttendanceRecordModel(

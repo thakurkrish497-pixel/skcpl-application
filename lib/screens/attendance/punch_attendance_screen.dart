@@ -336,6 +336,47 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
       return;
     }
 
+    // 1. Validate Geofence before Punch-In
+    try {
+      final policy = await ref.read(attendanceServiceProvider).getShiftPolicy(currentSite.id);
+      final hasSitePin = policy.latitude != null && policy.longitude != null;
+
+      if (hasSitePin) {
+        if (_currentPosition == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('GPS Signal Required: Please allow Location Services and tap "Retry GPS" to verify you are on site.'),
+              backgroundColor: AppColors.rejected,
+              duration: Duration(seconds: 4),
+            ),
+          );
+          _fetchLocation();
+          return;
+        }
+
+        final distance = LocationService.calculateDistanceMeters(
+          userLat: _currentPosition!.latitude,
+          userLng: _currentPosition!.longitude,
+          siteLat: policy.latitude!,
+          siteLng: policy.longitude!,
+        );
+
+        if (distance > policy.allowedRadiusMeters) {
+          final distStr = distance >= 1000
+              ? '${(distance / 1000).toStringAsFixed(1)} km'
+              : '${distance.toStringAsFixed(0)} meters';
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Cannot Punch In: You are $distStr away from ${currentSite.name}. Attendance requires you to be within ${policy.allowedRadiusMeters.toStringAsFixed(0)}m.'),
+              backgroundColor: AppColors.rejected,
+              duration: const Duration(seconds: 5),
+            ),
+          );
+          return;
+        }
+      }
+    } catch (_) {}
+
     try {
       final record = await ref.read(staffPunchProvider.notifier).punchIn(
             siteId: currentSite.id,
@@ -764,21 +805,34 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
   Widget _buildPunchActionButton(AttendanceRecordModel? record, SiteShiftPolicyModel? policy) {
     if (record == null) {
       // Not punched in yet
+      final hasSitePin = policy?.latitude != null && policy?.longitude != null;
+      final hasPos = _currentPosition != null;
+      bool isOutside = false;
+      if (hasSitePin && hasPos) {
+        final dist = LocationService.calculateDistanceMeters(
+          userLat: _currentPosition!.latitude,
+          userLng: _currentPosition!.longitude,
+          siteLat: policy!.latitude!,
+          siteLng: policy.longitude!,
+        );
+        isOutside = dist > policy.allowedRadiusMeters;
+      }
+
       return ElevatedButton(
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primary,
+          backgroundColor: isOutside ? AppColors.rejected.withOpacity(0.85) : AppColors.primary,
           padding: const EdgeInsets.symmetric(vertical: 18),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         ),
         onPressed: _handlePunchIn,
-        child: const Row(
+        child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.fingerprint_rounded, size: 26, color: Colors.white),
-            SizedBox(width: 10),
+            Icon(isOutside ? Icons.location_off_rounded : Icons.fingerprint_rounded, size: 26, color: Colors.white),
+            const SizedBox(width: 10),
             Text(
-              'PUNCH IN NOW',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+              isOutside ? 'OUTSIDE SITE BOUNDARY' : 'PUNCH IN NOW',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
             ),
           ],
         ),

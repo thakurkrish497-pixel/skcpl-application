@@ -4,6 +4,7 @@ import '../core/constants/app_text_styles.dart';
 import '../core/localization/app_strings.dart';
 import '../models/user_model.dart';
 import 'cache_manager_dialog.dart';
+import 'download_apps_dialog.dart';
 import 'language_toggle_button.dart';
 import 'notice_board_dialog.dart';
 import 'skcpl_brand_logo.dart';
@@ -237,6 +238,14 @@ class AppDrawer extends StatelessWidget {
                 const ThemeToggleButton(isCompact: true),
               ],
             ),
+          ),
+
+          // Download Native Apps
+          Divider(color: AppColors.divider, height: 1),
+          _DrawerItem(
+            icon: Icons.install_mobile_rounded,
+            label: 'Download Native Apps (Phones & Laptops)',
+            onTap: () => DownloadAppsDialog.show(context),
           ),
 
           // Sign out

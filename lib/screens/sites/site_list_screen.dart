@@ -6,6 +6,7 @@ import '../../core/constants/app_text_styles.dart';
 import '../../core/localization/app_strings.dart';
 import '../../models/site_model.dart';
 import '../../providers/site_provider.dart';
+import '../../widgets/download_apps_dialog.dart';
 import '../../widgets/language_toggle_button.dart';
 import '../../widgets/site_card.dart';
 import '../../widgets/skcpl_brand_logo.dart';
@@ -50,8 +51,13 @@ class SiteListScreen extends ConsumerWidget {
             ),
           ],
         ),
-        actions: const [
-          Padding(
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.install_mobile_rounded, color: AppColors.waveCyan),
+            tooltip: 'Download Native Apps (Android, Windows, Mac)',
+            onPressed: () => DownloadAppsDialog.show(context),
+          ),
+          const Padding(
             padding: EdgeInsets.only(right: 12),
             child: LanguageToggleButton(isCompact: true),
           ),

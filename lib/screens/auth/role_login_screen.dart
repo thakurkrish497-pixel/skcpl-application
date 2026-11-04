@@ -6,6 +6,7 @@ import '../../core/constants/app_text_styles.dart';
 import '../../core/localization/app_strings.dart';
 import '../../core/utils/validators.dart';
 import '../../providers/auth_provider.dart';
+import '../../widgets/download_apps_dialog.dart';
 import '../../widgets/language_toggle_button.dart';
 import '../../widgets/skcpl_brand_logo.dart';
 
@@ -207,6 +208,24 @@ class _RoleLoginScreenState extends ConsumerState<RoleLoginScreen> {
                         : Text(context.tr('sign_in')),
                   ),
                 ).animate().fadeIn(delay: 500.ms).slideY(begin: 0.05),
+
+                const SizedBox(height: 16),
+
+                // Download Native Apps Button
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.waveCyan,
+                    side: BorderSide(color: AppColors.waveCyan.withValues(alpha: 0.5)),
+                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  icon: const Icon(Icons.install_mobile_rounded, size: 18),
+                  label: const Text(
+                    '📲 Download Native App (Android, Windows, Mac)',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                  ),
+                  onPressed: () => DownloadAppsDialog.show(context),
+                ).animate().fadeIn(delay: 550.ms),
 
                 const SizedBox(height: 32),
 

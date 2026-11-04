@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Skcpl App</string>
+	<string>SKCPL</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -45,5 +45,18 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<!-- Hardware & System Permissions -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>SKCPL requires GPS location access to verify staff geofenced attendance at designated construction sites and Indore Head Office.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>SKCPL requires GPS location access to verify staff geofenced attendance at designated construction sites and Indore Head Office.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>SKCPL requires camera access to capture site progress photos, cashbook expense bill receipts, and staff KYC documents.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>SKCPL requires photo library access to upload site progress photos, cashbook expense bill receipts, and staff KYC documents.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>SKCPL requires microphone access to record voice notes and audio for daily site reports.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>SKCPL requires speech recognition to transcribe daily site reports hands-free.</string>
 </dict>
 </plist>

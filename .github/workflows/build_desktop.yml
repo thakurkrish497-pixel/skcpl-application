@@ -10,6 +10,7 @@ on:
       - 'windows/**'
       - 'macos/**'
       - 'pubspec.yaml'
+      - '.github/workflows/**'
 
 jobs:
   # ==========================================
@@ -141,6 +142,7 @@ jobs:
   publish-release:
     name: Publish Public Download Links
     needs: [build-windows, build-macos, build-android]
+    if: always() && !cancelled() && (needs.build-android.result == 'success' || needs.build-windows.result == 'success' || needs.build-macos.result == 'success')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -160,6 +162,7 @@ jobs:
         with:
           tag_name: v1.0.0
           name: "SKCPL Operations ERP v1.0.0 (Connect to Waves)"
+          make_latest: true
           body: |
             ## SKCPL Operations & Construction ERP — Connect to Waves
             **Developer**: Krish Thakur

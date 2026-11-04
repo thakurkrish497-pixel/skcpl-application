@@ -6,6 +6,7 @@ import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_text_styles.dart';
 import '../../core/utils/validators.dart';
 import '../../models/site_model.dart';
+import '../../models/attendance_model.dart';
 import '../../providers/attendance_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/site_provider.dart';
@@ -230,7 +231,7 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                               isHeadOffice
                                   ? 'OFFICE GPS GEOFENCE (DEFAULT 10 KM)'
                                   : 'SITE GPS & GOOGLE MAPS LOCATION *',
-                              style: AppTextStyles.labelSmall.copyWith(
+                              style: AppTextStyles.caption.copyWith(
                                 color: !isHeadOffice ? AppColors.approved : AppColors.textTertiary,
                                 fontWeight: FontWeight.bold,
                               ),

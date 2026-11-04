@@ -29,6 +29,8 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
   void _showCreateSiteDialog() {
     final nameController = TextEditingController();
     final addressController = TextEditingController();
+    final mapsLocationController = TextEditingController();
+    final radiusController = TextEditingController(text: '10000');
     final loginIdController = TextEditingController();
     final passwordController = TextEditingController();
     final budgetController = TextEditingController(text: '0');
@@ -40,6 +42,8 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
     bool showExtraDropdownOptions = false;
     bool isHeadOffice = false;
     bool isCreating = false;
+    bool isAcquiringGps = false;
+    String? locationStatus;
 
     showDialog(
       context: context,
@@ -203,6 +207,176 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                     decoration: InputDecoration(
                       labelText: isHeadOffice ? 'Head Office Address / City' : 'Location / Address',
                       prefixIcon: const Icon(Icons.place_rounded),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppColors.cardDark,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: !isHeadOffice ? AppColors.primary.withValues(alpha: 0.4) : AppColors.divider,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.location_on_rounded, color: AppColors.approved, size: 16),
+                            const SizedBox(width: 6),
+                            Text(
+                              isHeadOffice
+                                  ? 'OFFICE GPS GEOFENCE (DEFAULT 10 KM)'
+                                  : 'SITE GPS & GOOGLE MAPS LOCATION *',
+                              style: AppTextStyles.labelSmall.copyWith(
+                                color: !isHeadOffice ? AppColors.approved : AppColors.textTertiary,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          isHeadOffice
+                              ? 'Staff can only punch attendance within 10 km of Head Office. Default Indore coordinates applied if left blank.'
+                              : 'Staff can ONLY punch attendance within 10 km of this site. Paste Google Maps link or coordinates strictly.',
+                          style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary, fontSize: 11),
+                        ),
+                        const SizedBox(height: 10),
+                        TextFormField(
+                          controller: mapsLocationController,
+                          validator: (v) {
+                            if (isHeadOffice) return null; // Can default to Indore HQ
+                            if (v == null || v.trim().isEmpty) {
+                              return 'Google Maps link or coordinates required';
+                            }
+                            final parsed = _parseGoogleMapsLocation(v);
+                            if (parsed == null) {
+                              return 'Invalid location. Paste a Google Maps link or "lat, lng"';
+                            }
+                            return null;
+                          },
+                          onChanged: (val) {
+                            final parsed = _parseGoogleMapsLocation(val);
+                            setDialogState(() {
+                              if (parsed != null) {
+                                locationStatus = '✅ Coordinates verified: ${parsed.lat.toStringAsFixed(4)}, ${parsed.lng.toStringAsFixed(4)}';
+                              } else if (val.trim().isNotEmpty) {
+                                locationStatus = '⚠️ Could not parse coordinates yet. Paste full link or "lat, lng"';
+                              } else {
+                                locationStatus = null;
+                              }
+                            });
+                          },
+                          style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
+                          decoration: InputDecoration(
+                            labelText: isHeadOffice ? 'Google Maps Link / GPS (Optional)' : 'Google Maps Link or GPS Coordinates *',
+                            hintText: 'e.g. https://maps.app.goo.gl/... or 22.7196, 75.8577',
+                            prefixIcon: const Icon(Icons.map_rounded),
+                            isDense: true,
+                          ),
+                        ),
+                        if (locationStatus != null) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            locationStatus!,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: locationStatus!.startsWith('✅') ? AppColors.approved : AppColors.pending,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(vertical: 8),
+                                  foregroundColor: AppColors.primary,
+                                  side: const BorderSide(color: AppColors.primary, width: 0.8),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
+                                icon: isAcquiringGps
+                                    ? const SizedBox(
+                                        width: 14,
+                                        height: 14,
+                                        child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                                      )
+                                    : const Icon(Icons.my_location_rounded, size: 14),
+                                label: Text(
+                                  isAcquiringGps ? 'Getting GPS...' : '📍 Use Current Location',
+                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                                ),
+                                onPressed: isAcquiringGps
+                                    ? null
+                                    : () async {
+                                        setDialogState(() => isAcquiringGps = true);
+                                        final res = await LocationService.getCurrentLocationDetailed();
+                                        setDialogState(() {
+                                          isAcquiringGps = false;
+                                          if (res.position != null) {
+                                            final latStr = res.position!.latitude.toStringAsFixed(6);
+                                            final lngStr = res.position!.longitude.toStringAsFixed(6);
+                                            mapsLocationController.text = '$latStr, $lngStr';
+                                            locationStatus = '✅ Coordinates verified: $latStr, $lngStr';
+                                          } else {
+                                            locationStatus = '❌ Could not get GPS. Please paste Google Maps link manually.';
+                                          }
+                                        });
+                                      },
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        TextFormField(
+                          controller: radiusController,
+                          keyboardType: TextInputType.number,
+                          validator: (v) {
+                            if (v == null || v.trim().isEmpty) return 'Radius required';
+                            final num = double.tryParse(v);
+                            if (num == null || num <= 0) return 'Must be a positive distance';
+                            return null;
+                          },
+                          style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
+                          decoration: const InputDecoration(
+                            labelText: 'Attendance Geofence Radius (meters)',
+                            hintText: '10000',
+                            prefixIcon: Icon(Icons.radar_rounded),
+                            helperText: 'Default 10,000m (10 km). Workers outside this area cannot punch in.',
+                            isDense: true,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [1000, 5000, 10000, 20000].map((r) {
+                              final isSel = radiusController.text == '$r';
+                              final label = '${r ~/ 1000} km${r == 10000 ? ' (Default)' : ''}';
+                              return Padding(
+                                padding: const EdgeInsets.only(right: 6),
+                                child: ActionChip(
+                                  label: Text(label),
+                                  backgroundColor: isSel ? AppColors.primary.withValues(alpha: 0.25) : AppColors.surfaceDark,
+                                  labelStyle: TextStyle(
+                                    fontSize: 11,
+                                    color: isSel ? AppColors.primary : AppColors.textSecondary,
+                                    fontWeight: isSel ? FontWeight.bold : FontWeight.normal,
+                                  ),
+                                  onPressed: () {
+                                    setDialogState(() => radiusController.text = '$r');
+                                  },
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -371,6 +545,26 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                           allocatedBudget:
                               double.tryParse(budgetController.text) ?? 0.0,
                         );
+
+                        // Save geofenced shift policy with coordinates & default 10 km radius
+                        try {
+                          final parsedLoc = _parseGoogleMapsLocation(mapsLocationController.text.trim());
+                          final radiusVal = double.tryParse(radiusController.text.trim()) ?? 10000.0;
+                          final shiftPolicy = SiteShiftPolicyModel(
+                            siteId: newSite.id,
+                            siteName: newSite.name,
+                            shiftStartTime: '09:00',
+                            shiftEndTime: '18:00',
+                            punchOutWindowEnd: '19:00',
+                            graceMinutes: 15,
+                            lateCutoffMinutes: 40,
+                            latitude: parsedLoc?.lat ?? (isHeadOffice ? 22.7196 : null),
+                            longitude: parsedLoc?.lng ?? (isHeadOffice ? 75.8577 : null),
+                            allowedRadiusMeters: radiusVal,
+                          );
+                          await ref.read(attendanceServiceProvider).saveShiftPolicy(shiftPolicy);
+                          ref.invalidate(shiftPolicyForSiteProvider(newSite.id));
+                        } catch (_) {}
 
                         // Seed dropdowns only if requested and it is NOT a Head Office
                         if (!isHeadOffice && seedStandardDropdowns) {
@@ -1012,33 +1206,37 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                 ),
                 const SizedBox(height: 8),
 
-                // Quick Radius Chips
-                Row(
-                  children: [100, 250, 500, 1000].map((r) {
-                    final isSel = radiusController.text == '$r';
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 6),
-                      child: ActionChip(
-                        label: Text('${r}m'),
-                        backgroundColor: isSel
-                            ? AppColors.primary.withOpacity(0.25)
-                            : AppColors.cardDark,
-                        labelStyle: TextStyle(
-                          fontSize: 11,
-                          color: isSel
-                              ? AppColors.primary
-                              : AppColors.textSecondary,
-                          fontWeight:
-                              isSel ? FontWeight.bold : FontWeight.normal,
+                // Quick Radius Chips (Default 10 km)
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [500, 1000, 5000, 10000, 20000].map((r) {
+                      final isSel = radiusController.text == '$r';
+                      final label = r >= 1000 ? '${r ~/ 1000} km${r == 10000 ? ' (Default)' : ''}' : '${r}m';
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: ActionChip(
+                          label: Text(label),
+                          backgroundColor: isSel
+                              ? AppColors.primary.withOpacity(0.25)
+                              : AppColors.cardDark,
+                          labelStyle: TextStyle(
+                            fontSize: 11,
+                            color: isSel
+                                ? AppColors.primary
+                                : AppColors.textSecondary,
+                            fontWeight:
+                                isSel ? FontWeight.bold : FontWeight.normal,
+                          ),
+                          onPressed: () {
+                            setDialogState(() {
+                              radiusController.text = '$r';
+                            });
+                          },
                         ),
-                        onPressed: () {
-                          setDialogState(() {
-                            radiusController.text = '$r';
-                          });
-                        },
-                      ),
-                    );
-                  }).toList(),
+                      );
+                    }).toList(),
+                  ),
                 ),
                 const SizedBox(height: 14),
 
@@ -1089,7 +1287,7 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                 final lat = double.tryParse(latController.text.trim());
                 final lng = double.tryParse(lngController.text.trim());
                 final radius =
-                    double.tryParse(radiusController.text.trim()) ?? 500.0;
+                    double.tryParse(radiusController.text.trim()) ?? 10000.0;
 
                 final updated = policy.copyWith(
                   latitude: lat,

@@ -63,7 +63,7 @@ class AttendanceService {
       punchOutWindowEnd: '19:00',
       graceMinutes: 15,
       lateCutoffMinutes: 40,
-      allowedRadiusMeters: 500,
+      allowedRadiusMeters: 10000,
       latitude: isOffice ? 22.7196 : null,
       longitude: isOffice ? 75.8577 : null,
     );

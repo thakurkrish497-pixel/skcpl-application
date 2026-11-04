@@ -135,7 +135,7 @@ class LocationService {
     required double userLng,
     required double? siteLat,
     required double? siteLng,
-    double allowedRadiusMeters = 500.0,
+    double allowedRadiusMeters = 10000.0,
   }) {
     if (siteLat == null || siteLng == null) {
       // If site has no coordinates configured yet, default to allow

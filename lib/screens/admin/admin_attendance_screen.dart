@@ -316,7 +316,7 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                   lateCutoffMinutes:
                       int.tryParse(lateCutoffController.text.trim()) ?? 40,
                   allowedRadiusMeters:
-                      double.tryParse(radiusController.text.trim()) ?? 500.0,
+                      double.tryParse(radiusController.text.trim()) ?? 10000.0,
                   latitude: double.tryParse(latController.text.trim()),
                   longitude: double.tryParse(lngController.text.trim()),
                 );

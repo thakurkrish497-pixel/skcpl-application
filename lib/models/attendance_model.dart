@@ -11,7 +11,7 @@ class SiteShiftPolicyModel {
   final int lateCutoffMinutes; // e.g. 40 mins
   final double? latitude;
   final double? longitude;
-  final double allowedRadiusMeters; // e.g. 500 meters
+  final double allowedRadiusMeters; // e.g. 10000 meters (10 km default)
 
   const SiteShiftPolicyModel({
     required this.siteId,
@@ -23,7 +23,7 @@ class SiteShiftPolicyModel {
     this.lateCutoffMinutes = 40,
     this.latitude,
     this.longitude,
-    this.allowedRadiusMeters = 500.0,
+    this.allowedRadiusMeters = 10000.0,
   });
 
   /// Parse HH:mm to TimeOfDay
@@ -54,7 +54,7 @@ class SiteShiftPolicyModel {
       lateCutoffMinutes: (json['late_cutoff_minutes'] as num?)?.toInt() ?? 40,
       latitude: (json['latitude'] as num?)?.toDouble(),
       longitude: (json['longitude'] as num?)?.toDouble(),
-      allowedRadiusMeters: (json['allowed_radius_meters'] as num?)?.toDouble() ?? 500.0,
+      allowedRadiusMeters: (json['allowed_radius_meters'] as num?)?.toDouble() ?? 10000.0,
     );
   }
 

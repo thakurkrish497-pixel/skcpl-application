@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -139,11 +140,11 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.surfaceDark,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.help_outline_rounded, color: AppColors.primary),
-            SizedBox(width: 8),
-            Text('Enabling GPS in Browser'),
+            const Icon(Icons.help_outline_rounded, color: AppColors.primary),
+            const SizedBox(width: 8),
+            Text(kIsWeb ? 'Enabling GPS in Browser' : 'Enabling GPS on Your Device'),
           ],
         ),
         content: Column(
@@ -155,31 +156,61 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
               style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
             ),
             const SizedBox(height: 12),
-            _buildHelpStep(
-              '1',
-              'Click the site settings / tune icon on the left of "localhost:8080" in your Chrome address bar.',
-            ),
-            const SizedBox(height: 8),
-            _buildHelpStep(
-              '2',
-              'Change Location from "Block" to "Allow".',
-            ),
-            const SizedBox(height: 8),
-            _buildHelpStep(
-              '3',
-              'On Mac: Open System Settings > Privacy & Security > Location Services, and make sure Google Chrome is ON.',
-            ),
-            const SizedBox(height: 8),
-            _buildHelpStep(
-              '4',
-              'Tap the blue Retry GPS button.',
-            ),
+            if (kIsWeb) ...[
+              _buildHelpStep(
+                '1',
+                'Click the site settings / tune icon in your browser address bar.',
+              ),
+              const SizedBox(height: 8),
+              _buildHelpStep(
+                '2',
+                'Change Location from "Block" to "Allow".',
+              ),
+              const SizedBox(height: 8),
+              _buildHelpStep(
+                '3',
+                'Ensure Location Services are turned ON in your operating system settings.',
+              ),
+              const SizedBox(height: 8),
+              _buildHelpStep(
+                '4',
+                'Tap the blue Retry GPS button.',
+              ),
+            ] else ...[
+              _buildHelpStep(
+                '1',
+                'Swipe down your quick settings bar and make sure "Location / GPS" is turned ON.',
+              ),
+              const SizedBox(height: 8),
+              _buildHelpStep(
+                '2',
+                'Ensure SKCPL has Location Permission enabled ("While using the app").',
+              ),
+              const SizedBox(height: 8),
+              _buildHelpStep(
+                '3',
+                'If permission was denied, tap "Open Settings" below to grant it instantly.',
+              ),
+              const SizedBox(height: 8),
+              _buildHelpStep(
+                '4',
+                'Tap "Retry GPS Now" to verify your site presence.',
+              ),
+            ],
           ],
         ),
         actions: [
+          if (!kIsWeb)
+            TextButton.icon(
+              icon: const Icon(Icons.settings_outlined, size: 16),
+              label: const Text('Open Settings'),
+              onPressed: () {
+                LocationService.openAppSettings();
+              },
+            ),
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Got It'),
+            child: const Text('Cancel'),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),

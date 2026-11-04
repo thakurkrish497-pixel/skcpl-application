@@ -58,34 +58,38 @@ class LocationService {
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
-          return const LocationFetchResult(
+          return LocationFetchResult(
             isPermissionDenied: true,
-            errorMessage: 'Location permission was denied in your browser.',
+            errorMessage: kIsWeb
+                ? 'Location permission was denied in your browser.'
+                : 'Location permission was denied. Please allow location access to verify site attendance.',
           );
         }
       }
 
       if (permission == LocationPermission.deniedForever) {
-        return const LocationFetchResult(
+        return LocationFetchResult(
           isPermissionDenied: true,
           isDeniedForever: true,
-          errorMessage: 'Location is blocked. Click the tune icon next to localhost in Chrome URL bar and allow Location.',
+          errorMessage: kIsWeb
+              ? 'Location is blocked. Click the tune/padlock icon next to the URL bar and allow Location.'
+              : 'Location is blocked. Please open Device Settings > Apps > SKCPL and enable Location permissions.',
         );
       }
 
-      // Try High Accuracy first
+      // Try High Accuracy first (12s timeout for reliable satellite lock)
       try {
         final pos = await Geolocator.getCurrentPosition(
           desiredAccuracy: LocationAccuracy.high,
-          timeLimit: const Duration(seconds: 6),
+          timeLimit: const Duration(seconds: 12),
         );
         return LocationFetchResult(position: pos);
       } catch (_) {
-        // Fallback to Medium accuracy
+        // Fallback to Medium accuracy (network / cell tower / WiFi location)
         try {
           final fallbackPos = await Geolocator.getCurrentPosition(
             desiredAccuracy: LocationAccuracy.medium,
-            timeLimit: const Duration(seconds: 10),
+            timeLimit: const Duration(seconds: 15),
           );
           return LocationFetchResult(position: fallbackPos);
         } catch (_) {
@@ -93,18 +97,27 @@ class LocationService {
           if (lastKnown != null) {
             return LocationFetchResult(position: lastKnown);
           }
-          return const LocationFetchResult(
-            errorMessage: 'GPS acquisition timed out. Please ensure Location is allowed in Chrome and Mac Settings.',
+          return LocationFetchResult(
+            errorMessage: kIsWeb
+                ? 'GPS acquisition timed out. Please ensure Location is allowed in browser and OS settings.'
+                : 'GPS signal timed out. Please ensure Device Location is turned ON and you have clear network/satellite coverage.',
           );
         }
       }
     } catch (e) {
-      // If plugin method channel fails on web, provide clear guidance
       return LocationFetchResult(
-        errorMessage: 'Unable to acquire GPS ($e). Please ensure Chrome has Location allowed in macOS System Settings > Privacy & Security > Location Services.',
+        errorMessage: kIsWeb
+            ? 'Unable to acquire GPS ($e). Please ensure Chrome has Location allowed in macOS System Settings > Privacy & Security > Location Services.'
+            : 'Unable to acquire GPS ($e). Please verify Location Services are enabled on your device.',
       );
     }
   }
+
+  /// Open device app settings so user can grant blocked permissions with 1 tap
+  static Future<bool> openAppSettings() async => Geolocator.openAppSettings();
+
+  /// Open device GPS toggle settings
+  static Future<bool> openLocationSettings() async => Geolocator.openLocationSettings();
 
   /// Calculates distance in meters between user's coordinates and site center
   static double calculateDistanceMeters({

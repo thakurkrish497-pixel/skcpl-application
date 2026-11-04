@@ -240,7 +240,11 @@ class _VoiceDictationDialogState extends State<VoiceDictationDialog> {
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Microphone permission denied. Please allow microphone in browser.')),
+            SnackBar(
+              content: Text(kIsWeb
+                  ? 'Microphone permission denied. Please allow microphone in browser.'
+                  : 'Microphone permission denied. Please allow microphone access in device Settings.'),
+            ),
           );
         }
       }

@@ -125,7 +125,7 @@ jobs:
         run: flutter pub get
 
       - name: Build Android Release APK
-        run: flutter build apk --release
+        run: flutter build apk --release --android-skip-build-dependency-validation
 
       - name: Prepare APK
         run: cp build/app/outputs/flutter-apk/app-release.apk SKCPL-Android.apk

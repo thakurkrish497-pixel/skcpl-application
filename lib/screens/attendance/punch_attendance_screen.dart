@@ -337,45 +337,72 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
     }
 
     // 1. Validate Geofence before Punch-In
+    if (_currentPosition == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('GPS Signal Required: Please allow Location Services and tap "Retry GPS" to verify you are on site before punching in.'),
+          backgroundColor: AppColors.rejected,
+          duration: Duration(seconds: 4),
+        ),
+      );
+      _fetchLocation();
+      return;
+    }
+
     try {
       final policy = await ref.read(attendanceServiceProvider).getShiftPolicy(currentSite.id);
-      final hasSitePin = policy.latitude != null && policy.longitude != null;
+      final isHeadOffice = currentSite.isHeadOffice ||
+          currentSite.name.toLowerCase().contains('head office') ||
+          currentSite.name.toLowerCase().contains('indore office') ||
+          currentSite.name.toLowerCase().trim() == 'indore';
 
-      if (hasSitePin) {
-        if (_currentPosition == null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('GPS Signal Required: Please allow Location Services and tap "Retry GPS" to verify you are on site.'),
-              backgroundColor: AppColors.rejected,
-              duration: Duration(seconds: 4),
-            ),
-          );
-          _fetchLocation();
-          return;
-        }
+      final double? siteLat = policy.latitude ?? (isHeadOffice ? 22.719600 : null);
+      final double? siteLng = policy.longitude ?? (isHeadOffice ? 75.857700 : null);
+      final double allowedRadius = policy.allowedRadiusMeters > 0 ? policy.allowedRadiusMeters : 10000.0;
 
-        final distance = LocationService.calculateDistanceMeters(
-          userLat: _currentPosition!.latitude,
-          userLng: _currentPosition!.longitude,
-          siteLat: policy.latitude!,
-          siteLng: policy.longitude!,
+      if (siteLat == null || siteLng == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Site Location Not Configured: Admin must set GPS coordinates or Google Maps link for "${currentSite.name}" in Manage Sites before staff can punch attendance.'),
+            backgroundColor: AppColors.rejected,
+            duration: const Duration(seconds: 5),
+          ),
         );
-
-        if (distance > policy.allowedRadiusMeters) {
-          final distStr = distance >= 1000
-              ? '${(distance / 1000).toStringAsFixed(1)} km'
-              : '${distance.toStringAsFixed(0)} meters';
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Cannot Punch In: You are $distStr away from ${currentSite.name}. Attendance requires you to be within ${policy.allowedRadiusMeters.toStringAsFixed(0)}m.'),
-              backgroundColor: AppColors.rejected,
-              duration: const Duration(seconds: 5),
-            ),
-          );
-          return;
-        }
+        return;
       }
-    } catch (_) {}
+
+      final distance = LocationService.calculateDistanceMeters(
+        userLat: _currentPosition!.latitude,
+        userLng: _currentPosition!.longitude,
+        siteLat: siteLat,
+        siteLng: siteLng,
+      );
+
+      if (distance > allowedRadius) {
+        final distStr = distance >= 1000
+            ? '${(distance / 1000).toStringAsFixed(1)} km'
+            : '${distance.toStringAsFixed(0)} meters';
+        final radStr = allowedRadius >= 1000
+            ? '${(allowedRadius / 1000).toStringAsFixed(0)} km'
+            : '${allowedRadius.toStringAsFixed(0)}m';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Cannot Punch In: You are $distStr away from ${currentSite.name}. Attendance requires you to be within $radStr of the site location.'),
+            backgroundColor: AppColors.rejected,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+        return;
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Geofence verification error: $e'),
+          backgroundColor: AppColors.rejected,
+        ),
+      );
+      return;
+    }
 
     try {
       final record = await ref.read(staffPunchProvider.notifier).punchIn(
@@ -710,18 +737,49 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
 
   Widget _buildLocationStatusCard(SiteShiftPolicyModel? policy) {
     final hasPos = _currentPosition != null;
-    final hasSitePin = policy?.latitude != null && policy?.longitude != null;
-    bool isInside = true;
+    final isHeadOffice = _site?.isHeadOffice == true ||
+        _site?.name.toLowerCase().contains('head office') == true ||
+        _site?.name.toLowerCase().contains('indore office') == true ||
+        _site?.name.toLowerCase().trim() == 'indore';
+
+    final double? siteLat = policy?.latitude ?? (isHeadOffice ? 22.719600 : null);
+    final double? siteLng = policy?.longitude ?? (isHeadOffice ? 75.857700 : null);
+    final double allowedRadius = (policy?.allowedRadiusMeters ?? 0) > 0 ? policy!.allowedRadiusMeters : 10000.0;
+    final hasSitePin = siteLat != null && siteLng != null;
+
+    bool isInside = false;
     double? distance;
 
     if (hasPos && hasSitePin) {
       distance = LocationService.calculateDistanceMeters(
         userLat: _currentPosition!.latitude,
         userLng: _currentPosition!.longitude,
-        siteLat: policy!.latitude!,
-        siteLng: policy.longitude!,
+        siteLat: siteLat,
+        siteLng: siteLng,
       );
-      isInside = distance <= policy.allowedRadiusMeters;
+      isInside = distance <= allowedRadius;
+    }
+
+    final String statusText;
+    final Color statusColor;
+
+    if (_isLoadingLocation) {
+      statusText = 'Fetching Live GPS...';
+      statusColor = AppColors.pending;
+    } else if (!hasPos) {
+      statusText = _locationError ?? 'Location Unavailable (Tap Retry GPS)';
+      statusColor = AppColors.rejected;
+    } else if (!hasSitePin) {
+      statusText = 'Site Pin Not Set (Admin must configure coordinates in Manage Sites)';
+      statusColor = AppColors.pending;
+    } else if (isInside) {
+      statusText = 'Inside Geofence (${distance?.toStringAsFixed(0)}m from site center)';
+      statusColor = AppColors.approved;
+    } else {
+      final distKm = (distance! / 1000).toStringAsFixed(1);
+      final maxKm = (allowedRadius / 1000).toStringAsFixed(0);
+      statusText = 'Outside Boundary ($distKm km away — Max allowed: $maxKm km)';
+      statusColor = AppColors.rejected;
     }
 
     return Container(
@@ -730,22 +788,20 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
         color: AppColors.cardDark,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: hasPos
-              ? (isInside ? AppColors.approved.withOpacity(0.4) : AppColors.pending.withOpacity(0.4))
-              : AppColors.rejected.withOpacity(0.4),
+          color: statusColor.withOpacity(0.4),
         ),
       ),
       child: Row(
         children: [
           CircleAvatar(
             radius: 18,
-            backgroundColor: hasPos
-                ? (isInside ? AppColors.approved.withOpacity(0.15) : AppColors.pending.withOpacity(0.15))
-                : AppColors.rejected.withOpacity(0.15),
+            backgroundColor: statusColor.withOpacity(0.15),
             child: Icon(
-              hasPos ? (isInside ? Icons.my_location_rounded : Icons.location_searching_rounded) : Icons.location_off_rounded,
+              hasPos
+                  ? (isInside ? Icons.my_location_rounded : Icons.location_off_rounded)
+                  : Icons.location_disabled_rounded,
               size: 18,
-              color: hasPos ? (isInside ? AppColors.approved : AppColors.pending) : AppColors.rejected,
+              color: statusColor,
             ),
           ),
           const SizedBox(width: 12),
@@ -754,18 +810,10 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  _isLoadingLocation
-                      ? 'Fetching Live GPS...'
-                      : (hasPos
-                          ? (isInside
-                              ? (hasSitePin
-                                  ? 'Inside Geofence (${distance?.toStringAsFixed(0)}m from center)'
-                                  : 'Location Acquired (On-Site)')
-                              : 'Outside Boundary (${(distance! / 1000).toStringAsFixed(1)} km away)')
-                          : (_locationError ?? 'Location Unavailable')),
+                  statusText,
                   style: AppTextStyles.bodyMedium.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: hasPos ? (isInside ? AppColors.approved : AppColors.pending) : AppColors.rejected,
+                    color: statusColor,
                   ),
                 ),
                 if (hasPos) ...[
@@ -777,7 +825,7 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
                   if (hasSitePin) ...[
                     const SizedBox(height: 2),
                     Text(
-                      'Site Pin: ${policy!.latitude!.toStringAsFixed(5)}, ${policy.longitude!.toStringAsFixed(5)} • Radius: ${policy.allowedRadiusMeters.toStringAsFixed(0)}m',
+                      'Site Pin: ${siteLat.toStringAsFixed(5)}, ${siteLng.toStringAsFixed(5)} • Radius: ${(allowedRadius / 1000).toStringAsFixed(0)} km',
                       style: AppTextStyles.caption.copyWith(color: AppColors.primary, fontSize: 11),
                     ),
                   ],
@@ -805,22 +853,55 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
   Widget _buildPunchActionButton(AttendanceRecordModel? record, SiteShiftPolicyModel? policy) {
     if (record == null) {
       // Not punched in yet
-      final hasSitePin = policy?.latitude != null && policy?.longitude != null;
+      final isHeadOffice = _site?.isHeadOffice == true ||
+          _site?.name.toLowerCase().contains('head office') == true ||
+          _site?.name.toLowerCase().contains('indore office') == true ||
+          _site?.name.toLowerCase().trim() == 'indore';
+
+      final double? siteLat = policy?.latitude ?? (isHeadOffice ? 22.719600 : null);
+      final double? siteLng = policy?.longitude ?? (isHeadOffice ? 75.857700 : null);
+      final double allowedRadius = (policy?.allowedRadiusMeters ?? 0) > 0 ? policy!.allowedRadiusMeters : 10000.0;
+      final hasSitePin = siteLat != null && siteLng != null;
       final hasPos = _currentPosition != null;
+
       bool isOutside = false;
+      double? distance;
       if (hasSitePin && hasPos) {
-        final dist = LocationService.calculateDistanceMeters(
+        distance = LocationService.calculateDistanceMeters(
           userLat: _currentPosition!.latitude,
           userLng: _currentPosition!.longitude,
-          siteLat: policy!.latitude!,
-          siteLng: policy.longitude!,
+          siteLat: siteLat,
+          siteLng: siteLng,
         );
-        isOutside = dist > policy.allowedRadiusMeters;
+        isOutside = distance > allowedRadius;
+      }
+
+      final String buttonText;
+      final IconData buttonIcon;
+      final Color buttonBg;
+
+      if (!hasPos) {
+        buttonText = 'GPS SIGNAL REQUIRED (TAP TO RETRY)';
+        buttonIcon = Icons.location_disabled_rounded;
+        buttonBg = AppColors.rejected.withOpacity(0.85);
+      } else if (!hasSitePin) {
+        buttonText = 'SITE LOCATION NOT CONFIGURED';
+        buttonIcon = Icons.map_rounded;
+        buttonBg = AppColors.rejected.withOpacity(0.85);
+      } else if (isOutside) {
+        final distKm = (distance! / 1000).toStringAsFixed(1);
+        buttonText = 'OUTSIDE SITE BOUNDARY ($distKm KM AWAY)';
+        buttonIcon = Icons.location_off_rounded;
+        buttonBg = AppColors.rejected.withOpacity(0.85);
+      } else {
+        buttonText = 'PUNCH IN NOW';
+        buttonIcon = Icons.fingerprint_rounded;
+        buttonBg = AppColors.primary;
       }
 
       return ElevatedButton(
         style: ElevatedButton.styleFrom(
-          backgroundColor: isOutside ? AppColors.rejected.withOpacity(0.85) : AppColors.primary,
+          backgroundColor: buttonBg,
           padding: const EdgeInsets.symmetric(vertical: 18),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         ),
@@ -828,11 +909,11 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(isOutside ? Icons.location_off_rounded : Icons.fingerprint_rounded, size: 26, color: Colors.white),
+            Icon(buttonIcon, size: 26, color: Colors.white),
             const SizedBox(width: 10),
             Text(
-              isOutside ? 'OUTSIDE SITE BOUNDARY' : 'PUNCH IN NOW',
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+              buttonText,
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
             ),
           ],
         ),

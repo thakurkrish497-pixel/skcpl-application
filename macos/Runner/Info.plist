@@ -33,11 +33,15 @@
 	<string>SKCPL requires GPS location access to verify staff geofenced attendance at designated construction sites and Indore Head Office.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>SKCPL requires GPS location access to verify staff geofenced attendance at designated construction sites and Indore Head Office.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>SKCPL requires GPS location access to verify staff geofenced attendance at designated construction sites and Indore Head Office.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>SKCPL requires GPS location access to verify staff geofenced attendance at designated construction sites and Indore Head Office.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>SKCPL requires camera access to capture site progress photos, cashbook expense bill receipts, and staff KYC documents.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>SKCPL requires microphone access to record voice notes and audio for daily site reports.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>SKCPL requires speech recognition access for live voice dictation in site work reports and cashbook entries.</string>
 </dict>
 </plist>

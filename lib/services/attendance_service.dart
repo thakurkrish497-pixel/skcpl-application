@@ -54,18 +54,47 @@ class AttendanceService {
     }
 
     // Default policy
-    final isOffice = siteId == 'office' || siteId == _indoreOfficeSiteId;
+    bool isOffice = siteId == 'office' || siteId == _indoreOfficeSiteId;
+    String siteName = isOffice ? 'Indore Head Office' : 'Default Policy';
+    double? fallbackLat = isOffice ? 22.719600 : null;
+    double? fallbackLng = isOffice ? 75.857700 : null;
+
+    try {
+      final siteRes = await _client
+          .from('sites')
+          .select('name, address')
+          .eq('id', siteId)
+          .maybeSingle();
+      if (siteRes != null) {
+        final name = (siteRes['name'] as String? ?? '').toLowerCase();
+        final addr = (siteRes['address'] as String? ?? '').toLowerCase();
+        if (name.contains('head office') ||
+            name.contains('indore office') ||
+            name.trim() == 'indore' ||
+            name.contains('corporate') ||
+            addr.contains('head office') ||
+            addr.contains('[office]')) {
+          isOffice = true;
+          siteName = siteRes['name'] as String? ?? 'Indore Head Office';
+          fallbackLat = 22.719600;
+          fallbackLng = 75.857700;
+        } else {
+          siteName = siteRes['name'] as String? ?? 'Site Policy';
+        }
+      }
+    } catch (_) {}
+
     return SiteShiftPolicyModel(
       siteId: siteId,
-      siteName: isOffice ? 'Indore Head Office' : 'Default Policy',
+      siteName: siteName,
       shiftStartTime: '09:00',
       shiftEndTime: '18:00',
       punchOutWindowEnd: '19:00',
       graceMinutes: 15,
       lateCutoffMinutes: 40,
       allowedRadiusMeters: 10000,
-      latitude: isOffice ? 22.7196 : null,
-      longitude: isOffice ? 75.8577 : null,
+      latitude: fallbackLat,
+      longitude: fallbackLng,
     );
   }
 
@@ -212,28 +241,49 @@ class AttendanceService {
       lateMinutes = diffMinutes;
     }
 
-    // Check geofence if coordinates and site pin are provided
-    bool isWithinSite = true;
-    double? distanceMeters;
-    if (latitude != null && longitude != null && policy.latitude != null && policy.longitude != null) {
-      distanceMeters = LocationService.calculateDistanceMeters(
-        userLat: latitude,
-        userLng: longitude,
-        siteLat: policy.latitude!,
-        siteLng: policy.longitude!,
-      );
-      isWithinSite = distanceMeters <= policy.allowedRadiusMeters;
-      if (!isWithinSite) {
-        final distStr = distanceMeters >= 1000
-            ? '${(distanceMeters / 1000).toStringAsFixed(1)} km'
-            : '${distanceMeters.toStringAsFixed(0)} meters';
-        throw Exception(
-          'Outside Site Boundary: You are $distStr away from $siteName. Attendance punch is locked to within ${policy.allowedRadiusMeters.toStringAsFixed(0)}m of site coordinates.',
-        );
-      }
-    } else if (policy.latitude != null && policy.longitude != null && (latitude == null || longitude == null)) {
+    // Strict Geofence Validation
+    final isOffice = siteId == 'office' ||
+        siteId == _indoreOfficeSiteId ||
+        siteName.toLowerCase().contains('head office') ||
+        siteName.toLowerCase().contains('indore office') ||
+        siteName.toLowerCase().trim() == 'indore';
+
+    final double? siteLat = policy.latitude ?? (isOffice ? 22.719600 : null);
+    final double? siteLng = policy.longitude ?? (isOffice ? 75.857700 : null);
+    final double allowedRadius = policy.allowedRadiusMeters > 0 ? policy.allowedRadiusMeters : 10000.0;
+
+    // 1. Live GPS coordinates of user are strictly required
+    if (latitude == null || longitude == null) {
       throw Exception(
-        'GPS Location Required: Attendance for $siteName is geofenced and requires active GPS verification.',
+        'GPS Location Required: Attendance tracking requires active GPS verification. Please allow location access before punching in.',
+      );
+    }
+
+    // 2. Site location coordinates must be configured by Admin
+    if (siteLat == null || siteLng == null) {
+      throw Exception(
+        'Site Location Not Configured: Admin must configure GPS coordinates or Google Maps link for "$siteName" before attendance can be recorded.',
+      );
+    }
+
+    // 3. Strict geofence distance check (default 10km)
+    final distanceMeters = LocationService.calculateDistanceMeters(
+      userLat: latitude,
+      userLng: longitude,
+      siteLat: siteLat,
+      siteLng: siteLng,
+    );
+
+    final isWithinSite = distanceMeters <= allowedRadius;
+    if (!isWithinSite) {
+      final distStr = distanceMeters >= 1000
+          ? '${(distanceMeters / 1000).toStringAsFixed(1)} km'
+          : '${distanceMeters.toStringAsFixed(0)} meters';
+      final radStr = allowedRadius >= 1000
+          ? '${(allowedRadius / 1000).toStringAsFixed(0)} km'
+          : '${allowedRadius.toStringAsFixed(0)}m';
+      throw Exception(
+        'Outside Site Boundary: You are $distStr away from $siteName. Attendance punch is strictly restricted to within $radStr of the site location.',
       );
     }
 

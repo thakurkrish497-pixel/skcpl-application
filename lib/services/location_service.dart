@@ -54,61 +54,89 @@ class LocationService {
         );
       }
 
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) {
-          return LocationFetchResult(
-            isPermissionDenied: true,
-            errorMessage: kIsWeb
-                ? 'Location permission was denied in your browser.'
-                : 'Location permission was denied. Please allow location access to verify site attendance.',
-          );
-        }
+      LocationPermission permission = LocationPermission.unableToDetermine;
+      try {
+        permission = await Geolocator.checkPermission();
+      } catch (_) {}
+
+      if (permission == LocationPermission.denied || permission == LocationPermission.unableToDetermine) {
+        try {
+          permission = await Geolocator.requestPermission();
+        } catch (_) {}
       }
 
-      if (permission == LocationPermission.deniedForever) {
+      final isMac = !kIsWeb && defaultTargetPlatform == TargetPlatform.macOS;
+
+      if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
         return LocationFetchResult(
           isPermissionDenied: true,
-          isDeniedForever: true,
-          errorMessage: kIsWeb
-              ? 'Location is blocked. Click the tune/padlock icon next to the URL bar and allow Location.'
-              : 'Location is blocked. Please open Device Settings > Apps > SKCPL and enable Location permissions.',
+          isDeniedForever: permission == LocationPermission.deniedForever,
+          errorMessage: isMac
+              ? 'macOS Location Permission Required: Open System Settings > Privacy & Security > Location Services, turn "SKCPL - Connect to Waves" toggle OFF and then back ON, then restart the app.'
+              : (kIsWeb
+                  ? 'Location is blocked. Click the tune/padlock icon next to the URL bar and allow Location.'
+                  : 'Location is blocked. Please open Device Settings > Apps > SKCPL and enable Location permissions.'),
         );
       }
 
-      // Try High Accuracy first (12s timeout for reliable satellite lock)
+      final isDesktop = !kIsWeb &&
+          (defaultTargetPlatform == TargetPlatform.macOS ||
+              defaultTargetPlatform == TargetPlatform.windows ||
+              defaultTargetPlatform == TargetPlatform.linux);
+
+      final primaryAccuracy = isDesktop ? LocationAccuracy.medium : LocationAccuracy.high;
+
+      // Try primary accuracy (12s timeout)
       try {
         final pos = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.high,
+          desiredAccuracy: primaryAccuracy,
           timeLimit: const Duration(seconds: 12),
         );
         return LocationFetchResult(position: pos);
-      } catch (_) {
-        // Fallback to Medium accuracy (network / cell tower / WiFi location)
+      } catch (e1) {
+        // Fallback to low accuracy (Wi-Fi / cell triangulation)
         try {
           final fallbackPos = await Geolocator.getCurrentPosition(
-            desiredAccuracy: LocationAccuracy.medium,
-            timeLimit: const Duration(seconds: 15),
+            desiredAccuracy: LocationAccuracy.low,
+            timeLimit: const Duration(seconds: 12),
           );
           return LocationFetchResult(position: fallbackPos);
-        } catch (_) {
-          final lastKnown = await Geolocator.getLastKnownPosition();
-          if (lastKnown != null) {
-            return LocationFetchResult(position: lastKnown);
-          }
+        } catch (e2) {
+          try {
+            final lastKnown = await Geolocator.getLastKnownPosition();
+            if (lastKnown != null) {
+              return LocationFetchResult(position: lastKnown);
+            }
+          } catch (_) {}
+
+          final errStr = '$e1 $e2'.toLowerCase();
+          final isPerm = errStr.contains('denied') || errStr.contains('permission');
+
           return LocationFetchResult(
-            errorMessage: kIsWeb
-                ? 'GPS acquisition timed out. Please ensure Location is allowed in browser and OS settings.'
-                : 'GPS signal timed out. Please ensure Device Location is turned ON and you have clear network/satellite coverage.',
+            isPermissionDenied: isPerm,
+            errorMessage: isPerm
+                ? (isMac
+                    ? 'macOS Location Permission Required: Open System Settings > Privacy & Security > Location Services, toggle "SKCPL - Connect to Waves" OFF and ON, then restart the app.'
+                    : 'Location permission was denied. Please allow location access to verify site attendance.')
+                : (kIsWeb
+                    ? 'GPS acquisition timed out. Please ensure Location is allowed in browser and OS settings.'
+                    : 'GPS signal timed out. Please ensure Device Location is turned ON and you have clear network/Wi-Fi coverage.'),
           );
         }
       }
     } catch (e) {
+      final errStr = e.toString().toLowerCase();
+      final isPerm = errStr.contains('denied') || errStr.contains('permission');
+      final isMac = !kIsWeb && defaultTargetPlatform == TargetPlatform.macOS;
       return LocationFetchResult(
-        errorMessage: kIsWeb
-            ? 'Unable to acquire GPS ($e). Please ensure Chrome has Location allowed in macOS System Settings > Privacy & Security > Location Services.'
-            : 'Unable to acquire GPS ($e). Please verify Location Services are enabled on your device.',
+        isPermissionDenied: isPerm,
+        errorMessage: isPerm
+            ? (isMac
+                ? 'macOS Location Permission Required: In System Settings > Privacy & Security > Location Services, toggle "SKCPL - Connect to Waves" OFF and ON, then restart the app.'
+                : 'Location permission denied. Please allow location access in your device Settings.')
+            : (kIsWeb
+                ? 'Unable to acquire GPS ($e). Please ensure Chrome has Location allowed in macOS System Settings > Privacy & Security > Location Services.'
+                : 'Unable to acquire GPS ($e). Please verify Location Services are enabled on your device.'),
       );
     }
   }

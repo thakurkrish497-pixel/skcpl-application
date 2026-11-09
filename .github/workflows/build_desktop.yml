@@ -127,14 +127,25 @@ jobs:
       - name: Build Android Release APK
         run: flutter build apk --release --android-skip-build-dependency-validation
 
-      - name: Prepare APK
-        run: cp build/app/outputs/flutter-apk/app-release.apk SKCPL-Android.apk
+      - name: Build Android App Bundle (.aab for Google Play)
+        run: flutter build appbundle --release --android-skip-build-dependency-validation
+
+      - name: Prepare APK and AAB
+        run: |
+          cp build/app/outputs/flutter-apk/app-release.apk SKCPL-Android.apk
+          cp build/app/outputs/bundle/release/app-release.aab SKCPL-Android.aab
 
       - name: Upload Android APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: SKCPL-Android
           path: SKCPL-Android.apk
+
+      - name: Upload Android AAB Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SKCPL-Android-AAB
+          path: SKCPL-Android.aab
 
   # ==========================================
   # 4. PUBLISH PUBLIC RELEASE (FOR DIRECT DOWNLOADS)
@@ -169,7 +180,8 @@ jobs:
             **Publisher**: S. Kumar Creation Pvt. Ltd. (Indore, MP, India)
 
             ### Direct App Downloads:
-            - **Android Phones**: [SKCPL-Android.apk](https://github.com/thakurkrish497-pixel/skcpl-application/releases/download/v1.0.0/SKCPL-Android.apk)
+            - **Google Play Store App Bundle**: [SKCPL-Android.aab](https://github.com/thakurkrish497-pixel/skcpl-application/releases/download/v1.0.0/SKCPL-Android.aab)
+            - **Android Phones (Direct APK)**: [SKCPL-Android.apk](https://github.com/thakurkrish497-pixel/skcpl-application/releases/download/v1.0.0/SKCPL-Android.apk)
             - **Windows Laptops (64-bit)**: [SKCPL-Windows-x64.zip](https://github.com/thakurkrish497-pixel/skcpl-application/releases/download/v1.0.0/SKCPL-Windows-x64.zip)
             - **Mac Laptops (macOS)**: [SKCPL-macOS.zip](https://github.com/thakurkrish497-pixel/skcpl-application/releases/download/v1.0.0/SKCPL-macOS.zip)
           files: release-files/*

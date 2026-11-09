@@ -70,3 +70,4 @@ class SpeechRecognitionNative implements SpeechRecognitionBase {
 }
 
 SpeechRecognitionBase createSpeechRecognition() => SpeechRecognitionNative();
+

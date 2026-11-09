@@ -120,15 +120,6 @@ class CashTransactionModel {
 
   String? get projectHeadReviewNote => supervisorReviewNote;
 
-  /// Whether this cash transaction is currently waiting for Project Head / Supervisor review
-  bool get isPendingSupervisorReview =>
-      remarks?.contains('[Project Head Review: Pending]') == true ||
-      remarks?.contains('[Project Head: Review Pending]') == true ||
-      remarks?.contains('[Supervisor Review: Pending]') == true ||
-      remarks?.contains('[Supervisor: Review Pending]') == true;
-
-  bool get isPendingProjectHeadReview => isPendingSupervisorReview;
-
   /// Whether this cash transaction has been approved by the Project Head / Supervisor
   bool get isSupervisorApproved =>
       remarks?.contains('[Project Head: Approved') == true ||
@@ -137,6 +128,26 @@ class CashTransactionModel {
       remarks?.contains('[Supervisor: Edited & Approved') == true;
 
   bool get isProjectHeadApproved => isSupervisorApproved;
+
+  /// Whether this cash transaction was rejected by the Project Head / Supervisor
+  bool get isSupervisorRejected =>
+      remarks?.contains('[Project Head: Rejected') == true ||
+      remarks?.contains('[Supervisor: Rejected') == true;
+
+  bool get isProjectHeadRejected => isSupervisorRejected;
+
+  /// Whether this cash transaction is currently waiting for Project Head / Supervisor review
+  bool get isPendingSupervisorReview =>
+      status != TransactionStatus.rejected &&
+      status != TransactionStatus.approved &&
+      !isSupervisorApproved &&
+      !isSupervisorRejected &&
+      (remarks?.contains('[Project Head Review: Pending]') == true ||
+      remarks?.contains('[Project Head: Review Pending]') == true ||
+      remarks?.contains('[Supervisor Review: Pending]') == true ||
+      remarks?.contains('[Supervisor: Review Pending]') == true);
+
+  bool get isPendingProjectHeadReview => isPendingSupervisorReview;
 
   /// User remarks with any system bracket tags stripped out
   String? get cleanRemarks {

@@ -485,13 +485,19 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
       itemBuilder: (ctx, i) {
         final tx = list[i];
         final siteName = _getSiteName(sites, tx.siteId);
+        final isCashReceived = tx.amountReceived > 0 && tx.expenseAmount == 0;
+        final displayAmount = isCashReceived ? tx.amountReceived : tx.expenseAmount;
 
         return Card(
           color: AppColors.cardDark,
           margin: const EdgeInsets.only(bottom: 14),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: AppColors.approved.withOpacity(0.35)),
+            side: BorderSide(
+              color: isCashReceived
+                  ? const Color(0xFF10B981).withOpacity(0.5)
+                  : AppColors.approved.withOpacity(0.35),
+            ),
           ),
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -553,9 +559,32 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            tx.displayExpenseTypeName,
-                            style: AppTextStyles.h4.copyWith(color: Colors.white, fontSize: 16),
+                          Row(
+                            children: [
+                              if (isCashReceived) ...[
+                                Container(
+                                  margin: const EdgeInsets.only(right: 6),
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF10B981).withOpacity(0.15),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: const Color(0xFF10B981).withOpacity(0.4)),
+                                  ),
+                                  child: const Text(
+                                    'CASH RECEIVED',
+                                    style: TextStyle(color: Color(0xFF10B981), fontSize: 10, fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                              ],
+                              Expanded(
+                                child: Text(
+                                  isCashReceived
+                                      ? (tx.customExpenseType ?? (tx.partyName ?? "Office Top-up"))
+                                      : tx.displayExpenseTypeName,
+                                  style: AppTextStyles.h4.copyWith(color: Colors.white, fontSize: 16),
+                                ),
+                              ),
+                            ],
                           ),
                           if (tx.partyName != null)
                             Text(
@@ -595,8 +624,11 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
                       ),
                     ),
                     Text(
-                      '₹${tx.expenseAmount.toStringAsFixed(2)}',
-                      style: AppTextStyles.h3.copyWith(color: AppColors.approved, fontWeight: FontWeight.bold),
+                      '${isCashReceived ? "+ " : ""}₹${displayAmount.toStringAsFixed(2)}',
+                      style: AppTextStyles.h3.copyWith(
+                        color: isCashReceived ? const Color(0xFF10B981) : AppColors.approved,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ],
                 ),
@@ -1415,7 +1447,9 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
   }
 
   void _editAndApproveCash(CashTransactionModel tx) {
-    final amountController = TextEditingController(text: tx.expenseAmount.toString());
+    final isCashReceived = tx.amountReceived > 0 && tx.expenseAmount == 0;
+    final currentAmt = isCashReceived ? tx.amountReceived : tx.expenseAmount;
+    final amountController = TextEditingController(text: currentAmt.toString());
     final remarksController = TextEditingController(text: tx.cleanRemarks ?? '');
 
     showDialog(
@@ -1423,7 +1457,7 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.surfaceDark,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Edit & Approve Expense', style: TextStyle(color: Colors.white)),
+        title: Text(isCashReceived ? 'Edit & Forward Cash Receipt' : 'Edit & Approve Expense', style: const TextStyle(color: Colors.white)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -1431,7 +1465,7 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
               controller: amountController,
               keyboardType: TextInputType.number,
               style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(labelText: 'Amount (₹)'),
+              decoration: InputDecoration(labelText: isCashReceived ? 'Received Amount (₹)' : 'Expense Amount (₹)'),
             ),
             const SizedBox(height: 12),
             TextField(
@@ -1455,7 +1489,7 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
                   ? ' [Accounts Verification: Bypassed by Admin Policy]'
                   : '';
 
-              final newAmt = double.tryParse(amountController.text) ?? tx.expenseAmount;
+              final newAmt = double.tryParse(amountController.text) ?? currentAmt;
               final cleaned = (tx.remarks ?? '')
                   .replaceAll('[Project Head Review: Pending]', '')
                   .replaceAll('[Supervisor Review: Pending]', '')
@@ -1466,7 +1500,8 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
                       .trim();
 
               final updated = tx.copyWith(
-                expenseAmount: newAmt,
+                expenseAmount: isCashReceived ? 0.0 : newAmt,
+                amountReceived: isCashReceived ? newAmt : 0.0,
                 remarks: updatedRemarks,
                 status: targetStatus,
               );
@@ -1478,8 +1513,8 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
                   SnackBar(
                     content: Text(ok
                         ? (bypassAccounts
-                            ? 'Expense updated! Bypassed Accounts & forwarded directly to Admin.'
-                            : 'Expense updated & forwarded to Accounts!')
+                            ? 'Updated! Bypassed Accounts & forwarded directly to Admin.'
+                            : 'Updated & forwarded to Accounts!')
                         : 'Update failed${err != null ? ": $err" : ""}'),
                     backgroundColor: ok ? AppColors.approved : AppColors.rejected,
                   ),
@@ -1502,7 +1537,7 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.surfaceDark,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Reject Cash Expense', style: TextStyle(color: Colors.white)),
+        title: const Text('Reject Cash Entry', style: TextStyle(color: Colors.white)),
         content: TextField(
           controller: reasonController,
           style: const TextStyle(color: Colors.white),
@@ -1520,19 +1555,24 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
               Navigator.pop(ctx);
 
               final reason = reasonController.text.trim();
-              final updatedRemarks = '${tx.remarks ?? ""} [Project Head: Rejected - $reason by $_currentProjectHeadName]'.trim();
-              final updated = tx.copyWith(
-                remarks: updatedRemarks,
-                status: TransactionStatus.rejected,
-                rejectionNote: reason,
-              );
+              final cleaned = (tx.remarks ?? '')
+                  .replaceAll('[Project Head Review: Pending]', '')
+                  .replaceAll('[Supervisor Review: Pending]', '')
+                  .trim();
+              final updatedRemarks = '$cleaned [Project Head: Rejected - $reason by $_currentProjectHeadName]'.trim();
+              final userId = ref.read(authProvider).user?.id ?? 
+                             ref.read(supabaseClientProvider).auth.currentUser?.id ?? '';
 
-              final ok = await ref.read(cashProvider.notifier).updateTransaction(updated);
+              // First update remarks tag
+              await ref.read(cashProvider.notifier).updateTransaction(tx.copyWith(remarks: updatedRemarks));
+
+              // Call rejectTransaction to properly mark status='rejected'
+              final ok = await ref.read(cashProvider.notifier).rejectTransaction(tx.id!, userId, reason);
               if (mounted) {
                 final err = ref.read(cashProvider).error;
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text(ok ? 'Expense marked rejected.' : 'Failed to reject${err != null ? ": $err" : ""}'),
+                    content: Text(ok ? 'Entry rejected successfully.' : 'Failed to reject${err != null ? ": $err" : ""}'),
                     backgroundColor: ok ? AppColors.rejected : Colors.grey,
                   ),
                 );
@@ -1740,14 +1780,19 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
               Navigator.pop(ctx);
 
               final reason = reasonController.text.trim();
-              final updatedRemarks = '${tx.remarks ?? ""} [Project Head: Rejected - $reason by $_currentProjectHeadName]'.trim();
-              final updated = tx.copyWith(
-                remarks: updatedRemarks,
-                status: TransactionStatus.rejected,
-                rejectionNote: reason,
-              );
+              final cleaned = (tx.remarks ?? '')
+                  .replaceAll('[Project Head Review: Pending]', '')
+                  .replaceAll('[Supervisor Review: Pending]', '')
+                  .trim();
+              final updatedRemarks = '$cleaned [Project Head: Rejected - $reason by $_currentProjectHeadName]'.trim();
+              final userId = ref.read(authProvider).user?.id ?? 
+                             ref.read(supabaseClientProvider).auth.currentUser?.id ?? '';
 
-              final ok = await ref.read(stockProvider.notifier).updateTransaction(updated);
+              // First update remarks tag
+              await ref.read(stockProvider.notifier).updateTransaction(tx.copyWith(remarks: updatedRemarks));
+
+              // Call rejectTransaction to properly mark status='rejected'
+              final ok = await ref.read(stockProvider.notifier).rejectTransaction(tx.id!, userId, reason);
               if (mounted) {
                 final err = ref.read(stockProvider).error;
                 ScaffoldMessenger.of(context).showSnackBar(

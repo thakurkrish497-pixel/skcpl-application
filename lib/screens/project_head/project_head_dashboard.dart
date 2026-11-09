@@ -575,6 +575,22 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
                                 style: const TextStyle(color: AppColors.waveCyan, fontSize: 11, fontWeight: FontWeight.bold),
                               ),
                             ),
+                          if (tx.batchId != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary.withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                                ),
+                                child: Text(
+                                  '📦 Batch: ${tx.batchId}',
+                                  style: const TextStyle(color: AppColors.primary, fontSize: 10, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ),
                         ],
                       ),
                     ),
@@ -819,6 +835,22 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
                               child: Text(
                                 'Submitted By: ${tx.submitterName}',
                                 style: const TextStyle(color: AppColors.waveCyan, fontSize: 11, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          if (tx.batchId != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary.withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                                ),
+                                child: Text(
+                                  '📦 Batch: ${tx.batchId}',
+                                  style: const TextStyle(color: AppColors.primary, fontSize: 10, fontWeight: FontWeight.bold),
+                                ),
                               ),
                             ),
                         ],

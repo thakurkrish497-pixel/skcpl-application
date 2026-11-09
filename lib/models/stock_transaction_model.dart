@@ -197,6 +197,12 @@ class StockTransactionModel {
     return match?.group(1)?.trim();
   }
 
+  /// Extracts Batch ID if part of a multi-entry batch
+  String? get batchId {
+    final match = RegExp(r'\[Batch:\s*(.+?)\]').firstMatch(remarks ?? '');
+    return match?.group(1)?.trim();
+  }
+
   /// Extracts Party Name from remarks if worker entered a manual party
   String? get customPartyName {
     final match = RegExp(r'\[Party:\s*(.+?)\]').firstMatch(remarks ?? '');
@@ -251,6 +257,7 @@ class StockTransactionModel {
   String? get cleanRemarks {
     if (remarks == null) return null;
     final cleaned = remarks!
+        .replaceAll(RegExp(r'\[Batch:\s*.+?\]\s*'), '')
         .replaceAll(RegExp(r'\[Material:\s*.+?\]\s*'), '')
         .replaceAll(RegExp(r'\[Unit:\s*.+?\]\s*'), '')
         .replaceAll(RegExp(r'\[Bill:\s*.+?\]\s*'), '')

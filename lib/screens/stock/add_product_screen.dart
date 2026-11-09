@@ -22,6 +22,39 @@ import '../../services/dropdown_service.dart';
 import '../../models/site_staff_model.dart';
 import '../../widgets/voice_input_field.dart';
 
+/// Staged draft for multi-material Inward challans
+class StockInwardDraft {
+  final String id;
+  final String productId;
+  final String? customProduct;
+  final String productName;
+  final String metricUnitId;
+  final String? customMetricUnit;
+  final String metricUnitName;
+  final double quantity;
+  final double? rate;
+  final double sgst;
+  final double igst;
+  final double? finalAmount;
+  final String? remarks;
+
+  StockInwardDraft({
+    required this.id,
+    required this.productId,
+    this.customProduct,
+    required this.productName,
+    required this.metricUnitId,
+    this.customMetricUnit,
+    required this.metricUnitName,
+    required this.quantity,
+    this.rate,
+    this.sgst = 0,
+    this.igst = 0,
+    this.finalAmount,
+    this.remarks,
+  });
+}
+
 /// Add Product (Inbound) form with real-time tax calculation
 /// and conditional locking based on approval status
 class AddProductScreen extends ConsumerStatefulWidget {
@@ -56,6 +89,10 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
   // Photos
   List<PickedPhoto> _selectedPhotos = [];
   bool _isSubmitting = false;
+
+  // Staged multi-material batch
+  final List<StockInwardDraft> _stagedMaterials = [];
+  Key _photoPickerKey = UniqueKey();
 
   // Calculated
   double _finalAmount = 0.0;
@@ -158,17 +195,240 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
     }
   }
 
-  Future<void> _handleSubmit() async {
-    if (!_formKey.currentState!.validate()) return;
-    if (_selectedVendorId == null ||
-        _selectedProductId == null ||
-        _selectedMetricUnitId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select all required dropdowns')),
-      );
-      return;
+  bool get _hasCurrentMaterialData {
+    final qty = double.tryParse(_quantityController.text) ?? 0;
+    return qty > 0;
+  }
+
+  String _getProductName(String? id, List<DropdownItemModel> products) {
+    if (id == 'OTHER') {
+      return _customProductController.text.trim().isNotEmpty
+          ? _customProductController.text.trim()
+          : 'Manual Material';
+    }
+    final match = products.where((p) => p.id == id).firstOrNull;
+    return match?.value ?? 'Material';
+  }
+
+  String _getUnitName(String? id, List<DropdownItemModel> units) {
+    if (id == 'OTHER') {
+      return _customUnitController.text.trim().isNotEmpty
+          ? _customUnitController.text.trim()
+          : 'units';
+    }
+    final match = units.where((u) => u.id == id).firstOrNull;
+    return match?.value ?? 'units';
+  }
+
+  bool _stageCurrentMaterial({
+    bool silent = false,
+    List<DropdownItemModel> products = const [],
+    List<DropdownItemModel> units = const [],
+  }) {
+    final qty = double.tryParse(_quantityController.text) ?? 0;
+    if (qty <= 0) {
+      if (!silent) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please enter a valid quantity greater than 0'),
+            backgroundColor: AppColors.rejected,
+          ),
+        );
+      }
+      return false;
     }
 
+    if (_selectedProductId == null) {
+      if (!silent) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please select a Material / Product'),
+            backgroundColor: AppColors.rejected,
+          ),
+        );
+      }
+      return false;
+    }
+
+    if (_selectedProductId == 'OTHER' && _customProductController.text.trim().isEmpty) {
+      if (!silent) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please enter custom material name'),
+            backgroundColor: AppColors.rejected,
+          ),
+        );
+      }
+      return false;
+    }
+
+    if (_selectedMetricUnitId == null) {
+      if (!silent) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please select a Metric Unit'),
+            backgroundColor: AppColors.rejected,
+          ),
+        );
+      }
+      return false;
+    }
+
+    if (_selectedMetricUnitId == 'OTHER' && _customUnitController.text.trim().isEmpty) {
+      if (!silent) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please enter custom unit name'),
+            backgroundColor: AppColors.rejected,
+          ),
+        );
+      }
+      return false;
+    }
+
+    final pName = _getProductName(_selectedProductId, products);
+    final uName = _getUnitName(_selectedMetricUnitId, units);
+
+    final draft = StockInwardDraft(
+      id: 'DRAFT-IN-${DateTime.now().microsecondsSinceEpoch}',
+      productId: _selectedProductId!,
+      customProduct: _customProductController.text.trim().isNotEmpty ? _customProductController.text.trim() : null,
+      productName: pName,
+      metricUnitId: _selectedMetricUnitId!,
+      customMetricUnit: _customUnitController.text.trim().isNotEmpty ? _customUnitController.text.trim() : null,
+      metricUnitName: uName,
+      quantity: qty,
+      rate: double.tryParse(_rateController.text),
+      sgst: double.tryParse(_sgstController.text) ?? 0,
+      igst: double.tryParse(_igstController.text) ?? 0,
+      finalAmount: _finalAmount > 0 ? _finalAmount : null,
+      remarks: _remarksController.text.trim().isNotEmpty ? _remarksController.text.trim() : null,
+    );
+
+    setState(() {
+      _stagedMaterials.add(draft);
+      _quantityController.clear();
+      _rateController.clear();
+      _sgstController.clear();
+      _igstController.clear();
+      _remarksController.clear();
+      _customProductController.clear();
+      _customUnitController.clear();
+      _selectedProductId = null;
+      _selectedMetricUnitId = null;
+      _finalAmount = 0.0;
+    });
+
+    if (!silent) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Added to Challan! (${_stagedMaterials.length} materials staged)'),
+          backgroundColor: AppColors.approved,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+    return true;
+  }
+
+  void _showBatchSuccessDialog(int count, double totalValue) {
+    final currencyFmt = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 2);
+    showModalBottomSheet(
+      context: context,
+      isDismissible: false,
+      enableDrag: false,
+      backgroundColor: AppColors.surfaceDark,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: AppColors.approved.withOpacity(0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.check_circle_rounded, color: AppColors.approved, size: 36),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Inward Batch Recorded!',
+                style: AppTextStyles.h4.copyWith(color: AppColors.textPrimary),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '$count ${count == 1 ? "material" : "materials"} inwarded'
+                '${totalValue > 0 ? " • Total: ${currencyFmt.format(totalValue)}" : ""}',
+                style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      icon: const Icon(Icons.history_rounded, size: 18),
+                      label: const Text('View History'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        side: const BorderSide(color: AppColors.divider),
+                      ),
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        Navigator.pushNamed(context, '/stock-history');
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      icon: const Icon(Icons.add_rounded, size: 18),
+                      label: const Text('+ Receive More'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        // Clears bill/vendor inputs ready for next challan without re-login!
+                        setState(() {
+                          _billNoController.clear();
+                          _unregisteredVendorController.clear();
+                          _selectedVendorId = null;
+                          _selectedPhotos = [];
+                          _photoPickerKey = UniqueKey();
+                        });
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  if (Navigator.canPop(context)) {
+                    Navigator.pop(context, true);
+                  }
+                },
+                child: const Text('Done & Return to Menu', style: TextStyle(color: AppColors.textTertiary)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleSubmit({
+    List<DropdownItemModel> products = const [],
+    List<DropdownItemModel> units = const [],
+  }) async {
     final authState = ref.read(authProvider);
     final siteId = widget.existingTransaction?.siteId ?? authState.activeSite?.id;
     final userId = authState.user?.id;
@@ -191,72 +451,57 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
       return;
     }
 
-    setState(() => _isSubmitting = true);
+    final roleAccess = ref.read(roleAccessProvider);
+    final phCanApproveStock = roleAccess.projectHeadCanApproveStock;
+    final accountsCanApproveStock = roleAccess.accountsCanApproveStock;
 
-    try {
-      String? encodedRemarks = _remarksController.text.trim().isEmpty ? null : _remarksController.text.trim();
-      if (_selectedProductId == 'OTHER' && _customProductController.text.trim().isNotEmpty) {
-        final tag = '[Material: ${_customProductController.text.trim()}]';
-        encodedRemarks = encodedRemarks == null ? tag : '$tag $encodedRemarks';
+    TransactionStatus initialStatus = TransactionStatus.pendingAccounts;
+    if (!phCanApproveStock && !accountsCanApproveStock) {
+      initialStatus = TransactionStatus.pendingAdmin;
+    }
+
+    // ── Single Edit Mode ──
+    if (_isEditMode) {
+      if (!_formKey.currentState!.validate()) return;
+      if (_selectedVendorId == null || _selectedProductId == null || _selectedMetricUnitId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please select all required dropdowns')),
+        );
+        return;
       }
-      if (_selectedMetricUnitId == 'OTHER' && _customUnitController.text.trim().isNotEmpty) {
-        final tag = '[Unit: ${_customUnitController.text.trim()}]';
-        encodedRemarks = encodedRemarks == null ? tag : '$tag $encodedRemarks';
-      }
 
-      final bill = _billNoController.text.trim();
-      final activeStaff = ref.read(activeStaffProvider);
-      final roleAccess = ref.read(roleAccessProvider);
-      final phCanApproveStock = roleAccess.projectHeadCanApproveStock;
-      final accountsCanApproveStock = roleAccess.accountsCanApproveStock;
+      setState(() => _isSubmitting = true);
+      try {
+        String? encodedRemarks = _remarksController.text.trim().isEmpty ? null : _remarksController.text.trim();
+        if (_selectedProductId == 'OTHER' && _customProductController.text.trim().isNotEmpty) {
+          final tag = '[Material: ${_customProductController.text.trim()}]';
+          encodedRemarks = encodedRemarks == null ? tag : '$tag $encodedRemarks';
+        }
+        if (_selectedMetricUnitId == 'OTHER' && _customUnitController.text.trim().isNotEmpty) {
+          final tag = '[Unit: ${_customUnitController.text.trim()}]';
+          encodedRemarks = encodedRemarks == null ? tag : '$tag $encodedRemarks';
+        }
 
-      if (!_isEditMode) {
+        final bill = _billNoController.text.trim();
         if (activeStaff != null) {
           final staffTag = '[By: ${activeStaff.name} (${activeStaff.designation ?? activeStaff.role.displayName})]';
           encodedRemarks = encodedRemarks == null ? staffTag : '$staffTag $encodedRemarks';
         }
-        if (phCanApproveStock) {
-          const supTag = '[Project Head Review: Pending] [Supervisor Review: Pending]';
-          encodedRemarks = encodedRemarks == null ? supTag : '$encodedRemarks $supTag';
-        } else {
-          const supTag = '[Project Head Review: Bypassed by Admin Policy]';
-          encodedRemarks = encodedRemarks == null ? supTag : '$encodedRemarks $supTag';
+        if (bill.isNotEmpty) {
+          final tag = '[Bill: $bill]';
+          encodedRemarks = encodedRemarks == null ? tag : '$tag $encodedRemarks';
         }
-      } else if (activeStaff != null) {
-        final staffTag = '[By: ${activeStaff.name} (${activeStaff.designation ?? activeStaff.role.displayName})]';
-        encodedRemarks = encodedRemarks == null ? staffTag : '$staffTag $encodedRemarks';
-      }
-      if (bill.isNotEmpty) {
-        final tag = '[Bill: $bill]';
-        encodedRemarks = encodedRemarks == null ? tag : '$tag $encodedRemarks';
-      }
 
-      final effectiveProductId = _selectedProductId == 'OTHER'
-          ? DropdownService.otherProductPlaceholderId
-          : _selectedProductId!;
+        final effectiveProductId = _selectedProductId == 'OTHER'
+            ? DropdownService.otherProductPlaceholderId
+            : _selectedProductId!;
+        final effectiveMetricUnitId = _selectedMetricUnitId == 'OTHER'
+            ? DropdownService.otherUnitPlaceholderId
+            : _selectedMetricUnitId!;
+        final effectiveVendorId = _selectedVendorId == 'OTHER' ? null : _selectedVendorId;
+        final effectiveUnregisteredVendor = _selectedVendorId == 'OTHER' ? _unregisteredVendorController.text.trim() : null;
 
-      final effectiveMetricUnitId = _selectedMetricUnitId == 'OTHER'
-          ? DropdownService.otherUnitPlaceholderId
-          : _selectedMetricUnitId!;
-
-      final effectiveVendorId = _selectedVendorId == 'OTHER'
-          ? null
-          : _selectedVendorId;
-
-      final effectiveUnregisteredVendor = _selectedVendorId == 'OTHER'
-          ? _unregisteredVendorController.text.trim()
-          : null;
-
-      TransactionStatus initialStatus = TransactionStatus.pendingAccounts;
-      if (!phCanApproveStock && !accountsCanApproveStock) {
-        // Both Project Head & Accounts bypassed -> direct to Admin
-        initialStatus = TransactionStatus.pendingAdmin;
-      }
-
-      StockTransactionModel submission;
-
-      if (_isEditMode) {
-        submission = StockTransactionModel(
+        var submission = StockTransactionModel(
           id: _transaction!.id,
           siteId: _transaction!.siteId,
           submittedBy: _transaction!.submittedBy,
@@ -275,8 +520,120 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
           status: _transaction!.status,
           photoUrls: _transaction!.photoUrls,
         );
-      } else {
-        submission = StockTransactionModel(
+
+        List<String> uploadedUrls = List.from(submission.photoUrls);
+        if (_selectedPhotos.isNotEmpty) {
+          final storageService = ref.read(storageServiceProvider);
+          for (var photo in _selectedPhotos) {
+            try {
+              final url = await storageService.uploadPhotoBytes(photo.bytes, fileName: photo.name);
+              uploadedUrls.add(url);
+            } catch (uploadError) {
+              debugPrint('Photo upload failed: $uploadError');
+            }
+          }
+          submission = submission.copyWith(photoUrls: uploadedUrls);
+        }
+
+        final success = await ref.read(stockProvider.notifier).updateTransaction(submission);
+        if (success && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Changes saved successfully!'), backgroundColor: AppColors.approved),
+          );
+          Navigator.pop(context, true);
+        }
+      } finally {
+        if (mounted) setState(() => _isSubmitting = false);
+      }
+      return;
+    }
+
+    // ── Multi-Material Batch Mode ──
+    if (_selectedVendorId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select or specify a Vendor for this challan.')),
+      );
+      return;
+    }
+
+    // If current inputs have material info, auto-stage it
+    if (_hasCurrentMaterialData) {
+      final staged = _stageCurrentMaterial(silent: true, products: products, units: units);
+      if (!staged) return; // Validation error
+    }
+
+    if (_stagedMaterials.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter at least one material with quantity.'),
+          backgroundColor: AppColors.rejected,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      final batchId = 'BATCH-${DateTime.now().millisecondsSinceEpoch}';
+      final storageService = ref.read(storageServiceProvider);
+
+      // Upload shared challan photos
+      List<String> uploadedUrls = [];
+      if (_selectedPhotos.isNotEmpty) {
+        for (var photo in _selectedPhotos) {
+          try {
+            final url = await storageService.uploadPhotoBytes(photo.bytes, fileName: photo.name);
+            uploadedUrls.add(url);
+          } catch (uploadError) {
+            debugPrint('Challan photo upload failed: $uploadError');
+          }
+        }
+      }
+
+      final bill = _billNoController.text.trim();
+      final effectiveVendorId = _selectedVendorId == 'OTHER' ? null : _selectedVendorId;
+      final effectiveUnregisteredVendor = _selectedVendorId == 'OTHER' ? _unregisteredVendorController.text.trim() : null;
+
+      int successCount = 0;
+      double totalBatchValue = 0.0;
+
+      for (final draft in _stagedMaterials) {
+        String? encodedRemarks = draft.remarks;
+        encodedRemarks = '[Batch: $batchId] ${encodedRemarks ?? ''}'.trim();
+
+        if (draft.productId == 'OTHER' || draft.customProduct != null) {
+          final tag = '[Material: ${draft.customProduct ?? "Material"}]';
+          encodedRemarks = '$tag $encodedRemarks';
+        }
+        if (draft.metricUnitId == 'OTHER' || draft.customMetricUnit != null) {
+          final tag = '[Unit: ${draft.customMetricUnit ?? "units"}]';
+          encodedRemarks = '$tag $encodedRemarks';
+        }
+        if (activeStaff != null) {
+          final staffTag = '[By: ${activeStaff.name} (${activeStaff.designation ?? activeStaff.role.displayName})]';
+          encodedRemarks = '$staffTag $encodedRemarks';
+        }
+        if (phCanApproveStock) {
+          const supTag = '[Project Head Review: Pending] [Supervisor Review: Pending]';
+          encodedRemarks = '$encodedRemarks $supTag';
+        } else {
+          const supTag = '[Project Head Review: Bypassed by Admin Policy]';
+          encodedRemarks = '$encodedRemarks $supTag';
+        }
+        if (bill.isNotEmpty) {
+          final tag = '[Bill: $bill]';
+          encodedRemarks = '$tag $encodedRemarks';
+        }
+
+        final effectiveProductId = draft.productId == 'OTHER'
+            ? DropdownService.otherProductPlaceholderId
+            : draft.productId;
+        final effectiveMetricUnitId = draft.metricUnitId == 'OTHER'
+            ? DropdownService.otherUnitPlaceholderId
+            : draft.metricUnitId;
+
+        final submission = StockTransactionModel(
           siteId: siteId,
           submittedBy: userId,
           type: TransactionType.inbound,
@@ -284,68 +641,43 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
           vendorId: effectiveVendorId,
           productId: effectiveProductId,
           metricUnitId: effectiveMetricUnitId,
-          quantity: double.parse(_quantityController.text),
-          rate: double.tryParse(_rateController.text),
-          sgst: double.tryParse(_sgstController.text) ?? 0,
-          igst: double.tryParse(_igstController.text) ?? 0,
-          finalAmount: _finalAmount,
-          remarks: encodedRemarks,
+          quantity: draft.quantity,
+          rate: draft.rate,
+          sgst: draft.sgst,
+          igst: draft.igst,
+          finalAmount: draft.finalAmount,
+          remarks: encodedRemarks.trim(),
           unregisteredVendor: effectiveUnregisteredVendor,
           status: initialStatus,
-          photoUrls: [],
+          photoUrls: uploadedUrls,
         );
-      }
 
-      List<String> uploadedUrls = List.from(submission.photoUrls);
-      if (_selectedPhotos.isNotEmpty) {
-        final storageService = ref.read(storageServiceProvider);
-        for (var photo in _selectedPhotos) {
-          try {
-            final url = await storageService.uploadPhotoBytes(photo.bytes, fileName: photo.name);
-            uploadedUrls.add(url);
-          } catch (uploadError) {
-            debugPrint('Photo upload failed: $uploadError');
-          }
+        final success = await ref.read(stockProvider.notifier).submitTransaction(submission);
+        if (success) {
+          successCount++;
+          totalBatchValue += (draft.finalAmount ?? 0);
         }
-        submission = submission.copyWith(photoUrls: uploadedUrls);
       }
 
-      final success = _isEditMode
-          ? await ref.read(stockProvider.notifier).updateTransaction(submission)
-          : await ref.read(stockProvider.notifier).submitTransaction(submission);
-
-      final stockError = ref.read(stockProvider).error;
-
-      if (success && mounted) {
-        final isOffline = stockError == 'OFFLINE_SAVED';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              isOffline
-                  ? 'Saved offline! Will sync automatically when internet is back.'
-                  : (_isEditMode
-                      ? 'Changes saved successfully!'
-                      : 'Submitted successfully!'),
+      if (mounted) {
+        if (successCount > 0) {
+          setState(() {
+            _stagedMaterials.clear();
+          });
+          _showBatchSuccessDialog(successCount, totalBatchValue);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(ref.read(stockProvider).error ?? 'Submission failed'),
+              backgroundColor: AppColors.rejected,
             ),
-            backgroundColor: isOffline ? AppColors.pending : AppColors.approved,
-          ),
-        );
-        Navigator.pop(context, true);
-      } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(ref.read(stockProvider).error ?? 'Submission failed'),
-            backgroundColor: AppColors.rejected,
-          ),
-        );
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Submission error: $e'),
-            backgroundColor: AppColors.rejected,
-          ),
+          SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.rejected),
         );
       }
     } finally {
@@ -845,6 +1177,7 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
 
             // ── Attachments ──
             PhotoPickerWidget(
+              key: _photoPickerKey,
               initialPhotoUrls: _isEditMode ? _transaction!.photoUrls : [],
               isReadOnly: isLocked,
               onPhotosChanged: (photos) {
@@ -854,36 +1187,230 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
               },
             ).animate().fadeIn(delay: 650.ms),
 
-            const SizedBox(height: 32),
+            const SizedBox(height: 24),
 
-            // ── Submit Button ──
-            if (!isLocked)
-              SizedBox(
-                width: double.infinity,
-                height: 54,
-                child: ElevatedButton.icon(
-                  onPressed: (_isSubmitting || stockState.isLoading) ? null : _handleSubmit,
-                  icon: (_isSubmitting || stockState.isLoading)
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
+            // ── Staged Materials Tray (Multi-Material Challan) ──
+            if (!_isEditMode)
+              _buildStagedMaterialsTray(),
+
+            // ── Action Buttons ──
+            if (!isLocked) ...[
+              if (_isEditMode)
+                SizedBox(
+                  width: double.infinity,
+                  height: 54,
+                  child: ElevatedButton.icon(
+                    onPressed: (_isSubmitting || stockState.isLoading)
+                        ? null
+                        : () => _handleSubmit(
+                              products: productsAsync.valueOrNull ?? [],
+                              units: unitsAsync.valueOrNull ?? [],
+                            ),
+                    icon: (_isSubmitting || stockState.isLoading)
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Icon(Icons.check_circle_rounded),
+                    label: Text(
+                      (_isSubmitting || stockState.isLoading) ? 'Saving Changes...' : 'Save Changes',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
+                  ),
+                ).animate().fadeIn(delay: 700.ms).slideY(begin: 0.1)
+              else
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 1,
+                      child: SizedBox(
+                        height: 52,
+                        child: OutlinedButton.icon(
+                          onPressed: (_isSubmitting || isLocked)
+                              ? null
+                              : () => _stageCurrentMaterial(
+                                    products: productsAsync.valueOrNull ?? [],
+                                    units: unitsAsync.valueOrNull ?? [],
+                                  ),
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: AppColors.primary, width: 1.5),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                           ),
-                        )
-                      : const Icon(Icons.send_rounded),
-                  label: Text((_isSubmitting || stockState.isLoading)
-                      ? (_isEditMode ? 'Saving Changes...' : 'Submitting...')
-                      : (_isEditMode ? 'Save Changes' : 'Submit')),
-                ),
-              ).animate().fadeIn(delay: 700.ms).slideY(begin: 0.1),
+                          icon: const Icon(Icons.add_rounded, color: AppColors.primary, size: 20),
+                          label: const Text(
+                            '+ Add Item',
+                            style: TextStyle(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 2,
+                      child: SizedBox(
+                        height: 52,
+                        child: ElevatedButton.icon(
+                          onPressed: (_isSubmitting || stockState.isLoading || isLocked)
+                              ? null
+                              : () => _handleSubmit(
+                                    products: productsAsync.valueOrNull ?? [],
+                                    units: unitsAsync.valueOrNull ?? [],
+                                  ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          icon: (_isSubmitting || stockState.isLoading)
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                )
+                              : const Icon(Icons.send_rounded, size: 20),
+                          label: Text(
+                            (_isSubmitting || stockState.isLoading)
+                                ? 'Submitting Challan...'
+                                : (_stagedMaterials.isNotEmpty
+                                    ? 'Submit Challan (${_stagedMaterials.length + (_hasCurrentMaterialData ? 1 : 0)})'
+                                    : 'Submit Inward'),
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ).animate().fadeIn(delay: 700.ms).slideY(begin: 0.1),
+            ],
 
             const SizedBox(height: 24),
           ],
         ),
       ),
     ),
+    );
+  }
+
+  Widget _buildStagedMaterialsTray() {
+    if (_stagedMaterials.isEmpty) return const SizedBox.shrink();
+
+    final currencyFmt = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 2);
+    final totalValue = _stagedMaterials.fold<double>(0.0, (sum, m) => sum + (m.finalAmount ?? 0.0));
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.cardDark,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.primary.withOpacity(0.5), width: 1.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.inventory_2_rounded, color: AppColors.primary, size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Materials in this Challan (${_stagedMaterials.length})',
+                    style: AppTextStyles.h4.copyWith(fontSize: 15, color: AppColors.textPrimary),
+                  ),
+                ],
+              ),
+              if (totalValue > 0)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    currencyFmt.format(totalValue),
+                    style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          const Divider(color: AppColors.divider, height: 1),
+          const SizedBox(height: 8),
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: _stagedMaterials.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 8),
+            itemBuilder: (context, idx) {
+              final item = _stagedMaterials[idx];
+              return Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceDark,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppColors.divider.withOpacity(0.5)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        '#${idx + 1}',
+                        style: const TextStyle(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            item.productName,
+                            style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            '${item.quantity} ${item.metricUnitName}'
+                            '${item.rate != null ? " @ ₹${item.rate}" : ""}'
+                            '${item.finalAmount != null ? " • Total: ${currencyFmt.format(item.finalAmount)}" : ""}',
+                            style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline_rounded, color: AppColors.rejected, size: 20),
+                      visualDensity: VisualDensity.compact,
+                      onPressed: () {
+                        setState(() {
+                          _stagedMaterials.removeAt(idx);
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 

@@ -74,6 +74,12 @@ class CashTransactionModel {
     return match?.group(1)?.trim();
   }
 
+  /// Extracts Batch ID if part of a multi-entry batch
+  String? get batchId {
+    final match = RegExp(r'\[Batch:\s*(.+?)\]').firstMatch(remarks ?? '');
+    return match?.group(1)?.trim();
+  }
+
   /// Extracts Party / Vendor Name from remarks if entered
   String? get partyName {
     final match = RegExp(r'\[Party:\s*(.+?)\]').firstMatch(remarks ?? '');
@@ -136,6 +142,7 @@ class CashTransactionModel {
   String? get cleanRemarks {
     if (remarks == null) return null;
     final cleaned = remarks!
+        .replaceAll(RegExp(r'\[Batch:\s*.+?\]\s*'), '')
         .replaceAll(RegExp(r'\[Expense:\s*.+?\]\s*'), '')
         .replaceAll(RegExp(r'\[Bill:\s*.+?\]\s*'), '')
         .replaceAll(RegExp(r'\[Party:\s*.+?\]\s*'), '')

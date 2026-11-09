@@ -5,13 +5,13 @@ import 'package:intl/intl.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_text_styles.dart';
 import '../../models/stock_transaction_model.dart';
+import '../../models/cash_transaction_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/stock_provider.dart';
 import '../../providers/cash_provider.dart';
 import '../../providers/site_provider.dart';
 import '../../providers/role_access_provider.dart';
 import '../../widgets/app_drawer.dart';
-import '../../widgets/stat_card.dart';
 import '../../widgets/status_badge.dart';
 import '../../widgets/responsive_layout.dart';
 import '../../widgets/sla_notification_bar.dart';
@@ -194,15 +194,41 @@ class AccountsDashboard extends ConsumerWidget {
                           const SizedBox(height: 10),
                       itemBuilder: (context, index) {
                         final tx = sortedStock[index];
+                        final batchSiblings = tx.batchId != null
+                            ? transactions.where((t) => t.batchId == tx.batchId).toList()
+                            : <StockTransactionModel>[];
+                        final batchCount = batchSiblings.length;
+
                         return _ReviewableTile(
                           title:
                               '${tx.type.displayName}: ${tx.displayProductName} (${tx.quantity} ${tx.displayMetricUnitName})',
                           subtitle:
-                              'Date: ${DateFormat('dd MMM yyyy').format(tx.date)}${tx.displayVendorName != null ? ' • ${tx.displayVendorName}' : ''}${tx.billNo != null ? ' • Bill: #${tx.billNo}' : ''}${tx.cleanRemarks != null ? ' • ${tx.cleanRemarks}' : ''}',
+                              'Date: ${DateFormat('dd MMM yyyy').format(tx.date)}${tx.displayVendorName != 'None' ? ' • ${tx.displayVendorName}' : ''}${tx.billNo != null ? ' • Bill: #${tx.billNo}' : ''}${tx.cleanRemarks != null ? ' • ${tx.cleanRemarks}' : ''}',
                           amount: tx.finalAmount,
                           submitter: tx.submitterName,
                           supervisorNote: tx.supervisorReviewNote,
                           status: tx.status,
+                          batchId: tx.batchId,
+                          batchCount: batchCount,
+                          onApproveBatch: batchCount > 1 ? () async {
+                            final userId = ref.read(authProvider).user?.id ?? 
+                                           ref.read(supabaseClientProvider).auth.currentUser?.id ?? '';
+                            int approved = 0;
+                            for (final sTx in batchSiblings) {
+                              final success = await ref.read(stockProvider.notifier).approveByAccounts(sTx.id!, userId);
+                              if (success) approved++;
+                            }
+                            ref.invalidate(pendingStockAccountsProvider);
+                            ref.invalidate(pendingCashAccountsProvider);
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Approved batch ($approved items)!'),
+                                  backgroundColor: AppColors.approved,
+                                ),
+                              );
+                            }
+                          } : null,
                           onTap: () async {
                             await Navigator.push(
                               context,
@@ -298,6 +324,11 @@ class AccountsDashboard extends ConsumerWidget {
                       itemBuilder: (context, index) {
                         final tx = sortedCash[index];
                         final isCashReceived = tx.amountReceived > 0 && tx.expenseAmount == 0;
+                        final batchSiblings = tx.batchId != null
+                            ? transactions.where((t) => t.batchId == tx.batchId).toList()
+                            : <CashTransactionModel>[];
+                        final batchCount = batchSiblings.length;
+
                         return _ReviewableTile(
                           title: isCashReceived
                               ? 'CASH RECEIVED (Top-up): ₹${NumberFormat('#,##,###').format(tx.amountReceived)}'
@@ -309,6 +340,28 @@ class AccountsDashboard extends ConsumerWidget {
                           submitter: tx.submitterName,
                           supervisorNote: tx.supervisorReviewNote,
                           status: tx.status,
+                          batchId: tx.batchId,
+                          batchCount: batchCount,
+                          onApproveBatch: batchCount > 1 ? () async {
+                            final userId = ref.read(authProvider).user?.id ?? 
+                                           ref.read(supabaseClientProvider).auth.currentUser?.id ?? '';
+                            int approved = 0;
+                            for (final cTx in batchSiblings) {
+                              final success = await ref.read(cashProvider.notifier).approveByAccounts(cTx.id!, userId);
+                              if (success) approved++;
+                            }
+                            ref.invalidate(pendingCashAccountsProvider);
+                            ref.invalidate(pendingStockAccountsProvider);
+                            ref.invalidate(siteCashSummaryProvider(tx.siteId));
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Approved batch ($approved cash entries)!'),
+                                  backgroundColor: AppColors.approved,
+                                ),
+                              );
+                            }
+                          } : null,
                           onTap: () async {
                             await Navigator.push(
                               context,
@@ -556,6 +609,9 @@ class _ReviewableTile extends StatelessWidget {
   final VoidCallback? onEdit;
   final VoidCallback? onApprove;
   final VoidCallback? onReject;
+  final String? batchId;
+  final int? batchCount;
+  final VoidCallback? onApproveBatch;
 
   const _ReviewableTile({
     required this.title,
@@ -568,6 +624,9 @@ class _ReviewableTile extends StatelessWidget {
     this.onEdit,
     this.onApprove,
     this.onReject,
+    this.batchId,
+    this.batchCount,
+    this.onApproveBatch,
   });
 
   @override
@@ -588,6 +647,55 @@ class _ReviewableTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (batchId != null && (batchCount ?? 0) > 1) ...[
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.layers_rounded, size: 14, color: AppColors.primary),
+                            const SizedBox(width: 6),
+                            Text(
+                              'Part of Batch ($batchCount items)',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.primary,
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (onApproveBatch != null)
+                          InkWell(
+                            onTap: onApproveBatch,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: AppColors.approved,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                'Approve Batch ($batchCount)',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [

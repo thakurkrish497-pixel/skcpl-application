@@ -13,7 +13,6 @@ import '../../providers/auth_provider.dart';
 import '../../providers/cash_provider.dart';
 import '../../providers/dropdown_provider.dart';
 import '../../providers/storage_provider.dart';
-import '../../providers/stock_provider.dart';
 import '../../widgets/locked_form_banner.dart';
 import '../../widgets/status_badge.dart';
 import '../../widgets/photo_picker.dart';
@@ -29,6 +28,35 @@ import '../../widgets/voice_input_field.dart';
 import '../../providers/sla_alert_provider.dart';
 
 enum CashEntryMode { expense, received }
+
+/// Staged draft for multi-entry cashbook batches
+class CashEntryDraft {
+  final String id;
+  final CashEntryMode mode;
+  final String? expenseTypeId;
+  final String? customExpenseType;
+  final String expenseTypeName;
+  final double amount;
+  final String? remarks;
+  final String? billNo;
+  final String? partyName;
+  final List<PickedPhoto> photos;
+  final DateTime date;
+
+  CashEntryDraft({
+    required this.id,
+    required this.mode,
+    required this.expenseTypeId,
+    this.customExpenseType,
+    required this.expenseTypeName,
+    required this.amount,
+    this.remarks,
+    this.billNo,
+    this.partyName,
+    this.photos = const [],
+    required this.date,
+  });
+}
 
 /// Cash Book — Imprest cash entry form matching the Excel cashbook structure
 class ExpenseFormScreen extends ConsumerStatefulWidget {
@@ -54,6 +82,10 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
   DateTime _selectedDate = DateTime.now();
   List<PickedPhoto> _selectedPhotos = [];
   bool _isSubmitting = false;
+
+  // Multi-entry batch staging
+  final List<CashEntryDraft> _stagedEntries = [];
+  Key _photoPickerKey = UniqueKey();
 
   bool get isLocked {
     final activeStaff = ref.read(activeStaffProvider);
@@ -148,9 +180,198 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     if (picked != null) setState(() => _selectedDate = picked);
   }
 
-  Future<void> _handleSubmit() async {
-    if (!_formKey.currentState!.validate()) return;
+  bool get _hasCurrentDraftData {
+    final exp = double.tryParse(_expenseAmountController.text) ?? 0;
+    final rec = double.tryParse(_amountReceivedController.text) ?? 0;
+    return (_entryMode == CashEntryMode.expense ? exp > 0 : rec > 0);
+  }
 
+  String _getCategoryDisplayName(String? id, List<DropdownItemModel> types) {
+    if (_entryMode == CashEntryMode.received) {
+      if (_customExpenseTypeController.text.trim().isNotEmpty) {
+        return _customExpenseTypeController.text.trim();
+      }
+      return 'Indore Office (Cash Top-up)';
+    }
+    if (id == 'OTHER') {
+      return _customExpenseTypeController.text.trim().isNotEmpty
+          ? _customExpenseTypeController.text.trim()
+          : 'Manual Expense';
+    }
+    final match = types.where((t) => t.id == id).firstOrNull;
+    return match?.value ?? 'General Expense';
+  }
+
+  bool _stageCurrentEntry({bool silent = false, List<DropdownItemModel> types = const []}) {
+    final exp = double.tryParse(_expenseAmountController.text) ?? 0;
+    final rec = double.tryParse(_amountReceivedController.text) ?? 0;
+    final amount = _entryMode == CashEntryMode.expense ? exp : rec;
+
+    if (amount <= 0) {
+      if (!silent) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please enter a valid amount greater than 0'),
+            backgroundColor: AppColors.rejected,
+          ),
+        );
+      }
+      return false;
+    }
+
+    if (_entryMode == CashEntryMode.expense) {
+      if (_selectedExpenseTypeId == null) {
+        if (!silent) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Please select an Expense Type'),
+              backgroundColor: AppColors.rejected,
+            ),
+          );
+        }
+        return false;
+      }
+      if (_selectedExpenseTypeId == 'OTHER' && _customExpenseTypeController.text.trim().isEmpty) {
+        if (!silent) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Please enter custom expense type name'),
+              backgroundColor: AppColors.rejected,
+            ),
+          );
+        }
+        return false;
+      }
+    }
+
+    final catName = _getCategoryDisplayName(_selectedExpenseTypeId, types);
+
+    final draft = CashEntryDraft(
+      id: 'DRAFT-${DateTime.now().microsecondsSinceEpoch}',
+      mode: _entryMode,
+      expenseTypeId: _selectedExpenseTypeId,
+      customExpenseType: _customExpenseTypeController.text.trim().isNotEmpty ? _customExpenseTypeController.text.trim() : null,
+      expenseTypeName: catName,
+      amount: amount,
+      remarks: _remarksController.text.trim().isNotEmpty ? _remarksController.text.trim() : null,
+      billNo: _billNoController.text.trim().isNotEmpty ? _billNoController.text.trim() : null,
+      partyName: _partyNameController.text.trim().isNotEmpty ? _partyNameController.text.trim() : null,
+      photos: List.from(_selectedPhotos),
+      date: _selectedDate,
+    );
+
+    setState(() {
+      _stagedEntries.add(draft);
+      _expenseAmountController.clear();
+      _amountReceivedController.clear();
+      _remarksController.clear();
+      _customExpenseTypeController.clear();
+      _billNoController.clear();
+      _partyNameController.clear();
+      _selectedPhotos = [];
+      _selectedExpenseTypeId = null;
+      _photoPickerKey = UniqueKey();
+    });
+
+    if (!silent) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Added to batch! (${_stagedEntries.length} items staged)'),
+          backgroundColor: AppColors.approved,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
+    return true;
+  }
+
+  void _showBatchSuccessDialog(int count, double total) {
+    final currencyFmt = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 2);
+    showModalBottomSheet(
+      context: context,
+      isDismissible: false,
+      enableDrag: false,
+      backgroundColor: AppColors.surfaceDark,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  color: AppColors.approved.withOpacity(0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.check_circle_rounded, color: AppColors.approved, size: 36),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Batch Submitted Successfully!',
+                style: AppTextStyles.h4.copyWith(color: AppColors.textPrimary),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '$count ${count == 1 ? "entry" : "entries"} recorded • Total: ${currencyFmt.format(total)}',
+                style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      icon: const Icon(Icons.history_rounded, size: 18),
+                      label: const Text('View History'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        side: const BorderSide(color: AppColors.divider),
+                      ),
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        Navigator.pushNamed(context, '/cash-history');
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      icon: const Icon(Icons.add_rounded, size: 18),
+                      label: const Text('+ Enter More'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        // Stays right in screen with site & staff session intact!
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  if (Navigator.canPop(context)) {
+                    Navigator.pop(context, true);
+                  }
+                },
+                child: const Text('Done & Return to Menu', style: TextStyle(color: AppColors.textTertiary)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleSubmit([List<DropdownItemModel> currentTypes = const []]) async {
     final authState = ref.read(authProvider);
     final siteId = widget.existingTransaction?.siteId ?? authState.activeSite?.id;
     final userId = authState.user?.id;
@@ -173,107 +394,80 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       return;
     }
 
-    String effectiveExpenseTypeId;
-    String? encodedRemarks = _remarksController.text.trim().isEmpty ? null : _remarksController.text.trim();
-
-    if (_entryMode == CashEntryMode.expense) {
-      if (_selectedExpenseTypeId == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select an Expense Type')),
-        );
-        return;
-      }
-
-      if (_selectedExpenseTypeId == 'OTHER') {
-        if (_customExpenseTypeController.text.trim().isEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Please enter custom expense type name')),
-          );
-          return;
-        }
-        final tag = '[Expense: ${_customExpenseTypeController.text.trim()}]';
-        encodedRemarks = encodedRemarks == null ? tag : '$tag $encodedRemarks';
-        effectiveExpenseTypeId = DropdownService.otherExpensePlaceholderId;
-      } else {
-        effectiveExpenseTypeId = _selectedExpenseTypeId!;
-      }
-    } else {
-      // Cash Received Mode
-      if (_selectedExpenseTypeId == null || _selectedExpenseTypeId == 'OTHER') {
-        final headName = _customExpenseTypeController.text.trim().isNotEmpty
-            ? _customExpenseTypeController.text.trim()
-            : 'Indore Office';
-        final tag = '[Expense: $headName]';
-        encodedRemarks = encodedRemarks == null ? tag : '$tag $encodedRemarks';
-        effectiveExpenseTypeId = DropdownService.otherExpensePlaceholderId;
-      } else {
-        effectiveExpenseTypeId = _selectedExpenseTypeId!;
-      }
-    }
-
-    final bill = _billNoController.text.trim();
-    final party = _partyNameController.text.trim();
     final roleAccess = ref.read(roleAccessProvider);
     final phCanApproveCash = roleAccess.projectHeadCanApproveCash;
     final accountsCanApproveCash = roleAccess.accountsCanApproveCash;
 
-    if (widget.existingTransaction == null) {
+    TransactionStatus initialStatus = TransactionStatus.pendingAccounts;
+    if (!phCanApproveCash && !accountsCanApproveCash) {
+      initialStatus = TransactionStatus.pendingAdmin;
+    }
+
+    // ── Single Edit Mode ──
+    if (widget.existingTransaction != null) {
+      if (!_formKey.currentState!.validate()) return;
+
+      String effectiveExpenseTypeId;
+      String? encodedRemarks = _remarksController.text.trim().isEmpty ? null : _remarksController.text.trim();
+
+      if (_entryMode == CashEntryMode.expense) {
+        if (_selectedExpenseTypeId == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Please select an Expense Type')),
+          );
+          return;
+        }
+        if (_selectedExpenseTypeId == 'OTHER') {
+          if (_customExpenseTypeController.text.trim().isEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Please enter custom expense type name')),
+            );
+            return;
+          }
+          final tag = '[Expense: ${_customExpenseTypeController.text.trim()}]';
+          encodedRemarks = encodedRemarks == null ? tag : '$tag $encodedRemarks';
+          effectiveExpenseTypeId = DropdownService.otherExpensePlaceholderId;
+        } else {
+          effectiveExpenseTypeId = _selectedExpenseTypeId!;
+        }
+      } else {
+        if (_selectedExpenseTypeId == null || _selectedExpenseTypeId == 'OTHER') {
+          final headName = _customExpenseTypeController.text.trim().isNotEmpty
+              ? _customExpenseTypeController.text.trim()
+              : 'Indore Office';
+          final tag = '[Expense: $headName]';
+          encodedRemarks = encodedRemarks == null ? tag : '$tag $encodedRemarks';
+          effectiveExpenseTypeId = DropdownService.otherExpensePlaceholderId;
+        } else {
+          effectiveExpenseTypeId = _selectedExpenseTypeId!;
+        }
+      }
+
+      final bill = _billNoController.text.trim();
+      final party = _partyNameController.text.trim();
       if (activeStaff != null) {
         final staffTag = '[By: ${activeStaff.name} (${activeStaff.designation ?? activeStaff.role.displayName})]';
         encodedRemarks = encodedRemarks == null ? staffTag : '$staffTag $encodedRemarks';
       }
-      if (phCanApproveCash) {
-        const supTag = '[Project Head Review: Pending] [Supervisor Review: Pending]';
-        encodedRemarks = encodedRemarks == null ? supTag : '$encodedRemarks $supTag';
-      } else {
-        const supTag = '[Project Head Review: Bypassed by Admin Policy]';
-        encodedRemarks = encodedRemarks == null ? supTag : '$encodedRemarks $supTag';
+      if (party.isNotEmpty) {
+        final tag = '[Party: $party]';
+        encodedRemarks = encodedRemarks == null ? tag : '$tag $encodedRemarks';
       }
-    } else if (activeStaff != null) {
-      final staffTag = '[By: ${activeStaff.name} (${activeStaff.designation ?? activeStaff.role.displayName})]';
-      encodedRemarks = encodedRemarks == null ? staffTag : '$staffTag $encodedRemarks';
-    }
-    if (party.isNotEmpty) {
-      final tag = '[Party: $party]';
-      encodedRemarks = encodedRemarks == null ? tag : '$tag $encodedRemarks';
-    }
-    if (bill.isNotEmpty) {
-      final tag = '[Bill: $bill]';
-      encodedRemarks = encodedRemarks == null ? tag : '$tag $encodedRemarks';
-    }
+      if (bill.isNotEmpty) {
+        final tag = '[Bill: $bill]';
+        encodedRemarks = encodedRemarks == null ? tag : '$tag $encodedRemarks';
+      }
 
-    final double expenseAmt = _entryMode == CashEntryMode.expense
-        ? (double.tryParse(_expenseAmountController.text) ?? 0)
-        : 0;
-    final double receivedAmt = _entryMode == CashEntryMode.received
-        ? (double.tryParse(_amountReceivedController.text) ?? 0)
-        : 0;
+      final double expenseAmt = _entryMode == CashEntryMode.expense
+          ? (double.tryParse(_expenseAmountController.text) ?? 0)
+          : 0;
+      final double receivedAmt = _entryMode == CashEntryMode.received
+          ? (double.tryParse(_amountReceivedController.text) ?? 0)
+          : 0;
+      final currentBal = _getCurrentSiteBalance(ref.read(cashProvider).transactions, siteId);
+      final cashInHand = _getProjectedBalance(currentBal);
 
-    final currentBal = _getCurrentSiteBalance(ref.read(cashProvider).transactions, siteId);
-    final cashInHand = _getProjectedBalance(currentBal);
-
-    TransactionStatus initialStatus = TransactionStatus.pendingAccounts;
-    if (!phCanApproveCash && !accountsCanApproveCash) {
-      // Both Project Head & Accounts bypassed -> direct to Admin
-      initialStatus = TransactionStatus.pendingAdmin;
-    }
-
-    CashTransactionModel transaction;
-
-    if (widget.existingTransaction == null) {
-      transaction = CashTransactionModel(
-        siteId: siteId,
-        submittedBy: userId,
-        date: _selectedDate,
-        expenseTypeId: effectiveExpenseTypeId,
-        expenseAmount: expenseAmt,
-        amountReceived: receivedAmt,
-        cashInHand: cashInHand,
-        remarks: encodedRemarks,
-        status: initialStatus,
-      );
-    } else {
-      transaction = CashTransactionModel(
+      var transaction = CashTransactionModel(
         id: widget.existingTransaction!.id,
         siteId: widget.existingTransaction!.siteId,
         submittedBy: widget.existingTransaction!.submittedBy,
@@ -286,64 +480,161 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
         status: widget.existingTransaction!.status,
         photoUrls: widget.existingTransaction!.photoUrls,
       );
+
+      setState(() => _isSubmitting = true);
+      try {
+        List<String> uploadedUrls = List.from(transaction.photoUrls);
+        if (_selectedPhotos.isNotEmpty) {
+          final storageService = ref.read(storageServiceProvider);
+          for (var photo in _selectedPhotos) {
+            try {
+              final url = await storageService.uploadPhotoBytes(photo.bytes, fileName: photo.name);
+              uploadedUrls.add(url);
+            } catch (uploadError) {
+              debugPrint('Cash photo upload failed: $uploadError');
+            }
+          }
+          transaction = transaction.copyWith(photoUrls: uploadedUrls);
+        }
+
+        final success = await ref.read(cashProvider.notifier).updateTransaction(transaction);
+        if (success && mounted) {
+          ref.invalidate(siteCashSummaryProvider(siteId));
+          ref.read(cashProvider.notifier).loadTransactions(siteId);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Changes saved successfully!'), backgroundColor: AppColors.approved),
+          );
+          Navigator.pop(context, true);
+        }
+      } finally {
+        if (mounted) setState(() => _isSubmitting = false);
+      }
+      return;
+    }
+
+    // ── Batch / Multi-Entry Creation Mode ──
+    // If the user filled inputs right now without clicking "+ Add to Batch", auto-stage it
+    if (_hasCurrentDraftData) {
+      final staged = _stageCurrentEntry(silent: true, types: currentTypes);
+      if (!staged) return; // Validation failed
+    }
+
+    if (_stagedEntries.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter an amount or add at least one entry to submit.'),
+          backgroundColor: AppColors.rejected,
+        ),
+      );
+      return;
     }
 
     setState(() => _isSubmitting = true);
 
     try {
-      List<String> uploadedUrls = List.from(transaction.photoUrls);
-      if (_selectedPhotos.isNotEmpty) {
-        final storageService = ref.read(storageServiceProvider);
-        for (var photo in _selectedPhotos) {
-          try {
-            final url = await storageService.uploadPhotoBytes(photo.bytes, fileName: photo.name);
-            uploadedUrls.add(url);
-          } catch (uploadError) {
-            debugPrint('Cash photo upload failed: $uploadError');
+      final batchId = 'BATCH-${DateTime.now().millisecondsSinceEpoch}';
+      final storageService = ref.read(storageServiceProvider);
+      int successCount = 0;
+      double batchTotal = 0;
+
+      for (final draft in _stagedEntries) {
+        List<String> uploadedUrls = [];
+        if (draft.photos.isNotEmpty) {
+          for (var photo in draft.photos) {
+            try {
+              final url = await storageService.uploadPhotoBytes(photo.bytes, fileName: photo.name);
+              uploadedUrls.add(url);
+            } catch (uploadError) {
+              debugPrint('Batch photo upload failed: $uploadError');
+            }
           }
         }
-        transaction = transaction.copyWith(photoUrls: uploadedUrls);
+
+        String? encodedRemarks = draft.remarks;
+        encodedRemarks = '[Batch: $batchId] ${encodedRemarks ?? ''}'.trim();
+
+        if (draft.mode == CashEntryMode.expense) {
+          if (draft.expenseTypeId == 'OTHER' || draft.customExpenseType != null) {
+            final tag = '[Expense: ${draft.customExpenseType ?? "General"}]';
+            encodedRemarks = '$tag $encodedRemarks';
+          }
+        } else {
+          final headName = draft.customExpenseType ?? 'Indore Office';
+          final tag = '[Expense: $headName]';
+          encodedRemarks = '$tag $encodedRemarks';
+        }
+
+        if (activeStaff != null) {
+          final staffTag = '[By: ${activeStaff.name} (${activeStaff.designation ?? activeStaff.role.displayName})]';
+          encodedRemarks = '$staffTag $encodedRemarks';
+        }
+        if (phCanApproveCash) {
+          const supTag = '[Project Head Review: Pending] [Supervisor Review: Pending]';
+          encodedRemarks = '$encodedRemarks $supTag';
+        } else {
+          const supTag = '[Project Head Review: Bypassed by Admin Policy]';
+          encodedRemarks = '$encodedRemarks $supTag';
+        }
+        if (draft.partyName != null && draft.partyName!.isNotEmpty) {
+          final tag = '[Party: ${draft.partyName}]';
+          encodedRemarks = '$tag $encodedRemarks';
+        }
+        if (draft.billNo != null && draft.billNo!.isNotEmpty) {
+          final tag = '[Bill: ${draft.billNo}]';
+          encodedRemarks = '$tag $encodedRemarks';
+        }
+
+        final double expenseAmt = draft.mode == CashEntryMode.expense ? draft.amount : 0;
+        final double receivedAmt = draft.mode == CashEntryMode.received ? draft.amount : 0;
+        final currentBal = _getCurrentSiteBalance(ref.read(cashProvider).transactions, siteId);
+        final cashInHand = currentBal + (receivedAmt - expenseAmt);
+
+        final effectiveExpenseTypeId = draft.expenseTypeId == null || draft.expenseTypeId == 'OTHER'
+            ? DropdownService.otherExpensePlaceholderId
+            : draft.expenseTypeId!;
+
+        final transaction = CashTransactionModel(
+          siteId: siteId,
+          submittedBy: userId,
+          date: draft.date,
+          expenseTypeId: effectiveExpenseTypeId,
+          expenseAmount: expenseAmt,
+          amountReceived: receivedAmt,
+          cashInHand: cashInHand,
+          remarks: encodedRemarks.trim(),
+          status: initialStatus,
+          photoUrls: uploadedUrls,
+        );
+
+        final success = await ref.read(cashProvider.notifier).submitTransaction(transaction);
+        if (success) {
+          successCount++;
+          batchTotal += draft.amount;
+        }
       }
 
-      final success = widget.existingTransaction == null
-          ? await ref.read(cashProvider.notifier).submitTransaction(transaction)
-          : await ref.read(cashProvider.notifier).updateTransaction(transaction);
-
-      final cashError = ref.read(cashProvider).error;
-
-      if (success && mounted) {
+      if (mounted) {
         ref.invalidate(siteCashSummaryProvider(siteId));
         ref.read(cashProvider.notifier).loadTransactions(siteId);
 
-        final isOffline = cashError == 'OFFLINE_SAVED';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              isOffline
-                  ? 'Saved offline! Will sync automatically when internet is back.'
-                  : (widget.existingTransaction != null
-                      ? 'Changes saved successfully!'
-                      : 'Submitted successfully!'),
+        if (successCount > 0) {
+          setState(() {
+            _stagedEntries.clear();
+          });
+          _showBatchSuccessDialog(successCount, batchTotal);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(ref.read(cashProvider).error ?? 'Submission failed'),
+              backgroundColor: AppColors.rejected,
             ),
-            backgroundColor: isOffline ? AppColors.pending : AppColors.approved,
-          ),
-        );
-        Navigator.pop(context, true);
-      } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(ref.read(cashProvider).error ?? 'Submission failed'),
-            backgroundColor: AppColors.rejected,
-          ),
-        );
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: AppColors.rejected,
-          ),
+          SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.rejected),
         );
       }
     } finally {
@@ -1144,6 +1435,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
 
             // ── Photo Picker (Voucher / Bill) ──
             PhotoPickerWidget(
+              key: _photoPickerKey,
               initialPhotoUrls: widget.existingTransaction?.photoUrls ?? [],
               isReadOnly: isLocked,
               onPhotosChanged: (photos) {
@@ -1153,41 +1445,231 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
               },
             ).animate().fadeIn(delay: 400.ms),
 
-            const SizedBox(height: 32),
+            const SizedBox(height: 24),
 
-            // ── Submit / Save Button ──
-            if (!isLocked)
-              SizedBox(
-                width: double.infinity,
-                height: 54,
-                child: ElevatedButton.icon(
-                  onPressed: (_isSubmitting || cashState.isLoading) ? null : _handleSubmit,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _entryMode == CashEntryMode.expense
-                        ? AppColors.primary
-                        : AppColors.approved,
+            // ── Staged Entries Tray (Multi-Entry Batch) ──
+            if (widget.existingTransaction == null)
+              _buildStagedEntriesTray(currencyFmt),
+
+            // ── Action Buttons ──
+            if (!isLocked) ...[
+              if (widget.existingTransaction != null)
+                SizedBox(
+                  width: double.infinity,
+                  height: 54,
+                  child: ElevatedButton.icon(
+                    onPressed: (_isSubmitting || cashState.isLoading)
+                        ? null
+                        : () => _handleSubmit(expenseTypesAsync.valueOrNull ?? []),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _entryMode == CashEntryMode.expense
+                          ? AppColors.primary
+                          : AppColors.approved,
+                    ),
+                    icon: (_isSubmitting || cashState.isLoading)
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Icon(Icons.check_circle_rounded),
+                    label: Text(
+                      (_isSubmitting || cashState.isLoading) ? 'Saving Changes...' : 'Save Changes',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
                   ),
-                  icon: (_isSubmitting || cashState.isLoading)
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                        )
-                      : const Icon(Icons.send_rounded),
-                  label: Text(
-                    (_isSubmitting || cashState.isLoading)
-                        ? (widget.existingTransaction != null ? 'Saving Changes...' : 'Submitting...')
-                        : (widget.existingTransaction != null ? 'Save Changes' : 'Submit'),
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                  ),
-                ),
-              ).animate().fadeIn(delay: 450.ms),
+                ).animate().fadeIn(delay: 450.ms)
+              else
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 1,
+                      child: SizedBox(
+                        height: 52,
+                        child: OutlinedButton.icon(
+                          onPressed: (_isSubmitting || isLocked)
+                              ? null
+                              : () => _stageCurrentEntry(types: expenseTypesAsync.valueOrNull ?? []),
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: AppColors.primary, width: 1.5),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          icon: const Icon(Icons.add_rounded, color: AppColors.primary, size: 20),
+                          label: const Text(
+                            '+ Add Item',
+                            style: TextStyle(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      flex: 2,
+                      child: SizedBox(
+                        height: 52,
+                        child: ElevatedButton.icon(
+                          onPressed: (_isSubmitting || cashState.isLoading || isLocked)
+                              ? null
+                              : () => _handleSubmit(expenseTypesAsync.valueOrNull ?? []),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _entryMode == CashEntryMode.expense
+                                ? AppColors.primary
+                                : AppColors.approved,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          icon: (_isSubmitting || cashState.isLoading)
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                )
+                              : const Icon(Icons.send_rounded, size: 20),
+                          label: Text(
+                            (_isSubmitting || cashState.isLoading)
+                                ? 'Submitting Batch...'
+                                : (_stagedEntries.isNotEmpty
+                                    ? 'Submit Batch (${_stagedEntries.length + (_hasCurrentDraftData ? 1 : 0)})'
+                                    : 'Submit Entry'),
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ).animate().fadeIn(delay: 450.ms),
+            ],
 
             const SizedBox(height: 24),
           ],
         ),
       ),
     ),
+    );
+  }
+
+  Widget _buildStagedEntriesTray(NumberFormat currencyFmt) {
+    if (_stagedEntries.isEmpty) return const SizedBox.shrink();
+
+    final totalStaged = _stagedEntries.fold<double>(0.0, (sum, e) => sum + e.amount);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.cardDark,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.primary.withOpacity(0.5), width: 1.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.layers_rounded, color: AppColors.primary, size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Staged Batch (${_stagedEntries.length} ${_stagedEntries.length == 1 ? "item" : "items"})',
+                    style: AppTextStyles.h4.copyWith(fontSize: 15, color: AppColors.textPrimary),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'Total: ${currencyFmt.format(totalStaged)}',
+                  style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          const Divider(color: AppColors.divider, height: 1),
+          const SizedBox(height: 8),
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: _stagedEntries.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 8),
+            itemBuilder: (context, idx) {
+              final item = _stagedEntries[idx];
+              final isExpense = item.mode == CashEntryMode.expense;
+              return Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceDark,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppColors.divider.withOpacity(0.5)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: isExpense ? AppColors.rejected.withOpacity(0.15) : AppColors.approved.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        isExpense ? 'EXP' : 'REC',
+                        style: TextStyle(
+                          color: isExpense ? AppColors.rejected : AppColors.approved,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            item.expenseTypeName,
+                            style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            '${currencyFmt.format(item.amount)}${item.billNo != null ? ' • Bill #${item.billNo}' : ''}${item.partyName != null ? ' • ${item.partyName}' : ''}',
+                            style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (item.photos.isNotEmpty) ...[
+                      const Icon(Icons.photo_camera_rounded, size: 16, color: AppColors.textTertiary),
+                      const SizedBox(width: 4),
+                      Text('${item.photos.length}', style: AppTextStyles.bodySmall.copyWith(color: AppColors.textTertiary)),
+                      const SizedBox(width: 8),
+                    ],
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline_rounded, color: AppColors.rejected, size: 20),
+                      visualDensity: VisualDensity.compact,
+                      onPressed: () {
+                        setState(() {
+                          _stagedEntries.removeAt(idx);
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 

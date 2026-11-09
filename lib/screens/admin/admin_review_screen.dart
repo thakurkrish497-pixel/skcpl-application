@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_text_styles.dart';
 import '../../models/stock_transaction_model.dart';
+import '../../models/cash_transaction_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/stock_provider.dart';
 import '../../providers/cash_provider.dart';
@@ -102,6 +103,11 @@ class AdminReviewScreen extends ConsumerWidget {
                             const SizedBox(height: 10),
                         itemBuilder: (context, index) {
                           final tx = sortedStock[index];
+                          final batchSiblings = tx.batchId != null
+                              ? transactions.where((t) => t.batchId == tx.batchId).toList()
+                              : <StockTransactionModel>[];
+                          final batchCount = batchSiblings.length;
+
                         return _AdminReviewTile(
                           title:
                               '${tx.type.displayName}: ${tx.displayProductName} (${tx.quantity} ${tx.displayMetricUnitName})',
@@ -111,6 +117,27 @@ class AdminReviewScreen extends ConsumerWidget {
                           photoUrls: tx.photoUrls,
                           submitter: tx.submitterName,
                           supervisorNote: tx.supervisorReviewNote,
+                          batchId: tx.batchId,
+                          batchCount: batchCount,
+                          onApproveBatch: batchCount > 1 ? () async {
+                            final userId = ref.read(authProvider).user?.id ?? '';
+                            int approved = 0;
+                            for (final sTx in batchSiblings) {
+                              final success = await ref.read(stockProvider.notifier).approveByAdmin(sTx, userId);
+                              if (success) approved++;
+                            }
+                            ref.invalidate(pendingStockAdminProvider);
+                            ref.invalidate(stockOverviewProvider(tx.siteId));
+                            ref.invalidate(allSitesStockProvider);
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Approved batch ($approved items)!'),
+                                  backgroundColor: AppColors.approved,
+                                ),
+                              );
+                            }
+                          } : null,
                           onView: () => EntryDetailDialog.show(
                             context,
                             stockTransaction: tx,
@@ -235,6 +262,11 @@ class AdminReviewScreen extends ConsumerWidget {
                         itemBuilder: (context, index) {
                         final tx = sortedCash[index];
                         final isCashReceived = tx.amountReceived > 0 && tx.expenseAmount == 0;
+                        final batchSiblings = tx.batchId != null
+                            ? transactions.where((t) => t.batchId == tx.batchId).toList()
+                            : <CashTransactionModel>[];
+                        final batchCount = batchSiblings.length;
+
                         return _AdminReviewTile(
                           title: isCashReceived
                               ? 'CASH RECEIVED (Top-up): ₹${NumberFormat('#,##,###').format(tx.amountReceived)}'
@@ -246,6 +278,26 @@ class AdminReviewScreen extends ConsumerWidget {
                           photoUrls: tx.photoUrls,
                           submitter: tx.submitterName,
                           supervisorNote: tx.supervisorReviewNote,
+                          batchId: tx.batchId,
+                          batchCount: batchCount,
+                          onApproveBatch: batchCount > 1 ? () async {
+                            final userId = ref.read(authProvider).user?.id ?? '';
+                            int approved = 0;
+                            for (final cTx in batchSiblings) {
+                              final success = await ref.read(cashProvider.notifier).approveByAdmin(cTx.id!, userId);
+                              if (success) approved++;
+                            }
+                            ref.invalidate(pendingCashAdminProvider);
+                            ref.invalidate(siteCashSummaryProvider(tx.siteId));
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Approved batch ($approved cash entries)!'),
+                                  backgroundColor: AppColors.approved,
+                                ),
+                              );
+                            }
+                          } : null,
                           onView: () => EntryDetailDialog.show(
                             context,
                             cashTransaction: tx,
@@ -363,6 +415,9 @@ class _AdminReviewTile extends StatelessWidget {
   final String? supervisorNote;
   final VoidCallback? onEdit;
   final VoidCallback? onView;
+  final String? batchId;
+  final int? batchCount;
+  final VoidCallback? onApproveBatch;
 
   const _AdminReviewTile({
     required this.title,
@@ -375,6 +430,9 @@ class _AdminReviewTile extends StatelessWidget {
     required this.onReject,
     this.onEdit,
     this.onView,
+    this.batchId,
+    this.batchCount,
+    this.onApproveBatch,
   });
 
   @override
@@ -392,6 +450,55 @@ class _AdminReviewTile extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (batchId != null && (batchCount ?? 0) > 1) ...[
+              Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.layers_rounded, size: 14, color: AppColors.primary),
+                        const SizedBox(width: 6),
+                        Text(
+                          'Part of Batch ($batchCount items)',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (onApproveBatch != null)
+                      InkWell(
+                        onTap: onApproveBatch,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: AppColors.approved,
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            'Approve Batch ($batchCount)',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
             Row(
               children: [
                 Expanded(

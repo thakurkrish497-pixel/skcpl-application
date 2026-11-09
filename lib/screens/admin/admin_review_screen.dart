@@ -108,12 +108,16 @@ class AdminReviewScreen extends ConsumerWidget {
                               : <StockTransactionModel>[];
                           final batchCount = batchSiblings.length;
 
+                        final effectiveStockAmount = (tx.finalAmount != null && tx.finalAmount! > 0)
+                            ? tx.finalAmount!
+                            : tx.calculatedFinalAmount;
+
                         return _AdminReviewTile(
                           title:
                               '${tx.type.displayName}: ${tx.displayProductName} (${tx.quantity} ${tx.displayMetricUnitName})',
                           subtitle:
                               '${DateFormat('dd MMM yyyy').format(tx.date)}${tx.displayVendorName != 'None' ? ' • Party: ${tx.displayVendorName}' : ''}${tx.billNo != null ? ' • Bill: #${tx.billNo}' : ''}${tx.cleanRemarks != null ? ' • ${tx.cleanRemarks}' : ''}',
-                          amount: tx.finalAmount,
+                          amount: effectiveStockAmount > 0 ? effectiveStockAmount : null,
                           photoUrls: tx.photoUrls,
                           submitter: tx.submitterName,
                           supervisorNote: tx.supervisorReviewNote,
@@ -577,8 +581,26 @@ class _AdminReviewTile extends StatelessWidget {
                     ],
                   ),
                 ),
-                const StatusBadge(
-                    status: TransactionStatus.pendingAdmin, compact: true),
+                const SizedBox(width: 8),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    if (amount != null && amount! > 0)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Text(
+                          '₹${NumberFormat('#,##,###.##').format(amount)}',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                      ),
+                    const StatusBadge(
+                        status: TransactionStatus.pendingAdmin, compact: true),
+                  ],
+                ),
               ],
             ),
             if (photoUrls.isNotEmpty)

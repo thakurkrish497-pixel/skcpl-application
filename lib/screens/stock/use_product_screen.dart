@@ -76,12 +76,27 @@ class _UseProductScreenState extends ConsumerState<UseProductScreen> {
   Key _photoPickerKey = UniqueKey();
 
   bool get isLocked {
+    // Approved records are permanently locked for everyone
+    if (widget.existingTransaction?.status == TransactionStatus.approved) return true;
+
+    final user = ref.read(authProvider);
+    // Admin and Accounts ALWAYS have full edit privileges for pending and rejected records
+    if (user.isAdmin || user.isAccounts) return false;
+
+    // Project Head can edit transactions pending supervisor review or rejected
+    if (user.isProjectHead &&
+        (widget.existingTransaction == null ||
+         widget.existingTransaction!.isPendingSupervisorReview ||
+         widget.existingTransaction!.status == TransactionStatus.pendingAccounts ||
+         widget.existingTransaction!.status == TransactionStatus.rejected)) {
+      return false;
+    }
+
+    // Only apply staff module restrictions if the user is a worker/site staff
     final activeStaff = ref.read(activeStaffProvider);
     if (activeStaff != null && !activeStaff.hasModule(StaffModule.stock)) return true;
+
     if (widget.existingTransaction == null) return false;
-    if (widget.existingTransaction!.status == TransactionStatus.approved) return true;
-    final user = ref.read(authProvider);
-    if (user.isAdmin || user.isAccounts) return false;
     return !widget.existingTransaction!.isEditable;
   }
 
@@ -383,8 +398,9 @@ class _UseProductScreenState extends ConsumerState<UseProductScreen> {
       return;
     }
 
+    final isPrivileged = authState.isAdmin || authState.isAccounts;
     final activeStaff = ref.read(activeStaffProvider);
-    if (activeStaff != null && !activeStaff.hasModule(StaffModule.stock)) {
+    if (!isPrivileged && activeStaff != null && !activeStaff.hasModule(StaffModule.stock)) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Access Denied: Stock usage is turned off for ${activeStaff.name}.'),
@@ -708,7 +724,9 @@ class _UseProductScreenState extends ConsumerState<UseProductScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   DropdownButtonFormField<String>(
-                    value: _selectedProductId,
+                    value: (products.any((p) => p.id == _selectedProductId) || _selectedProductId == 'OTHER')
+                        ? _selectedProductId
+                        : null,
                     decoration: const InputDecoration(
                       labelText: 'Product Name',
                       prefixIcon: Icon(Icons.category_rounded,
@@ -839,7 +857,9 @@ class _UseProductScreenState extends ConsumerState<UseProductScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   DropdownButtonFormField<String>(
-                    value: _selectedMetricUnitId,
+                    value: (units.any((u) => u.id == _selectedMetricUnitId) || _selectedMetricUnitId == 'OTHER')
+                        ? _selectedMetricUnitId
+                        : null,
                     decoration: const InputDecoration(
                       labelText: 'Metric Unit',
                       prefixIcon: Icon(Icons.straighten_rounded,

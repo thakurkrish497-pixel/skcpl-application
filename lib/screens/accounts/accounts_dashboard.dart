@@ -199,12 +199,16 @@ class AccountsDashboard extends ConsumerWidget {
                             : <StockTransactionModel>[];
                         final batchCount = batchSiblings.length;
 
+                        final effectiveStockAmount = (tx.finalAmount != null && tx.finalAmount! > 0)
+                            ? tx.finalAmount!
+                            : tx.calculatedFinalAmount;
+
                         return _ReviewableTile(
                           title:
                               '${tx.type.displayName}: ${tx.displayProductName} (${tx.quantity} ${tx.displayMetricUnitName})',
                           subtitle:
                               'Date: ${DateFormat('dd MMM yyyy').format(tx.date)}${tx.displayVendorName != 'None' ? ' • ${tx.displayVendorName}' : ''}${tx.billNo != null ? ' • Bill: #${tx.billNo}' : ''}${tx.cleanRemarks != null ? ' • ${tx.cleanRemarks}' : ''}',
-                          amount: tx.finalAmount,
+                          amount: effectiveStockAmount > 0 ? effectiveStockAmount : null,
                           submitter: tx.submitterName,
                           supervisorNote: tx.supervisorReviewNote,
                           status: tx.status,
@@ -776,7 +780,24 @@ class _ReviewableTile extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    StatusBadge(status: status, compact: true),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        if (amount != null && amount! > 0)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 4),
+                            child: Text(
+                              '₹${NumberFormat('#,##,###.##').format(amount)}',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                          ),
+                        StatusBadge(status: status, compact: true),
+                      ],
+                    ),
                   ],
                 ),
                 if (onEdit != null || onApprove != null || onReject != null) ...[

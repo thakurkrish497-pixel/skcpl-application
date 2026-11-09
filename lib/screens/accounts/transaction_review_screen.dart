@@ -385,6 +385,9 @@ class _TransactionReviewScreenState
     final baseAmount = (tx.rate ?? 0) * tx.quantity;
     final sgstAmount = baseAmount * (tx.sgst / 100);
     final igstAmount = baseAmount * (tx.igst / 100);
+    final effectiveFinalAmount = (tx.finalAmount != null && tx.finalAmount! > 0)
+        ? tx.finalAmount!
+        : tx.calculatedFinalAmount;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -399,9 +402,9 @@ class _TransactionReviewScreenState
         if (tx.type == TransactionType.inbound) _DetailRow('Base Amount', '₹${NumberFormat('#,##,###.##').format(baseAmount)}'),
         if (tx.sgst > 0) _DetailRow('SGST', '${tx.sgst}% (₹${NumberFormat('#,##,###.##').format(sgstAmount)})'),
         if (tx.igst > 0) _DetailRow('IGST', '${tx.igst}% (₹${NumberFormat('#,##,###.##').format(igstAmount)})'),
-        if (tx.finalAmount != null && tx.type == TransactionType.inbound)
+        if (effectiveFinalAmount > 0 && tx.type == TransactionType.inbound)
           _DetailRow('Final Amount',
-              '₹${NumberFormat('#,##,###.##').format(tx.finalAmount)}'),
+              '₹${NumberFormat('#,##,###.##').format(effectiveFinalAmount)}'),
         if (tx.submitterName != null) _DetailRow('Entered By', tx.submitterName!),
         if (tx.supervisorReviewNote != null) _DetailRow('Project Head Review', tx.supervisorReviewNote!),
         if (tx.cleanRemarks != null && tx.cleanRemarks!.isNotEmpty) _DetailRow('Remarks', tx.cleanRemarks!),

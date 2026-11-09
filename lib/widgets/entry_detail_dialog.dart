@@ -180,15 +180,24 @@ class EntryDetailDialog extends StatelessWidget {
     final baseAmount = (tx.rate ?? 0) * tx.quantity;
     final sgstAmount = baseAmount * (tx.sgst / 100);
     final igstAmount = baseAmount * (tx.igst / 100);
+    final displayAmount = (tx.finalAmount != null && tx.finalAmount! > 0)
+        ? tx.finalAmount!
+        : tx.calculatedFinalAmount;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (tx.finalAmount != null && tx.finalAmount! > 0)
+        if (displayAmount > 0)
           _amountHighlightCard(
             label: 'Total Amount',
-            amountText: '₹${NumberFormat('#,##,###.##').format(tx.finalAmount)}',
+            amountText: '₹${NumberFormat('#,##,###.##').format(displayAmount)}',
             color: AppColors.primary,
+          ),
+        if (tx.type == TransactionType.outbound)
+          _amountHighlightCard(
+            label: 'Material Issued / Consumed',
+            amountText: '${tx.quantity} ${tx.displayMetricUnitName}',
+            color: const Color(0xFFF59E0B),
           ),
 
         _infoSectionTitle('Material & Quantity'),

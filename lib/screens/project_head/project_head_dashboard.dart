@@ -888,11 +888,18 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
                         ],
                       ),
                     ),
-                    if (tx.calculatedFinalAmount > 0)
-                      Text(
-                        '₹${tx.calculatedFinalAmount.toStringAsFixed(2)}',
-                        style: AppTextStyles.h3.copyWith(color: AppColors.waveCyan, fontWeight: FontWeight.bold),
-                      ),
+                    Builder(
+                      builder: (context) {
+                        final displayAmount = (tx.finalAmount != null && tx.finalAmount! > 0)
+                            ? tx.finalAmount!
+                            : tx.calculatedFinalAmount;
+                        if (displayAmount <= 0) return const SizedBox.shrink();
+                        return Text(
+                          '₹${displayAmount.toStringAsFixed(2)}',
+                          style: AppTextStyles.h3.copyWith(color: AppColors.waveCyan, fontWeight: FontWeight.bold),
+                        );
+                      },
+                    ),
                   ],
                 ),
 
@@ -1724,9 +1731,14 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
                   '$cleaned [Project Head: Edited & Approved by $_currentProjectHeadName] ${note.isNotEmpty ? "Note: $note" : ""}$bypassTag'
                       .trim();
 
+              final baseAmt = newQty * newRate;
+              final taxAmt = baseAmt * ((tx.sgst + tx.igst) / 100);
+              final newFinalAmount = baseAmt + taxAmt;
+
               final updated = tx.copyWith(
                 quantity: newQty,
                 rate: newRate,
+                finalAmount: newFinalAmount,
                 remarks: updatedRemarks,
                 status: targetStatus,
               );

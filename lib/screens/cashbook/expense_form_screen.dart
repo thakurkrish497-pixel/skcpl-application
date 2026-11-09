@@ -88,12 +88,27 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
   Key _photoPickerKey = UniqueKey();
 
   bool get isLocked {
+    // Approved records are permanently locked for everyone
+    if (widget.existingTransaction?.status == TransactionStatus.approved) return true;
+
+    final user = ref.read(authProvider);
+    // Admin and Accounts ALWAYS have full edit privileges for pending and rejected records
+    if (user.isAdmin || user.isAccounts) return false;
+
+    // Project Head can edit transactions pending supervisor review or rejected
+    if (user.isProjectHead &&
+        (widget.existingTransaction == null ||
+         widget.existingTransaction!.isPendingSupervisorReview ||
+         widget.existingTransaction!.status == TransactionStatus.pendingAccounts ||
+         widget.existingTransaction!.status == TransactionStatus.rejected)) {
+      return false;
+    }
+
+    // Only apply staff module restrictions if the user is a worker/site staff
     final activeStaff = ref.read(activeStaffProvider);
     if (activeStaff != null && !activeStaff.hasModule(StaffModule.cashbook)) return true;
+
     if (widget.existingTransaction == null) return false;
-    if (widget.existingTransaction!.status == TransactionStatus.approved) return true;
-    final user = ref.read(authProvider);
-    if (user.isAdmin || user.isAccounts) return false;
     return !widget.existingTransaction!.isEditable;
   }
 
@@ -383,8 +398,9 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       return;
     }
 
+    final isPrivileged = authState.isAdmin || authState.isAccounts;
     final activeStaff = ref.read(activeStaffProvider);
-    if (activeStaff != null && !activeStaff.hasModule(StaffModule.cashbook)) {
+    if (!isPrivileged && activeStaff != null && !activeStaff.hasModule(StaffModule.cashbook)) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Access Denied: Cashbook entries are turned off for ${activeStaff.name}.'),
@@ -1114,7 +1130,9 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     DropdownButtonFormField<String>(
-                      value: _selectedExpenseTypeId,
+                      value: (types.any((t) => t.id == _selectedExpenseTypeId) || _selectedExpenseTypeId == 'OTHER')
+                          ? _selectedExpenseTypeId
+                          : null,
                       decoration: const InputDecoration(
                         labelText: 'Expense Type (Account Head) *',
                         prefixIcon: Icon(Icons.receipt_long_rounded,

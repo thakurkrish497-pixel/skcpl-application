@@ -54,8 +54,10 @@ class CashTransactionModel {
     this.siteName,
   });
 
-  /// Whether a worker can still edit this record
-  bool get isEditable => status == TransactionStatus.pendingAccounts;
+  /// Whether a worker or user can still edit this record
+  bool get isEditable => 
+      status == TransactionStatus.pendingAccounts ||
+      status == TransactionStatus.rejected;
 
   /// Whether accounts can still review this record
   bool get isReviewable => 

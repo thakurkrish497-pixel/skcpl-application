@@ -55,8 +55,19 @@ class _RoleAccessManagementScreenState
     }
   }
 
-  void _loadCurrentPermissions() {
+  void _loadCurrentPermissions() async {
     final permissions = ref.read(roleAccessProvider);
+    _populateControllers(permissions);
+
+    // Refresh from Supabase cloud in background to guarantee cross-device sync
+    await ref.read(roleAccessProvider.notifier).loadPermissions(forceRefresh: true);
+    if (mounted) {
+      final fresh = ref.read(roleAccessProvider);
+      _populateControllers(fresh);
+    }
+  }
+
+  void _populateControllers(RolePermissionsModel permissions) {
     _accountsEmailController.text = permissions.accountsEmail;
     _accountsPasswordController.text = permissions.accountsPassword;
     _accountsCanApproveCash = permissions.accountsCanApproveCash;

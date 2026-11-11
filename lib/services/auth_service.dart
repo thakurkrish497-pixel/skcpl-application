@@ -67,8 +67,8 @@ class AuthService {
         );
       }
     } catch (e) {
-      // Resilient verification with dynamic Admin-configured credentials
-      final dynamicConfig = await RoleAccessService().getPermissions();
+      // Resilient verification with dynamic Admin-configured credentials (forceRefresh from cloud)
+      final dynamicConfig = await RoleAccessService().getPermissions(forceRefresh: true);
       final configuredProjectHeadEmail = dynamicConfig.projectHeadEmail.toLowerCase().trim();
       final configuredAccountsEmail = dynamicConfig.accountsEmail.toLowerCase().trim();
 

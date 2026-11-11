@@ -20,37 +20,38 @@ class RoleAccessService {
               SupabaseConstants.supabaseServiceRoleKey,
             );
 
-  /// Get current role credentials and approval powers
-  Future<RolePermissionsModel> getPermissions() async {
-    if (_cached != null) return _cached!;
+  /// Get current role credentials and approval powers (Cloud-first so all laptops stay in sync)
+  Future<RolePermissionsModel> getPermissions({bool forceRefresh = false}) async {
+    if (_cached != null && !forceRefresh) return _cached!;
 
-    // 1. Try local SharedPreferences first (instant)
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final localJson = prefs.getString(_prefsKey);
-      if (localJson != null && localJson.isNotEmpty) {
-        _cached = RolePermissionsModel.fromJsonString(localJson);
-        return _cached!;
-      }
-    } catch (_) {}
-
-    // 2. Try remote Supabase tasks table
+    // 1. Try remote Supabase tasks table FIRST (cloud source of truth for all laptops)
     try {
       final rows = await _client
           .from('tasks')
           .select()
           .eq('title', _supabaseConfigTag)
+          .order('updated_at', ascending: false)
           .limit(1);
 
       if ((rows as List).isNotEmpty) {
         final desc = rows.first['description'] as String?;
         if (desc != null && desc.isNotEmpty) {
           _cached = RolePermissionsModel.fromJsonString(desc);
-          // Sync locally
+          // Update local cache for offline fallback
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString(_prefsKey, desc);
           return _cached!;
         }
+      }
+    } catch (_) {}
+
+    // 2. Fallback to local SharedPreferences only if offline / server unreachable
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final localJson = prefs.getString(_prefsKey);
+      if (localJson != null && localJson.isNotEmpty) {
+        _cached = RolePermissionsModel.fromJsonString(localJson);
+        return _cached!;
       }
     } catch (_) {}
 

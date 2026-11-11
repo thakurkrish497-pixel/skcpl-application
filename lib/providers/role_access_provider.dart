@@ -13,9 +13,9 @@ class RoleAccessNotifier extends StateNotifier<RolePermissionsModel> {
     loadPermissions();
   }
 
-  Future<void> loadPermissions() async {
+  Future<void> loadPermissions({bool forceRefresh = false}) async {
     try {
-      final perms = await _service.getPermissions();
+      final perms = await _service.getPermissions(forceRefresh: forceRefresh);
       state = perms;
     } catch (_) {}
   }

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Download SKCPL ERP — Connect to Waves</title>
+  <title>Download SKCPL ERP — Connect to Waves (Android, Windows, macOS, Web)</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -13,10 +13,11 @@
       --primary-light: #1E3A8A;
       --accent-blue: #0284C7;
       --accent-cyan: #06B6D4;
+      --accent-green: #10B981;
       --gold: #F59E0B;
       --bg: #091224;
-      --card-bg: rgba(15, 32, 66, 0.7);
-      --card-border: rgba(56, 189, 248, 0.2);
+      --card-bg: rgba(15, 32, 66, 0.78);
+      --card-border: rgba(56, 189, 248, 0.22);
       --text-main: #F8FAFC;
       --text-muted: #94A3B8;
     }
@@ -30,8 +31,11 @@
     body {
       font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
       background-color: var(--bg);
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(2, 132, 199, 0.18) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.12) 0px, transparent 50%);
       color: var(--text-main);
-      padding: 40px 20px;
+      padding: 40px 18px;
       display: flex;
       justify-content: center;
       align-items: center;
@@ -39,16 +43,24 @@
     }
 
     .skcpl-download-card {
-      max-width: 900px;
+      max-width: 960px;
       width: 100%;
       background: var(--card-bg);
-      backdrop-filter: blur(16px);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
       border: 1px solid var(--card-border);
       border-radius: 28px;
-      padding: 48px 40px;
-      box-shadow: 0 25px 60px -15px rgba(2, 132, 199, 0.25);
+      padding: 44px 36px;
+      box-shadow: 0 25px 60px -15px rgba(2, 132, 199, 0.28);
       position: relative;
       overflow: hidden;
+    }
+
+    @media (max-width: 640px) {
+      .skcpl-download-card {
+        padding: 28px 20px;
+        border-radius: 20px;
+      }
     }
 
     .skcpl-download-card::before {
@@ -71,59 +83,154 @@
       padding: 6px 14px;
       border-radius: 999px;
       font-size: 13px;
-      font-weight: 600;
+      font-weight: 700;
       color: var(--accent-cyan);
       letter-spacing: 0.5px;
       margin-bottom: 20px;
     }
 
     .title {
-      font-size: 38px;
+      font-size: 36px;
       font-weight: 800;
-      line-height: 1.2;
+      line-height: 1.25;
       margin-bottom: 12px;
-      background: linear-gradient(135deg, #FFFFFF 0%, #BAE6FD 60%, #38BDF8 100%);
+      background: linear-gradient(135deg, #FFFFFF 0%, #BAE6FD 55%, #38BDF8 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
     }
 
+    @media (max-width: 640px) {
+      .title {
+        font-size: 26px;
+      }
+    }
+
     .tagline {
-      font-size: 17px;
+      font-size: 16px;
       color: var(--text-muted);
       line-height: 1.6;
       margin-bottom: 32px;
-      max-width: 680px;
+      max-width: 720px;
+    }
+
+    /* Primary Android Spotlight Card */
+    .featured-android-hero {
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(2, 132, 199, 0.2) 100%);
+      border: 1.5px solid rgba(16, 185, 129, 0.45);
+      border-radius: 20px;
+      padding: 22px 24px;
+      margin-bottom: 24px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      box-shadow: 0 12px 30px -8px rgba(16, 185, 129, 0.25);
+      position: relative;
+    }
+
+    .featured-android-hero .hero-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex: 1;
+      min-width: 250px;
+    }
+
+    .featured-android-hero .android-big-icon {
+      width: 52px;
+      height: 52px;
+      color: #34D399;
+      flex-shrink: 0;
+      filter: drop-shadow(0 0 12px rgba(52, 211, 153, 0.5));
+    }
+
+    .featured-android-hero .hero-title {
+      font-size: 20px;
+      font-weight: 800;
+      color: #FFFFFF;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .featured-android-hero .hero-sub {
+      font-size: 13px;
+      color: #CBD5E1;
+      line-height: 1.4;
+    }
+
+    .badge-recommended {
+      background: #10B981;
+      color: #064E3B;
+      font-size: 11px;
+      font-weight: 800;
+      padding: 3px 10px;
+      border-radius: 999px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .btn-download-android-main {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+      color: white;
+      text-decoration: none;
+      font-weight: 700;
+      font-size: 15px;
+      padding: 14px 28px;
+      border-radius: 14px;
+      box-shadow: 0 10px 25px -5px rgba(16, 185, 129, 0.5);
+      border: 1px solid rgba(110, 231, 183, 0.4);
+      transition: all 0.25s ease;
+      white-space: nowrap;
+    }
+
+    .btn-download-android-main:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 15px 35px -5px rgba(16, 185, 129, 0.65);
+      background: linear-gradient(135deg, #34D399 0%, #059669 100%);
+    }
+
+    /* Multi-platform Grid */
+    .section-subtitle {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--accent-cyan);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 14px;
     }
 
     .buttons-container {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-      gap: 18px;
-      margin-bottom: 36px;
+      gap: 16px;
+      margin-bottom: 28px;
     }
 
     .download-btn {
       display: flex;
       align-items: center;
-      gap: 16px;
-      padding: 18px 24px;
-      border-radius: 18px;
+      gap: 14px;
+      padding: 16px 20px;
+      border-radius: 16px;
       text-decoration: none;
       color: white;
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
       border: 1px solid rgba(255, 255, 255, 0.1);
       position: relative;
+      background: rgba(30, 58, 138, 0.35);
     }
 
     .download-btn.primary {
       background: linear-gradient(135deg, #0284C7 0%, #0369A1 100%);
       box-shadow: 0 10px 25px -5px rgba(2, 132, 199, 0.5);
       border-color: rgba(56, 189, 248, 0.5);
-    }
-
-    .download-btn.secondary {
-      background: rgba(30, 58, 138, 0.35);
-      border-color: rgba(56, 189, 248, 0.25);
     }
 
     .download-btn:hover {
@@ -133,8 +240,8 @@
     }
 
     .download-btn svg {
-      width: 36px;
-      height: 36px;
+      width: 32px;
+      height: 32px;
       flex-shrink: 0;
     }
 
@@ -144,7 +251,7 @@
     }
 
     .btn-label {
-      font-size: 12px;
+      font-size: 11px;
       text-transform: uppercase;
       letter-spacing: 0.8px;
       opacity: 0.8;
@@ -152,7 +259,7 @@
     }
 
     .btn-os {
-      font-size: 19px;
+      font-size: 17px;
       font-weight: 700;
       line-height: 1.2;
     }
@@ -165,8 +272,8 @@
 
     .os-detected-pill {
       position: absolute;
-      top: -10px;
-      right: 16px;
+      top: -8px;
+      right: 14px;
       background: #10B981;
       color: #064E3B;
       font-size: 10px;
@@ -177,20 +284,70 @@
       letter-spacing: 0.5px;
     }
 
+    /* Android Install Guide Strip */
+    .install-guide-box {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid rgba(56, 189, 248, 0.2);
+      border-radius: 16px;
+      padding: 18px 22px;
+      margin-bottom: 28px;
+    }
+
+    .guide-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: #38BDF8;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .guide-steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+    }
+
+    .step-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      font-size: 12px;
+      color: #CBD5E1;
+      line-height: 1.5;
+    }
+
+    .step-num {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: rgba(56, 189, 248, 0.15);
+      border: 1px solid #38BDF8;
+      color: #38BDF8;
+      font-weight: 800;
+      font-size: 11px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    /* Features Strip */
     .features-strip {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
       gap: 16px;
-      padding-top: 24px;
+      padding-top: 22px;
       border-top: 1px solid rgba(255, 255, 255, 0.08);
-      margin-bottom: 28px;
+      margin-bottom: 24px;
     }
 
     .feature-item {
       display: flex;
       align-items: center;
       gap: 10px;
-      font-size: 14px;
+      font-size: 13px;
       color: #E2E8F0;
     }
 
@@ -202,6 +359,7 @@
       box-shadow: 0 0 10px var(--accent-cyan);
     }
 
+    /* Footer */
     .footer-bar {
       display: flex;
       flex-wrap: wrap;
@@ -211,7 +369,7 @@
       font-size: 12px;
       color: var(--text-muted);
       border-top: 1px solid rgba(255, 255, 255, 0.06);
-      padding-top: 20px;
+      padding-top: 18px;
     }
 
     .credit-badge {
@@ -230,8 +388,8 @@
 <body>
 
   <!-- ============================================================== -->
-  <!-- SKCPL OFFICIAL WEBSITE DOWNLOAD WIDGET                         -->
-  <!-- Copy & paste this section anywhere into skumarcreation.com     -->
+  <!-- SKCPL OFFICIAL ENTERPRISE APP DOWNLOAD WIDGET                  -->
+  <!-- Optimized for Android Phones, Windows, macOS, and Web Browser -->
   <!-- ============================================================== -->
   <div class="skcpl-download-card">
     <div class="header-badge">
@@ -240,32 +398,88 @@
 
     <h1 class="title">SKCPL Operations & Site ERP</h1>
     <p class="tagline">
-      Streamline construction inventory, vendor challans, site cash books, GPS attendance punching, and voice-to-text Daily Site Reports (DSR) across all SKCPL sites.
+      Streamline construction stock verification, cash books & petty vouchers, geofenced GPS attendance with site-visit overrides, and voice-to-text Daily Site Reports (DSR).
     </p>
 
-    <!-- Download Buttons with Smart OS Highlight -->
-    <div class="buttons-container">
-
-      <!-- Android Download Button -->
-      <a id="btn-android" 
-         href="https://github.com/thakurkrish497-pixel/skcpl-application/releases/latest/download/SKCPL-Android.apk" 
-         class="download-btn secondary"
-         download>
-        <span id="pill-android" class="os-detected-pill" style="display: none;">Your Device</span>
-        <svg viewBox="0 0 24 24" fill="currentColor">
+    <!-- 1. FEATURED ANDROID HERO BANNER (Top Billing for Site Mobile Staff) -->
+    <div class="featured-android-hero">
+      <div class="hero-left">
+        <svg class="android-big-icon" viewBox="0 0 24 24" fill="currentColor">
           <path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-.9997s.4482-.9993.9993-.9993c.551 0 .9993.4482.9993.9993.0001.5511-.4483.9997-.9993.9997m-11.046 0c-.5511 0-.9993-.4486-.9993-.9997s.4482-.9993.9993-.9993c.5511 0 .9993.4482.9993.9993 0 .5511-.4482.9997-.9993.9997m11.4045-6.02l1.9973-3.4592a.416.416 0 00-.1521-.5676.416.416 0 00-.5676.1521l-2.0223 3.503C15.5902 8.4116 13.8533 8 12 8s-3.5902.4116-5.1367.9497L4.841 5.4467a.4161.4161 0 00-.5677-.1521.4157.4157 0 00-.1521.5676l1.9973 3.4592C2.6889 11.1867.3432 14.6589 0 18.761h24c-.3432-4.1021-2.6889-7.5743-6.1185-9.4396"/>
         </svg>
+        <div>
+          <div class="hero-title">
+            <span>Android Mobile App</span>
+            <span class="badge-recommended">★ Recommended for Site Phones</span>
+          </div>
+          <div class="hero-sub">Direct APK Installer • Works smoothly on Samsung, Vivo, Oppo, OnePlus, Redmi & all Android phones</div>
+        </div>
+      </div>
+      <a id="btn-android-hero" 
+         href="https://github.com/thakurkrish497-pixel/skcpl-application/releases/latest/download/SKCPL-Android.apk" 
+         class="btn-download-android-main"
+         download>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="7 10 12 15 17 10"></polyline>
+          <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+        <span>Download Android APK</span>
+      </a>
+    </div>
+
+    <!-- Quick 3-Step Guide for Android APK Installation -->
+    <div class="install-guide-box">
+      <div class="guide-title">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="16" x2="12" y2="12"></line>
+          <line x1="12" y1="8" x2="12.01" y2="8"></line>
+        </svg>
+        <span>How to Install on Android Phone:</span>
+      </div>
+      <div class="guide-steps">
+        <div class="step-item">
+          <span class="step-num">1</span>
+          <span>Tap <strong>Download Android APK</strong> button above to download <code>SKCPL-Android.apk</code>.</span>
+        </div>
+        <div class="step-item">
+          <span class="step-num">2</span>
+          <span>Open downloaded file and tap <strong>Install</strong> (Allow <em>Unknown Sources / This source</em> if prompted).</span>
+        </div>
+        <div class="step-item">
+          <span class="step-num">3</span>
+          <span>Launch SKCPL App, log in with your phone or email, and start site operations!</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. ALL PLATFORMS (Web Portal, Windows PC, Mac Desktop) -->
+    <div class="section-subtitle">Also Available On All Devices:</div>
+    <div class="buttons-container">
+
+      <!-- Web ERP Direct Access Button (Works on Any Browser / iPhone / iPad / PC) -->
+      <a id="btn-web" 
+         href="/" 
+         class="download-btn"
+         target="_blank">
+        <span id="pill-web" class="os-detected-pill" style="display: none;">Universal Web</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="2" y1="12" x2="22" y2="12"></line>
+          <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+        </svg>
         <div class="btn-text">
-          <span class="btn-label">Download For</span>
-          <span class="btn-os">Android Phone</span>
-          <span class="btn-sub">Direct APK Installer (Universal)</span>
+          <span class="btn-label">Instant Access</span>
+          <span class="btn-os">Launch Web ERP</span>
+          <span class="btn-sub">Open in Browser (Any Device)</span>
         </div>
       </a>
-      
-      <!-- Windows Download Button -->
+
+      <!-- Windows PC Download Button -->
       <a id="btn-windows" 
          href="https://github.com/thakurkrish497-pixel/skcpl-application/releases/latest/download/SKCPL-Windows-x64.zip" 
-         class="download-btn primary"
+         class="download-btn"
          download>
         <span id="pill-windows" class="os-detected-pill" style="display: none;">Your Device</span>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -278,10 +492,10 @@
         </div>
       </a>
 
-      <!-- macOS Download Button -->
+      <!-- Apple Mac Download Button -->
       <a id="btn-mac" 
          href="https://github.com/thakurkrish497-pixel/skcpl-application/releases/latest/download/SKCPL-macOS.zip" 
-         class="download-btn secondary"
+         class="download-btn"
          download>
         <span id="pill-mac" class="os-detected-pill" style="display: none;">Your Device</span>
         <svg viewBox="0 0 24 24" fill="currentColor">
@@ -312,7 +526,7 @@
       </div>
       <div class="feature-item">
         <span class="feature-dot"></span>
-        <span>Multi-Tier Audit Approvals</span>
+        <span>Admin Site-Visit Override & Holiday Rules</span>
       </div>
     </div>
 
@@ -331,36 +545,33 @@
   <script>
     (function detectOS() {
       const userAgent = window.navigator.userAgent.toLowerCase();
-      const btnAndroid = document.getElementById('btn-android');
       const btnWindows = document.getElementById('btn-windows');
       const btnMac = document.getElementById('btn-mac');
-      const pillAndroid = document.getElementById('pill-android');
+      const btnWeb = document.getElementById('btn-web');
       const pillWindows = document.getElementById('pill-windows');
       const pillMac = document.getElementById('pill-mac');
+      const pillWeb = document.getElementById('pill-web');
 
       const isAndroid = /android/.test(userAgent);
       const isMac = /macintosh|mac os x/.test(userAgent);
       const isWindows = /windows|win32|win64/.test(userAgent);
+      const isIOS = /iphone|ipad|ipod/.test(userAgent);
 
       if (isAndroid) {
-        btnAndroid.className = 'download-btn primary';
-        btnWindows.className = 'download-btn secondary';
-        btnMac.className = 'download-btn secondary';
-        pillAndroid.style.display = 'inline-block';
+        // Android is already highlighted in the hero card
       } else if (isMac) {
         btnMac.className = 'download-btn primary';
-        btnWindows.className = 'download-btn secondary';
-        btnAndroid.className = 'download-btn secondary';
         pillMac.style.display = 'inline-block';
       } else if (isWindows) {
         btnWindows.className = 'download-btn primary';
-        btnMac.className = 'download-btn secondary';
-        btnAndroid.className = 'download-btn secondary';
         pillWindows.style.display = 'inline-block';
+      } else if (isIOS) {
+        btnWeb.className = 'download-btn primary';
+        pillWeb.style.display = 'inline-block';
+        pillWeb.innerText = 'For iOS / iPhone';
       }
     })();
   </script>
 
 </body>
 </html>
-

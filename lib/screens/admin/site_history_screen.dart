@@ -11,6 +11,10 @@ import '../../services/pdf_service.dart';
 import '../../services/excel_service.dart';
 import '../../widgets/photo_thumbnail_strip.dart';
 import '../../widgets/status_badge.dart';
+import '../../providers/auth_provider.dart';
+import '../stock/add_product_screen.dart';
+import '../stock/use_product_screen.dart';
+import '../cashbook/expense_form_screen.dart';
 
 class SiteHistoryScreen extends ConsumerStatefulWidget {
   final String siteId;
@@ -74,6 +78,86 @@ class _SiteHistoryScreenState extends ConsumerState<SiteHistoryScreen> with Sing
       }
     } finally {
       if (mounted) setState(() => _isExporting = false);
+    }
+  }
+
+  Future<void> _deleteStockTx(StockTransactionModel tx) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surfaceDark,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Delete Stock Entry?', style: TextStyle(color: Colors.white)),
+        content: Text(
+          'Are you sure you want to permanently delete this ${tx.type.displayName} entry (${tx.displayProductName} - ${tx.quantity} ${tx.displayMetricUnitName})?\n\n'
+          'Current stock balance will be recalculated automatically.',
+          style: const TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.rejected),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete Permanently'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      final success = await ref.read(stockProvider.notifier).deleteTransaction(tx);
+      ref.invalidate(stockOverviewProvider(widget.siteId));
+      ref.invalidate(allSitesStockProvider);
+      ref.read(stockProvider.notifier).loadCurrentStock(widget.siteId);
+      ref.read(stockProvider.notifier).loadTransactions(widget.siteId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(success ? 'Stock entry deleted & inventory updated.' : 'Failed to delete stock entry.'),
+            backgroundColor: success ? AppColors.approved : AppColors.rejected,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _deleteCashTx(CashTransactionModel tx) async {
+    final isExpense = tx.expenseAmount > 0;
+    final amtStr = isExpense ? '₹${tx.expenseAmount}' : '₹${tx.amountReceived}';
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surfaceDark,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Delete Cash Entry?', style: TextStyle(color: Colors.white)),
+        content: Text(
+          'Are you sure you want to permanently delete this ${isExpense ? "expense" : "cash received"} entry ($amtStr - ${tx.displayExpenseTypeName})?\n\n'
+          'Site cash in hand and total balance will be recalculated automatically.',
+          style: const TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.rejected),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete Permanently'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      final success = await ref.read(cashProvider.notifier).deleteTransaction(tx);
+      ref.invalidate(siteCashSummaryProvider(widget.siteId));
+      ref.read(cashProvider.notifier).loadTransactions(widget.siteId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(success ? 'Cash entry deleted & balance updated.' : 'Failed to delete cash entry.'),
+            backgroundColor: success ? AppColors.approved : AppColors.rejected,
+          ),
+        );
+      }
     }
   }
 
@@ -236,6 +320,37 @@ class _SiteHistoryScreenState extends ConsumerState<SiteHistoryScreen> with Sing
                               ),
                               if (tx.photoUrls.isNotEmpty)
                                 PhotoThumbnailStrip(photoUrls: tx.photoUrls),
+                              if (ref.read(authProvider).isAdmin) ...[
+                                const Divider(color: AppColors.divider, height: 16),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.end,
+                                  children: [
+                                    TextButton.icon(
+                                      icon: const Icon(Icons.edit_note_rounded, size: 18, color: AppColors.primary),
+                                      label: const Text('Edit Entry', style: TextStyle(color: AppColors.primary, fontSize: 13, fontWeight: FontWeight.bold)),
+                                      onPressed: () async {
+                                        final didUpdate = await Navigator.push<bool>(context, MaterialPageRoute(
+                                          builder: (_) => tx.type == TransactionType.inbound
+                                              ? AddProductScreen(existingTransaction: tx)
+                                              : UseProductScreen(existingTransaction: tx),
+                                        ));
+                                        if (didUpdate == true) {
+                                          ref.invalidate(stockOverviewProvider(widget.siteId));
+                                          ref.invalidate(allSitesStockProvider);
+                                          ref.read(stockProvider.notifier).loadCurrentStock(widget.siteId);
+                                          ref.read(stockProvider.notifier).loadTransactions(widget.siteId);
+                                        }
+                                      },
+                                    ),
+                                    const SizedBox(width: 8),
+                                    TextButton.icon(
+                                      icon: const Icon(Icons.delete_outline_rounded, size: 18, color: AppColors.rejected),
+                                      label: const Text('Delete Entry', style: TextStyle(color: AppColors.rejected, fontSize: 13, fontWeight: FontWeight.bold)),
+                                      onPressed: () => _deleteStockTx(tx),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ],
                           ),
                         );
@@ -333,6 +448,33 @@ class _SiteHistoryScreenState extends ConsumerState<SiteHistoryScreen> with Sing
                               ),
                               if (tx.photoUrls.isNotEmpty)
                                 PhotoThumbnailStrip(photoUrls: tx.photoUrls),
+                              if (ref.read(authProvider).isAdmin) ...[
+                                const Divider(color: AppColors.divider, height: 16),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.end,
+                                  children: [
+                                    TextButton.icon(
+                                      icon: const Icon(Icons.edit_note_rounded, size: 18, color: AppColors.primary),
+                                      label: const Text('Edit Entry', style: TextStyle(color: AppColors.primary, fontSize: 13, fontWeight: FontWeight.bold)),
+                                      onPressed: () async {
+                                        final didUpdate = await Navigator.push<bool>(context, MaterialPageRoute(
+                                          builder: (_) => ExpenseFormScreen(existingTransaction: tx),
+                                        ));
+                                        if (didUpdate == true) {
+                                          ref.invalidate(siteCashSummaryProvider(widget.siteId));
+                                          ref.read(cashProvider.notifier).loadTransactions(widget.siteId);
+                                        }
+                                      },
+                                    ),
+                                    const SizedBox(width: 8),
+                                    TextButton.icon(
+                                      icon: const Icon(Icons.delete_outline_rounded, size: 18, color: AppColors.rejected),
+                                      label: const Text('Delete Entry', style: TextStyle(color: AppColors.rejected, fontSize: 13, fontWeight: FontWeight.bold)),
+                                      onPressed: () => _deleteCashTx(tx),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ],
                           ),
                         );

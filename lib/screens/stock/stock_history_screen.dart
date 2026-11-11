@@ -120,26 +120,29 @@ class _StockHistoryScreenState extends ConsumerState<StockHistoryScreen> {
                   separatorBuilder: (_, __) => const SizedBox(height: 10),
                   itemBuilder: (context, index) {
                     final tx = stockState.transactions[index];
+                    final isAdmin = ref.watch(authProvider).isAdmin;
+                    final canEdit = tx.isEditable || isAdmin;
+
+                    void openEdit() {
+                      final screen = tx.type == TransactionType.inbound
+                          ? AddProductScreen(existingTransaction: tx)
+                          : UseProductScreen(existingTransaction: tx);
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => screen))
+                          .then((didUpdate) {
+                        if (didUpdate == true) {
+                          final siteId = ref.read(authProvider).activeSite?.id ?? tx.siteId;
+                          ref.invalidate(stockOverviewProvider(siteId));
+                          ref.invalidate(allSitesStockProvider);
+                          ref.read(stockProvider.notifier).loadCurrentStock(siteId);
+                          ref.read(stockProvider.notifier).loadTransactions(siteId);
+                        }
+                      });
+                    }
+
                     return InkWell(
                       onTap: () {
-                        if (tx.isEditable || ref.read(authProvider).isAdmin) {
-                          if (tx.type == TransactionType.inbound) {
-                            Navigator.push(context, MaterialPageRoute(
-                              builder: (_) => AddProductScreen(existingTransaction: tx),
-                            )).then((didUpdate) {
-                              if (didUpdate == true) {
-                                ref.read(stockProvider.notifier).loadTransactions(ref.read(authProvider).activeSite!.id);
-                              }
-                            });
-                          } else {
-                            Navigator.push(context, MaterialPageRoute(
-                              builder: (_) => UseProductScreen(existingTransaction: tx),
-                            )).then((didUpdate) {
-                              if (didUpdate == true) {
-                                ref.read(stockProvider.notifier).loadTransactions(ref.read(authProvider).activeSite!.id);
-                              }
-                            });
-                          }
+                        if (canEdit) {
+                          openEdit();
                         } else {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(content: Text('This submission has been reviewed and is locked.')),
@@ -147,18 +150,69 @@ class _StockHistoryScreenState extends ConsumerState<StockHistoryScreen> {
                         }
                       },
                       borderRadius: BorderRadius.circular(14),
-                      child: _TransactionTile(transaction: tx),
+                      child: _TransactionTile(
+                        transaction: tx,
+                        onEdit: canEdit ? openEdit : null,
+                        onDelete: isAdmin ? () => _confirmDeleteStock(tx) : null,
+                      ),
                     );
                   },
                 ),
     );
   }
+
+  Future<void> _confirmDeleteStock(StockTransactionModel tx) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surfaceDark,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Delete Stock Entry?', style: TextStyle(color: Colors.white)),
+        content: Text(
+          'Are you sure you want to permanently delete this ${tx.type.displayName} entry (${tx.displayProductName} - ${tx.quantity} ${tx.displayMetricUnitName})?\n\n'
+          'Current stock balance will be recalculated automatically.',
+          style: const TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.rejected),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete Permanently'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      final siteId = ref.read(authProvider).activeSite?.id ?? tx.siteId;
+      final success = await ref.read(stockProvider.notifier).deleteTransaction(tx);
+      ref.invalidate(stockOverviewProvider(siteId));
+      ref.invalidate(allSitesStockProvider);
+      ref.read(stockProvider.notifier).loadCurrentStock(siteId);
+      ref.read(stockProvider.notifier).loadTransactions(siteId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(success ? 'Stock entry deleted & inventory updated.' : 'Failed to delete stock entry.'),
+            backgroundColor: success ? AppColors.approved : AppColors.rejected,
+          ),
+        );
+      }
+    }
+  }
 }
 
 class _TransactionTile extends StatelessWidget {
   final StockTransactionModel transaction;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
 
-  const _TransactionTile({required this.transaction});
+  const _TransactionTile({
+    required this.transaction,
+    this.onEdit,
+    this.onDelete,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -344,6 +398,28 @@ class _TransactionTile extends StatelessWidget {
           ],
           if (transaction.photoUrls.isNotEmpty)
             PhotoThumbnailStrip(photoUrls: transaction.photoUrls),
+          if (onEdit != null || onDelete != null) ...[
+            const Divider(color: AppColors.divider, height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                if (onEdit != null)
+                  TextButton.icon(
+                    icon: const Icon(Icons.edit_note_rounded, size: 18, color: AppColors.primary),
+                    label: const Text('Edit Entry', style: TextStyle(color: AppColors.primary, fontSize: 13, fontWeight: FontWeight.bold)),
+                    onPressed: onEdit,
+                  ),
+                if (onDelete != null) ...[
+                  const SizedBox(width: 8),
+                  TextButton.icon(
+                    icon: const Icon(Icons.delete_outline_rounded, size: 18, color: AppColors.rejected),
+                    label: const Text('Delete', style: TextStyle(color: AppColors.rejected, fontSize: 13, fontWeight: FontWeight.bold)),
+                    onPressed: onDelete,
+                  ),
+                ],
+              ],
+            ),
+          ],
         ],
       ),
     );

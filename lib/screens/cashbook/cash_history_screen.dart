@@ -197,14 +197,19 @@ class _CashHistoryScreenState extends ConsumerState<CashHistoryScreen> {
               }
               final txIndex = missedBanner != null ? index - 1 : index;
               final tx = cashState.transactions[txIndex];
+              final isAdmin = ref.watch(authProvider).isAdmin;
+              final canEdit = tx.isEditable || isAdmin;
+
               return InkWell(
                 onTap: () {
-                  if (tx.isEditable || ref.read(authProvider).isAdmin) {
+                  if (canEdit) {
                     Navigator.push(context, MaterialPageRoute(
                       builder: (_) => ExpenseFormScreen(existingTransaction: tx),
                     )).then((didUpdate) {
                       if (didUpdate == true) {
-                        ref.read(cashProvider.notifier).loadTransactions(ref.read(authProvider).activeSite!.id);
+                        final siteId = ref.read(authProvider).activeSite?.id ?? tx.siteId;
+                        ref.invalidate(siteCashSummaryProvider(siteId));
+                        ref.read(cashProvider.notifier).loadTransactions(siteId);
                       }
                     });
                   } else {
@@ -214,7 +219,23 @@ class _CashHistoryScreenState extends ConsumerState<CashHistoryScreen> {
                   }
                 },
                 borderRadius: BorderRadius.circular(14),
-                child: _CashTile(transaction: tx),
+                child: _CashTile(
+                  transaction: tx,
+                  onEdit: canEdit
+                      ? () {
+                          Navigator.push(context, MaterialPageRoute(
+                            builder: (_) => ExpenseFormScreen(existingTransaction: tx),
+                          )).then((didUpdate) {
+                            if (didUpdate == true) {
+                              final siteId = ref.read(authProvider).activeSite?.id ?? tx.siteId;
+                              ref.invalidate(siteCashSummaryProvider(siteId));
+                              ref.read(cashProvider.notifier).loadTransactions(siteId);
+                            }
+                          });
+                        }
+                      : null,
+                  onDelete: isAdmin ? () => _confirmDeleteCash(tx) : null,
+                ),
               );
             },
           );
@@ -229,6 +250,7 @@ class _CashHistoryScreenState extends ConsumerState<CashHistoryScreen> {
             MaterialPageRoute(builder: (_) => const ExpenseFormScreen()),
           ).then((_) {
             if (activeSite != null) {
+              ref.invalidate(siteCashSummaryProvider(activeSite.id));
               ref.read(cashProvider.notifier).loadTransactions(activeSite.id);
             }
           });
@@ -238,12 +260,59 @@ class _CashHistoryScreenState extends ConsumerState<CashHistoryScreen> {
       ),
     );
   }
+
+  Future<void> _confirmDeleteCash(CashTransactionModel tx) async {
+    final isExpense = tx.expenseAmount > 0;
+    final amtStr = isExpense ? '₹${tx.expenseAmount}' : '₹${tx.amountReceived}';
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surfaceDark,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Delete Cash Entry?', style: TextStyle(color: Colors.white)),
+        content: Text(
+          'Are you sure you want to permanently delete this ${isExpense ? "expense" : "cash received"} entry ($amtStr - ${tx.displayExpenseTypeName})?\n\n'
+          'Site cash in hand and total summary will be recalculated automatically.',
+          style: const TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.rejected),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete Permanently'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      final siteId = ref.read(authProvider).activeSite?.id ?? tx.siteId;
+      final success = await ref.read(cashProvider.notifier).deleteTransaction(tx);
+      ref.invalidate(siteCashSummaryProvider(siteId));
+      ref.read(cashProvider.notifier).loadTransactions(siteId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(success ? 'Cash entry deleted & balance updated.' : 'Failed to delete cash entry.'),
+            backgroundColor: success ? AppColors.approved : AppColors.rejected,
+          ),
+        );
+      }
+    }
+  }
 }
 
 class _CashTile extends StatelessWidget {
   final CashTransactionModel transaction;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
 
-  const _CashTile({required this.transaction});
+  const _CashTile({
+    required this.transaction,
+    this.onEdit,
+    this.onDelete,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -440,6 +509,28 @@ class _CashTile extends StatelessWidget {
           ],
           if (transaction.photoUrls.isNotEmpty)
             PhotoThumbnailStrip(photoUrls: transaction.photoUrls),
+          if (onEdit != null || onDelete != null) ...[
+            const Divider(color: AppColors.divider, height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                if (onEdit != null)
+                  TextButton.icon(
+                    icon: const Icon(Icons.edit_note_rounded, size: 18, color: AppColors.primary),
+                    label: const Text('Edit Entry', style: TextStyle(color: AppColors.primary, fontSize: 13, fontWeight: FontWeight.bold)),
+                    onPressed: onEdit,
+                  ),
+                if (onDelete != null) ...[
+                  const SizedBox(width: 8),
+                  TextButton.icon(
+                    icon: const Icon(Icons.delete_outline_rounded, size: 18, color: AppColors.rejected),
+                    label: const Text('Delete', style: TextStyle(color: AppColors.rejected, fontSize: 13, fontWeight: FontWeight.bold)),
+                    onPressed: onDelete,
+                  ),
+                ],
+              ],
+            ),
+          ],
         ],
       ),
     );

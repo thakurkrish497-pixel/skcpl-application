@@ -10,6 +10,7 @@ import '../../models/daily_site_report_model.dart';
 import '../../providers/site_provider.dart';
 import '../../providers/site_report_provider.dart';
 import '../../services/excel_service.dart';
+import '../../providers/auth_provider.dart';
 import '../../widgets/language_toggle_button.dart';
 import '../../core/localization/app_strings.dart';
 
@@ -78,6 +79,141 @@ class _DailySiteReportsScreenState extends ConsumerState<DailySiteReportsScreen>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Excel export error: $e')),
+        );
+      }
+    }
+  }
+
+  void _showEditReportDialog(DailySiteReportModel report) {
+    final notesController = TextEditingController(text: report.notes ?? report.rawTranscript ?? '');
+    final remarksController = TextEditingController(text: report.remarks ?? '');
+    bool isSaving = false;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: AppColors.surfaceDark,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Row(
+            children: [
+              Icon(Icons.edit_note_rounded, color: AppColors.primary),
+              SizedBox(width: 8),
+              Text('Edit Daily Site Report', style: TextStyle(color: Colors.white, fontSize: 18)),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Work Report Notes *', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: notesController,
+                  maxLines: 5,
+                  style: const TextStyle(color: Colors.white, fontSize: 14),
+                  decoration: InputDecoration(
+                    hintText: 'Enter updated work progress...',
+                    filled: true,
+                    fillColor: AppColors.cardDark,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.divider)),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                const Text('Project Head / Admin Remarks', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: remarksController,
+                  maxLines: 2,
+                  style: const TextStyle(color: Colors.white, fontSize: 14),
+                  decoration: InputDecoration(
+                    hintText: 'e.g. [Project Head: Approved by ...] Checked & Verified',
+                    filled: true,
+                    fillColor: AppColors.cardDark,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.divider)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: isSaving ? null : () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+              onPressed: isSaving
+                  ? null
+                  : () async {
+                      if (notesController.text.trim().isEmpty) return;
+                      setDialogState(() => isSaving = true);
+                      try {
+                        final updated = report.copyWith(
+                          notes: notesController.text.trim(),
+                          remarks: remarksController.text.trim().isEmpty ? null : remarksController.text.trim(),
+                          updatedAt: DateTime.now(),
+                        );
+                        await ref.read(siteReportServiceProvider).saveReport(updated);
+                        if (context.mounted) Navigator.pop(ctx);
+                        _refreshReports();
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Daily Site Report updated!'), backgroundColor: AppColors.approved),
+                          );
+                        }
+                      } catch (e) {
+                        setDialogState(() => isSaving = false);
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Failed to update report: $e'), backgroundColor: AppColors.rejected),
+                          );
+                        }
+                      }
+                    },
+              child: isSaving
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Text('Save Changes'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmDeleteReport(DailySiteReportModel report, int idx) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surfaceDark,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Delete Daily Site Report?', style: TextStyle(color: Colors.white)),
+        content: Text(
+          'Are you sure you want to permanently delete Update #$idx logged on ${DateFormat('dd MMM yyyy').format(report.date)}?\n\n'
+          'This action cannot be undone.',
+          style: const TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.rejected),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete Permanently'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      await ref.read(siteReportServiceProvider).deleteReport(report.id);
+      _refreshReports();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Daily Site Report deleted.'),
+            backgroundColor: AppColors.approved,
+          ),
         );
       }
     }
@@ -667,6 +803,25 @@ class _DailySiteReportsScreenState extends ConsumerState<DailySiteReportsScreen>
                               );
                             },
                           ),
+                        ),
+                      ],
+                      if (ref.watch(authProvider).isAdmin) ...[
+                        const Divider(color: AppColors.divider, height: 20),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            TextButton.icon(
+                              icon: const Icon(Icons.edit_note_rounded, size: 18, color: AppColors.primary),
+                              label: const Text('Edit Report', style: TextStyle(color: AppColors.primary, fontSize: 13, fontWeight: FontWeight.bold)),
+                              onPressed: () => _showEditReportDialog(report),
+                            ),
+                            const SizedBox(width: 8),
+                            TextButton.icon(
+                              icon: const Icon(Icons.delete_outline_rounded, size: 18, color: AppColors.rejected),
+                              label: const Text('Delete Report', style: TextStyle(color: AppColors.rejected, fontSize: 13, fontWeight: FontWeight.bold)),
+                              onPressed: () => _confirmDeleteReport(report, idx),
+                            ),
+                          ],
                         ),
                       ],
                     ],

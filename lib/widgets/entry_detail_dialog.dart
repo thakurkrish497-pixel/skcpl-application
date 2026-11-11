@@ -20,6 +20,7 @@ class EntryDetailDialog extends StatelessWidget {
   final VoidCallback? onEdit;
   final VoidCallback? onApprove;
   final VoidCallback? onReject;
+  final VoidCallback? onDelete;
 
   const EntryDetailDialog({
     super.key,
@@ -30,6 +31,7 @@ class EntryDetailDialog extends StatelessWidget {
     this.onEdit,
     this.onApprove,
     this.onReject,
+    this.onDelete,
   });
 
   static Future<void> show(
@@ -41,6 +43,7 @@ class EntryDetailDialog extends StatelessWidget {
     VoidCallback? onEdit,
     VoidCallback? onApprove,
     VoidCallback? onReject,
+    VoidCallback? onDelete,
   }) {
     return showDialog(
       context: context,
@@ -53,6 +56,7 @@ class EntryDetailDialog extends StatelessWidget {
         onEdit: onEdit,
         onApprove: onApprove,
         onReject: onReject,
+        onDelete: onDelete,
       ),
     );
   }
@@ -484,6 +488,21 @@ class EntryDetailDialog extends StatelessWidget {
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppColors.primary,
                 side: const BorderSide(color: AppColors.primary),
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
+          if (onDelete != null) ...[
+            OutlinedButton.icon(
+              onPressed: () {
+                Navigator.pop(context);
+                onDelete!();
+              },
+              icon: const Icon(Icons.delete_outline_rounded, size: 18),
+              label: const Text('Delete'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.rejected,
+                side: const BorderSide(color: AppColors.rejected),
               ),
             ),
             const SizedBox(width: 8),

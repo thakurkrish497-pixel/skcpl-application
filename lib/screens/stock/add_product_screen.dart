@@ -102,12 +102,15 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
 
   /// Whether the form should be locked (read-only)
   bool get isLocked {
-    // Approved records are permanently locked for everyone
+    final user = ref.read(authProvider);
+    // Admin ALWAYS has full edit privileges on ANY transaction, including approved historical entries
+    if (user.isAdmin) return false;
+
+    // For non-admin users, approved records are permanently locked
     if (widget.existingTransaction?.status == TransactionStatus.approved) return true;
 
-    final user = ref.read(authProvider);
-    // Admin and Accounts ALWAYS have full edit privileges for pending and rejected records
-    if (user.isAdmin || user.isAccounts) return false;
+    // Accounts has edit privileges for pending and rejected records
+    if (user.isAccounts) return false;
 
     // Project Head can edit transactions pending supervisor review or rejected
     if (user.isProjectHead &&
@@ -553,6 +556,10 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
 
         final success = await ref.read(stockProvider.notifier).updateTransaction(submission);
         if (success && mounted) {
+          ref.invalidate(stockOverviewProvider(_transaction!.siteId));
+          ref.invalidate(allSitesStockProvider);
+          ref.read(stockProvider.notifier).loadCurrentStock(_transaction!.siteId);
+          ref.read(stockProvider.notifier).loadTransactions(_transaction!.siteId);
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Changes saved successfully!'), backgroundColor: AppColors.approved),
           );

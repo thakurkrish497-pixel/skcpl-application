@@ -126,6 +126,24 @@ class SiteReportService {
     return null;
   }
 
+  /// Deletes a daily site report permanently (from daily_site_reports table and fallback tasks)
+  Future<void> deleteReport(String reportId) async {
+    try {
+      await _client.from('daily_site_reports').delete().eq('id', reportId);
+    } catch (e) {
+      print('delete from daily_site_reports error: $e');
+    }
+
+    try {
+      await _client
+          .from('tasks')
+          .delete()
+          .or('title.like.%$reportId%,description.like.%"id":"$reportId"%');
+    } catch (e) {
+      print('delete from fallback tasks error: $e');
+    }
+  }
+
   // ── Resilient Fallback Engine ──
   // If daily_site_reports table is not migrated in Supabase,
   // we store the JSON in the existing `tasks` table tagged as 'DSR' so data is NEVER lost!

@@ -26,10 +26,13 @@ class SiteModel {
   /// rather than an active on-ground construction site.
   bool get isHeadOffice =>
       name.toLowerCase().contains('head office') ||
+      name.toLowerCase().contains('head-office') ||
       name.toLowerCase().contains('indore office') ||
+      (name.toLowerCase().contains('head') && name.toLowerCase().contains('office')) ||
       name.toLowerCase().trim() == 'indore' ||
       name.toLowerCase().contains('corporate office') ||
       address?.toLowerCase().contains('[head office]') == true ||
+      address?.toLowerCase().contains('[head-office]') == true ||
       address?.toLowerCase().contains('[office]') == true;
 
   factory SiteModel.fromJson(Map<String, dynamic> json) {

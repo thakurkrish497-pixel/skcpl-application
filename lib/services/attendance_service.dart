@@ -123,7 +123,7 @@ class AttendanceService {
     DateTime date,
   ) async {
     final dateStr = DateFormat('yyyy-MM-dd').format(date);
-    List<AttendanceRecordModel> list;
+    List<AttendanceRecordModel> list = [];
     try {
       var query = _client.from('attendance').select().eq('date', dateStr);
       if (siteId != 'all') {
@@ -134,9 +134,18 @@ class AttendanceService {
       list = (data as List)
           .map((json) => AttendanceRecordModel.fromJson(json))
           .toList();
-    } catch (_) {
-      list = await _getAttendanceFallback(siteId, dateStr);
+    } catch (_) {}
+
+    // Combine with tasks table fallback
+    final fallbackList = await _getAttendanceFallback(siteId, dateStr);
+    final seenIds = list.map((r) => r.id).toSet();
+    for (final r in fallbackList) {
+      if (!seenIds.contains(r.id)) {
+        list.add(r);
+        seenIds.add(r.id);
+      }
     }
+
     return await _hydrateAttendance(list);
   }
 
@@ -694,10 +703,14 @@ class AttendanceService {
   // ─────────────────────────────────────────────────────────────
 
   static const _defaultAdminUserId = '84b7c957-e145-446a-9a31-051f2cb9b3af';
-  static const _indoreOfficeSiteId = 'bdb1478e-4fa9-4873-9804-864b0952fa4d';
+  static const _indoreOfficeSiteId = '89e1477d-7f66-4b6d-99ca-6270183143e0';
 
   String _resolveSiteId(String rawSiteId) {
-    if (rawSiteId == 'office' || rawSiteId == 'global') {
+    if (rawSiteId == 'office' ||
+        rawSiteId == 'global' ||
+        rawSiteId == 'bdb1478e-4fa9-4873-9804-864b0952fa4d' ||
+        !RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$')
+            .hasMatch(rawSiteId.trim())) {
       return _indoreOfficeSiteId;
     }
     return rawSiteId;

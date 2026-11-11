@@ -879,6 +879,9 @@ class _EmployeePerformanceScreenState
       case AttendanceStatus.absent:
         color = AppColors.rejected;
         break;
+      case AttendanceStatus.holiday:
+        color = const Color(0xFF38BDF8);
+        break;
     }
 
     return Container(

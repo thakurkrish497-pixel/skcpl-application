@@ -561,6 +561,550 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
     );
   }
 
+  void _showDeclareHolidayDialog(List<SiteModel> sites) async {
+    DateTime selectedDate = _selectedDate;
+    final titleController = TextEditingController(text: 'Holiday');
+    bool isAllLocations = true;
+    bool isHeadOfficeSelected = false;
+    final selectedSiteIds = <String>{};
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) {
+          final declaredHolidays = ref.watch(holidaysProvider).valueOrNull ?? [];
+
+          return AlertDialog(
+            backgroundColor: AppColors.surfaceDark,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: const Row(
+              children: [
+                Icon(Icons.beach_access_rounded, color: AppColors.primary),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text('Holiday Management', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+            content: SizedBox(
+              width: 480,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Declare a paid holiday for Head Office, specific sites, or company-wide. Default rule: Head Office has Sundays off; construction sites work all 7 days.',
+                      style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
+                    ),
+                    const SizedBox(height: 14),
+
+                    // Date selector
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.calendar_today_rounded, color: AppColors.primary),
+                      title: Text(
+                        DateFormat('EEEE, dd MMMM yyyy').format(selectedDate),
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                      ),
+                      subtitle: const Text('Tap to change holiday date', style: TextStyle(color: AppColors.textSecondary, fontSize: 11)),
+                      onTap: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: selectedDate,
+                          firstDate: DateTime(2024),
+                          lastDate: DateTime(2030),
+                        );
+                        if (picked != null) {
+                          setDialogState(() => selectedDate = picked);
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 10),
+
+                    // Title
+                    TextField(
+                      controller: titleController,
+                      style: const TextStyle(color: AppColors.textPrimary),
+                      decoration: const InputDecoration(
+                        labelText: 'Holiday Title / Occasion',
+                        hintText: 'e.g. Diwali, Eid, Republic Day, Site Shutdown',
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+
+                    // Scope Checkboxes
+                    const Text('Applies To:', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                    const SizedBox(height: 6),
+                    CheckboxListTile(
+                      contentPadding: EdgeInsets.zero,
+                      dense: true,
+                      activeColor: AppColors.primary,
+                      title: const Text('All Locations (Company-Wide)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      value: isAllLocations,
+                      onChanged: (val) {
+                        setDialogState(() {
+                          isAllLocations = val ?? true;
+                          if (isAllLocations) {
+                            selectedSiteIds.clear();
+                            isHeadOfficeSelected = false;
+                          }
+                        });
+                      },
+                    ),
+
+                    if (!isAllLocations) ...[
+                      const Divider(color: AppColors.divider),
+                      CheckboxListTile(
+                        contentPadding: EdgeInsets.zero,
+                        dense: true,
+                        activeColor: AppColors.primary,
+                        title: const Text('Indore Head Office', style: TextStyle(color: Colors.white)),
+                        value: isHeadOfficeSelected,
+                        onChanged: (val) {
+                          setDialogState(() => isHeadOfficeSelected = val ?? false);
+                        },
+                      ),
+                      const SizedBox(height: 4),
+                      const Text('Construction Sites:', style: TextStyle(color: AppColors.textSecondary, fontSize: 12, fontWeight: FontWeight.bold)),
+                      ...sites.where((s) => !s.isHeadOffice).map((s) {
+                        final isChecked = selectedSiteIds.contains(s.id);
+                        return CheckboxListTile(
+                          contentPadding: EdgeInsets.zero,
+                          dense: true,
+                          activeColor: AppColors.primary,
+                          title: Text(s.name, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                          value: isChecked,
+                          onChanged: (val) {
+                            setDialogState(() {
+                              if (val == true) {
+                                selectedSiteIds.add(s.id);
+                              } else {
+                                selectedSiteIds.remove(s.id);
+                              }
+                            });
+                          },
+                        );
+                      }),
+                    ],
+
+                    const SizedBox(height: 16),
+                    // Active declared holidays list
+                    if (declaredHolidays.isNotEmpty) ...[
+                      const Divider(color: AppColors.divider),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          const Icon(Icons.event_note_rounded, size: 16, color: AppColors.primary),
+                          const SizedBox(width: 6),
+                          Text('Active Declared Holidays (${declaredHolidays.length})', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        constraints: const BoxConstraints(maxHeight: 180),
+                        decoration: BoxDecoration(
+                          color: AppColors.cardDark,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: AppColors.divider),
+                        ),
+                        child: ListView.separated(
+                          shrinkWrap: true,
+                          itemCount: declaredHolidays.length,
+                          separatorBuilder: (_, __) => const Divider(color: AppColors.divider, height: 1),
+                          itemBuilder: (ctx, i) {
+                            final h = declaredHolidays[i];
+                            final scopeStr = h.siteIds.contains('all')
+                                ? 'All Locations'
+                                : '${h.siteIds.length} site(s)';
+                            return ListTile(
+                              dense: true,
+                              title: Text(h.title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                              subtitle: Text('${DateFormat('dd MMM yyyy').format(h.date)} • $scopeStr', style: const TextStyle(color: AppColors.textSecondary, fontSize: 11)),
+                              trailing: IconButton(
+                                icon: const Icon(Icons.delete_outline_rounded, color: AppColors.rejected, size: 18),
+                                tooltip: 'Revoke Holiday',
+                                onPressed: () async {
+                                  await ref.read(attendanceServiceProvider).deleteHoliday(h.id);
+                                  ref.invalidate(holidaysProvider);
+                                  ref.invalidate(monthlyAttendanceProvider);
+                                  ref.invalidate(todayAttendanceForSiteProvider);
+                                  ref.invalidate(attendanceForDateAndSiteProvider);
+                                  setDialogState(() {});
+                                },
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Close'),
+              ),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+                icon: const Icon(Icons.check_rounded, size: 18),
+                label: const Text('Declare Holiday'),
+                onPressed: () async {
+                  final title = titleController.text.trim();
+                  if (title.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Please enter a holiday title'), backgroundColor: AppColors.rejected),
+                    );
+                    return;
+                  }
+
+                  final targetSiteIds = <String>[];
+                  if (isAllLocations) {
+                    targetSiteIds.add('all');
+                  } else {
+                    if (isHeadOfficeSelected) targetSiteIds.add('office');
+                    targetSiteIds.addAll(selectedSiteIds);
+                    if (targetSiteIds.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Please select at least one site or head office'), backgroundColor: AppColors.rejected),
+                      );
+                      return;
+                    }
+                  }
+
+                  final adminName = ref.read(authProvider).user?.fullName ?? 'Admin';
+                  await ref.read(attendanceServiceProvider).declareHoliday(
+                    title: title,
+                    date: selectedDate,
+                    siteIds: targetSiteIds,
+                    createdBy: adminName,
+                  );
+
+                  ref.invalidate(holidaysProvider);
+                  ref.invalidate(monthlyAttendanceProvider);
+                  ref.invalidate(todayAttendanceForSiteProvider);
+                  ref.invalidate(attendanceForDateAndSiteProvider);
+
+                  if (context.mounted) {
+                    Navigator.pop(ctx);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Holiday "$title" declared for ${DateFormat('dd MMM yyyy').format(selectedDate)}!'),
+                        backgroundColor: AppColors.approved,
+                      ),
+                    );
+                  }
+                },
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  void _showMarkAttendanceDialog({
+    SiteStaffModel? preselectedStaff,
+    AttendanceRecordModel? existingRecord,
+    List<SiteStaffModel>? staffList,
+    List<SiteModel>? sites,
+  }) async {
+    final allStaff = staffList ?? ref.read(allStaffProvider).valueOrNull ?? [];
+    final activeStaff = allStaff.where((s) => s.isActive).toList();
+    final allSites = sites ?? ref.read(activeSitesProvider).valueOrNull ?? [];
+
+    SiteStaffModel? selectedStaff = preselectedStaff ??
+        (existingRecord != null
+            ? activeStaff.where((s) => s.id == existingRecord.staffId).firstOrNull
+            : null) ??
+        (activeStaff.isNotEmpty ? activeStaff.first : null);
+
+    DateTime selectedDate = existingRecord?.date ?? _selectedDate;
+    TimeOfDay punchInTime = const TimeOfDay(hour: 9, minute: 0);
+    TimeOfDay punchOutTime = const TimeOfDay(hour: 18, minute: 0);
+    String selectedReason = 'Site Visit';
+    final noteController = TextEditingController(text: 'Site Visit / Official Duty');
+
+    final reasonPresets = [
+      'Site Visit',
+      'Client Meeting',
+      'Official Duty',
+      'GPS / Geofence Issue',
+      'Missed Punch',
+      'Holiday Duty',
+      'Other',
+    ];
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          backgroundColor: AppColors.surfaceDark,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Row(
+            children: [
+              Icon(Icons.how_to_reg_rounded, color: AppColors.approved),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text('Give Attendance (Mark Present)', style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: 440,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Grant official attendance to employee who was on a site visit, client visit, or outside designated area.',
+                    style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Staff Selector
+                  if (preselectedStaff == null && existingRecord == null) ...[
+                    DropdownButtonFormField<SiteStaffModel>(
+                      value: selectedStaff,
+                      dropdownColor: AppColors.cardDark,
+                      style: const TextStyle(color: AppColors.textPrimary, fontSize: 13),
+                      decoration: const InputDecoration(labelText: 'Select Staff Member'),
+                      items: activeStaff.map((s) {
+                        final sName = _getSiteName(allSites, s.siteId);
+                        return DropdownMenuItem(
+                          value: s,
+                          child: Text('${s.name} (${s.role.displayName} • $sName)', overflow: TextOverflow.ellipsis),
+                        );
+                      }).toList(),
+                      onChanged: (val) {
+                        if (val != null) setDialogState(() => selectedStaff = val);
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                  ] else ...[
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppColors.cardDark,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: AppColors.divider),
+                      ),
+                      child: Row(
+                        children: [
+                          const CircleAvatar(
+                            radius: 18,
+                            backgroundColor: AppColors.primary,
+                            child: Icon(Icons.person_rounded, size: 20, color: Colors.white),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  selectedStaff?.name ?? existingRecord?.staffName ?? 'Staff Member',
+                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                                ),
+                                Text(
+                                  '${selectedStaff?.role.displayName ?? existingRecord?.staffRole ?? ""} • ${_getSiteName(allSites, selectedStaff?.siteId ?? existingRecord?.siteId ?? "")}',
+                                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+
+                  // Date
+                  ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                    leading: const Icon(Icons.calendar_today_rounded, color: AppColors.primary, size: 20),
+                    title: Text(
+                      DateFormat('EEEE, dd MMMM yyyy').format(selectedDate),
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                    subtitle: const Text('Tap to change date', style: TextStyle(color: AppColors.textSecondary, fontSize: 10)),
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: selectedDate,
+                        firstDate: DateTime(2024),
+                        lastDate: DateTime.now(),
+                      );
+                      if (picked != null) setDialogState(() => selectedDate = picked);
+                    },
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Shift Timings (In / Out)
+                  Row(
+                    children: [
+                      Expanded(
+                        child: InkWell(
+                          onTap: () async {
+                            final picked = await showTimePicker(context: context, initialTime: punchInTime);
+                            if (picked != null) setDialogState(() => punchInTime = picked);
+                          },
+                          child: InputDecorator(
+                            decoration: const InputDecoration(labelText: 'Punch In Time', prefixIcon: Icon(Icons.login_rounded, size: 18, color: AppColors.approved)),
+                            child: Text(punchInTime.format(context), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: InkWell(
+                          onTap: () async {
+                            final picked = await showTimePicker(context: context, initialTime: punchOutTime);
+                            if (picked != null) setDialogState(() => punchOutTime = picked);
+                          },
+                          child: InputDecorator(
+                            decoration: const InputDecoration(labelText: 'Punch Out Time', prefixIcon: Icon(Icons.logout_rounded, size: 18, color: AppColors.secondary)),
+                            child: Text(punchOutTime.format(context), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Reason Chips
+                  const Text('Reason / Purpose:', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: reasonPresets.map((r) {
+                      final isSelected = selectedReason == r;
+                      return ChoiceChip(
+                        label: Text(r, style: TextStyle(fontSize: 11, color: isSelected ? Colors.white : AppColors.textSecondary)),
+                        selected: isSelected,
+                        selectedColor: AppColors.primary,
+                        backgroundColor: AppColors.cardDark,
+                        onSelected: (selected) {
+                          if (selected) {
+                            setDialogState(() {
+                              selectedReason = r;
+                              if (r != 'Other') {
+                                noteController.text = r;
+                              }
+                            });
+                          }
+                        },
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Note text field
+                  TextField(
+                    controller: noteController,
+                    style: const TextStyle(color: AppColors.textPrimary, fontSize: 13),
+                    decoration: const InputDecoration(
+                      labelText: 'Admin Note / Description',
+                      hintText: 'e.g. Site visit to Indore plant with client',
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(backgroundColor: AppColors.approved),
+              icon: const Icon(Icons.check_circle_rounded, size: 18),
+              label: const Text('Mark Present'),
+              onPressed: () async {
+                final staff = selectedStaff;
+                if (staff == null && existingRecord == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Please select an employee'), backgroundColor: AppColors.rejected),
+                  );
+                  return;
+                }
+
+                final staffId = staff?.id ?? existingRecord!.staffId;
+                final staffName = staff?.name ?? existingRecord!.staffName;
+                final staffRole = staff?.role.displayName ?? existingRecord!.staffRole;
+                final staffSiteId = staff?.siteId ?? existingRecord!.siteId;
+                final staffSiteName = _getSiteName(allSites, staffSiteId);
+
+                final inDateTime = DateTime(
+                  selectedDate.year,
+                  selectedDate.month,
+                  selectedDate.day,
+                  punchInTime.hour,
+                  punchInTime.minute,
+                );
+                final outDateTime = DateTime(
+                  selectedDate.year,
+                  selectedDate.month,
+                  selectedDate.day,
+                  punchOutTime.hour,
+                  punchOutTime.minute,
+                );
+
+                final reasonNote = noteController.text.trim().isNotEmpty
+                    ? noteController.text.trim()
+                    : selectedReason;
+
+                final currentAdmin = ref.read(authProvider).user?.fullName ?? 'Admin';
+
+                Navigator.pop(ctx);
+
+                try {
+                  await ref.read(attendanceServiceProvider).markManualAttendance(
+                    siteId: staffSiteId,
+                    siteName: staffSiteName,
+                    staffId: staffId,
+                    staffName: staffName,
+                    staffRole: staffRole,
+                    date: selectedDate,
+                    punchInTime: inDateTime,
+                    punchOutTime: outDateTime,
+                    reason: reasonNote,
+                    adminName: currentAdmin,
+                    existingAttendanceId: existingRecord?.id,
+                  );
+
+                  ref.invalidate(todayAttendanceForSiteProvider);
+                  ref.invalidate(attendanceForDateAndSiteProvider);
+                  ref.invalidate(monthlyAttendanceProvider);
+
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Attendance marked Present for $staffName!'),
+                        backgroundColor: AppColors.approved,
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error marking attendance: $e'), backgroundColor: AppColors.rejected),
+                    );
+                  }
+                }
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final pendingRequestsAsync =
@@ -719,10 +1263,12 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
             (siteId: currentSiteId, date: _selectedDate)));
         final monthlyAsync = ref.watch(monthlyAttendanceProvider(
             (siteId: currentSiteId, year: _calendarMonth.year, month: _calendarMonth.month)));
+        final holidaysAsync = ref.watch(holidaysProvider);
 
         final monthlyRecords = monthlyAsync.valueOrNull ?? [];
         final staffList = staffAsync.valueOrNull ?? [];
         final recordedList = attendanceAsync.valueOrNull ?? [];
+        final declaredHolidays = holidaysAsync.valueOrNull ?? [];
 
         // 1. Filter staff belonging strictly to the selected site
         final activeStaffList = staffList.where((s) => s.isActive).where((s) {
@@ -746,31 +1292,82 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
           }
         }
 
-        // 3. Any active staff member of this site without a punch is marked Absent
+        // 3. For any active staff without a recorded punch:
+        // Rule A: Head Office has Sundays as default holiday. Construction sites work all 7 days!
+        // Rule B: Declared holidays apply to matching sites, head office, or all.
+        // If it's a holiday, mark them as 'Holiday' (non-penalty), otherwise 'Absent'.
         for (final staff in activeStaffList) {
           final isAlreadyMarked = recordedStaffIds.contains(staff.id) ||
               recordedStaffNames.contains(staff.name.trim().toLowerCase());
           if (!isAlreadyMarked) {
+            final staffSite = sites.where((s) => s.id == staff.siteId).firstOrNull;
+            final isOfficeSite = staffSite?.isHeadOffice == true ||
+                staff.siteId == 'office' ||
+                staff.siteId == 'bdb1478e-4fa9-4873-9804-864b0952fa4d' ||
+                _getSiteName(sites, staff.siteId).toLowerCase().contains('head office') ||
+                _getSiteName(sites, staff.siteId).toLowerCase().contains('indore office') ||
+                _getSiteName(sites, staff.siteId).toLowerCase().trim() == 'indore';
+
+            final isSundayOfficeOff = _selectedDate.weekday == DateTime.sunday && isOfficeSite;
+
+            HolidayModel? matchingHoliday;
+            for (final h in declaredHolidays) {
+              if (_isSameDay(h.date, _selectedDate)) {
+                if (h.appliesTo(staff.siteId, isHeadOffice: isOfficeSite)) {
+                  matchingHoliday = h;
+                  break;
+                }
+              }
+            }
+
+            final isHolidayForStaff = isSundayOfficeOff || matchingHoliday != null;
+            final holidayTitle = isSundayOfficeOff
+                ? 'Sunday Off (Head Office)'
+                : (matchingHoliday?.title ?? 'Holiday');
+
             final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
-            effectiveRoster.add(AttendanceRecordModel(
-              id: 'unmarked-${staff.id}-$dateStr',
-              siteId: staff.siteId,
-              siteName: _getSiteName(sites, staff.siteId),
-              staffId: staff.id,
-              staffName: staff.name,
-              staffRole: staff.designation?.isNotEmpty == true
-                  ? staff.designation!
-                  : staff.role.displayName,
-              date: _selectedDate,
-              punchInTime: null,
-              punchOutTime: null,
-              status: AttendanceStatus.absent,
-              adminDecisionNote: 'Unmarked Attendance • Considered Absent',
-              isWithinSite: false,
-              lateMinutes: 0,
-              createdAt: _selectedDate,
-              updatedAt: _selectedDate,
-            ));
+
+            if (isHolidayForStaff) {
+              effectiveRoster.add(AttendanceRecordModel(
+                id: 'holiday-${staff.id}-$dateStr',
+                siteId: staff.siteId,
+                siteName: _getSiteName(sites, staff.siteId),
+                staffId: staff.id,
+                staffName: staff.name,
+                staffRole: staff.designation?.isNotEmpty == true
+                    ? staff.designation!
+                    : staff.role.displayName,
+                date: _selectedDate,
+                punchInTime: null,
+                punchOutTime: null,
+                status: AttendanceStatus.holiday,
+                adminDecisionNote: holidayTitle,
+                isWithinSite: true,
+                lateMinutes: 0,
+                createdAt: _selectedDate,
+                updatedAt: _selectedDate,
+              ));
+            } else {
+              effectiveRoster.add(AttendanceRecordModel(
+                id: 'unmarked-${staff.id}-$dateStr',
+                siteId: staff.siteId,
+                siteName: _getSiteName(sites, staff.siteId),
+                staffId: staff.id,
+                staffName: staff.name,
+                staffRole: staff.designation?.isNotEmpty == true
+                    ? staff.designation!
+                    : staff.role.displayName,
+                date: _selectedDate,
+                punchInTime: null,
+                punchOutTime: null,
+                status: AttendanceStatus.absent,
+                adminDecisionNote: 'Unmarked Attendance • Considered Absent',
+                isWithinSite: false,
+                lateMinutes: 0,
+                createdAt: _selectedDate,
+                updatedAt: _selectedDate,
+              ));
+            }
           }
         }
 
@@ -780,6 +1377,7 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
             : effectiveRoster.length;
         final presentCount = effectiveRoster.where((r) => r.isPresent).length;
         final absentCount = effectiveRoster.where((r) => r.isAbsent).length;
+        final holidayCount = effectiveRoster.where((r) => r.isHoliday).length;
         final pendingCount =
             effectiveRoster.where((r) => r.isPendingAdminReview).length;
 
@@ -787,68 +1385,108 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
         final filteredRoster = effectiveRoster.where((r) {
           if (_rosterStatusFilter == 'present') return r.isPresent;
           if (_rosterStatusFilter == 'absent') return r.isAbsent;
+          if (_rosterStatusFilter == 'holiday') return r.isHoliday;
           if (_rosterStatusFilter == 'pending') return r.isPendingAdminReview;
           return true;
         }).toList();
 
-        // Sort: Pending review first, then Present, then Absent
+        // Sort: Pending review first, then Present, then Holiday, then Absent
         filteredRoster.sort((a, b) {
           if (a.isPendingAdminReview && !b.isPendingAdminReview) return -1;
           if (!a.isPendingAdminReview && b.isPendingAdminReview) return 1;
           if (a.isPresent && !b.isPresent) return -1;
           if (!a.isPresent && b.isPresent) return 1;
+          if (a.isHoliday && !b.isHoliday) return -1;
+          if (!a.isHoliday && b.isHoliday) return 1;
           return a.staffName.compareTo(b.staffName);
         });
 
         return Column(
           children: [
-            // ── Clean Location Bar ──
+            // ── Clean Location Bar & Admin Actions ──
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               color: AppColors.surfaceDark,
-              child: Row(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.place_rounded, size: 18, color: AppColors.primary),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'Site:',
-                    style: TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      decoration: BoxDecoration(
-                        color: AppColors.cardDark,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppColors.divider),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: filterOptions.any((f) => f.id == currentSiteId)
-                              ? currentSiteId
-                              : 'all',
-                          isExpanded: true,
-                          dropdownColor: AppColors.surfaceDark,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                          ),
-                          items: filterOptions.map((f) => DropdownMenuItem(
-                            value: f.id,
-                            child: Text(f.name, overflow: TextOverflow.ellipsis),
-                          )).toList(),
-                          onChanged: (val) {
-                            if (val != null) setState(() => _selectedSiteFilter = val);
-                          },
+                  Row(
+                    children: [
+                      const Icon(Icons.place_rounded, size: 18, color: AppColors.primary),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'Site:',
+                        style: TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
-                    ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          decoration: BoxDecoration(
+                            color: AppColors.cardDark,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: AppColors.divider),
+                          ),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              value: filterOptions.any((f) => f.id == currentSiteId)
+                                  ? currentSiteId
+                                  : 'all',
+                              isExpanded: true,
+                              dropdownColor: AppColors.surfaceDark,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                              items: filterOptions.map((f) => DropdownMenuItem(
+                                value: f.id,
+                                child: Text(f.name, overflow: TextOverflow.ellipsis),
+                              )).toList(),
+                              onChanged: (val) {
+                                if (val != null) setState(() => _selectedSiteFilter = val);
+                              },
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: const Color(0xFF38BDF8),
+                            side: const BorderSide(color: Color(0xFF0284C7)),
+                            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          icon: const Icon(Icons.beach_access_rounded, size: 16),
+                          label: const Text('Declare Holiday', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                          onPressed: () => _showDeclareHolidayDialog(sites),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.approved,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          icon: const Icon(Icons.how_to_reg_rounded, size: 16),
+                          label: const Text('Give Attendance', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                          onPressed: () => _showMarkAttendanceDialog(staffList: activeStaffList, sites: sites),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -886,12 +1524,16 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                   Row(
                     children: [
                       _buildStatFilterTab('all', 'All Staff', totalStaff, Colors.white),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 6),
                       _buildStatFilterTab('present', 'Present', presentCount, AppColors.approved),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 6),
                       _buildStatFilterTab('absent', 'Absent', absentCount, AppColors.rejected),
+                      if (holidayCount > 0) ...[
+                        const SizedBox(width: 6),
+                        _buildStatFilterTab('holiday', 'Holiday', holidayCount, const Color(0xFF0284C7)),
+                      ],
                       if (pendingCount > 0) ...[
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 6),
                         _buildStatFilterTab('pending', 'Requests', pendingCount, AppColors.pending),
                       ],
                     ],
@@ -902,9 +1544,11 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                   if (filteredRoster.isEmpty)
                     _buildEmptyCard(_rosterStatusFilter == 'absent'
                         ? 'No absent staff on this day!'
-                        : (_rosterStatusFilter == 'present'
-                            ? 'No punches recorded on this day.'
-                            : 'No staff found for selected site.'))
+                        : (_rosterStatusFilter == 'holiday'
+                            ? 'No staff on holiday on this day.'
+                            : (_rosterStatusFilter == 'present'
+                                ? 'No punches recorded on this day.'
+                                : 'No staff found for selected site.')))
                   else
                     ...filteredRoster.map((r) {
                       final staffInfo = staffList.where((s) => s.id == r.staffId).firstOrNull;
@@ -1321,6 +1965,7 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
 
   Widget _buildAttendanceRecordCard(AttendanceRecordModel r, {SiteStaffModel? staffInfo}) {
     final isUnmarked = r.isUnmarkedAbsent;
+    final isHoliday = r.isHoliday;
     final inStr = r.punchInTime != null
         ? DateFormat('hh:mm a').format(r.punchInTime!)
         : null;
@@ -1334,16 +1979,20 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
       decoration: BoxDecoration(
-        color: isUnmarked
-            ? AppColors.rejected.withOpacity(0.05)
-            : AppColors.cardDark,
+        color: isHoliday
+            ? const Color(0xFF0284C7).withOpacity(0.06)
+            : (isUnmarked
+                ? AppColors.rejected.withOpacity(0.05)
+                : AppColors.cardDark),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isUnmarked
-              ? AppColors.rejected.withOpacity(0.3)
-              : (r.isPendingAdminReview
-                  ? AppColors.pending.withOpacity(0.4)
-                  : AppColors.divider),
+          color: isHoliday
+              ? const Color(0xFF0284C7).withOpacity(0.35)
+              : (isUnmarked
+                  ? AppColors.rejected.withOpacity(0.3)
+                  : (r.isPendingAdminReview
+                      ? AppColors.pending.withOpacity(0.4)
+                      : AppColors.divider)),
         ),
       ),
       child: Column(
@@ -1354,19 +2003,25 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
               // Circle Avatar
               CircleAvatar(
                 radius: 16,
-                backgroundColor: isUnmarked
-                    ? AppColors.rejected.withOpacity(0.18)
-                    : (r.isPresent
-                        ? AppColors.approved.withOpacity(0.18)
-                        : AppColors.pending.withOpacity(0.18)),
+                backgroundColor: isHoliday
+                    ? const Color(0xFF0284C7).withOpacity(0.18)
+                    : (isUnmarked
+                        ? AppColors.rejected.withOpacity(0.18)
+                        : (r.isPresent
+                            ? AppColors.approved.withOpacity(0.18)
+                            : AppColors.pending.withOpacity(0.18))),
                 child: Icon(
-                  isUnmarked
-                      ? Icons.close_rounded
-                      : (r.isPresent ? Icons.check_rounded : Icons.pending_rounded),
+                  isHoliday
+                      ? Icons.beach_access_rounded
+                      : (isUnmarked
+                          ? Icons.close_rounded
+                          : (r.isPresent ? Icons.check_rounded : Icons.pending_rounded)),
                   size: 16,
-                  color: isUnmarked
-                      ? AppColors.rejected
-                      : (r.isPresent ? AppColors.approved : AppColors.pending),
+                  color: isHoliday
+                      ? const Color(0xFF38BDF8)
+                      : (isUnmarked
+                          ? AppColors.rejected
+                          : (r.isPresent ? AppColors.approved : AppColors.pending)),
                 ),
               ),
               const SizedBox(width: 10),
@@ -1396,41 +2051,105 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: isUnmarked
-                      ? AppColors.rejected.withOpacity(0.15)
-                      : (r.isPresent
-                          ? AppColors.approved.withOpacity(0.15)
-                          : AppColors.pending.withOpacity(0.15)),
+                  color: isHoliday
+                      ? const Color(0xFF0284C7).withOpacity(0.18)
+                      : (isUnmarked
+                          ? AppColors.rejected.withOpacity(0.15)
+                          : (r.isPresent
+                              ? AppColors.approved.withOpacity(0.15)
+                              : AppColors.pending.withOpacity(0.15))),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
-                  isUnmarked
-                      ? 'Absent'
-                      : (r.isPendingAdminReview
-                          ? 'Review'
-                          : (r.lateMinutes > 0 ? '+${r.lateMinutes}m Late' : 'Present')),
+                  isHoliday
+                      ? 'Holiday'
+                      : (isUnmarked
+                          ? 'Absent'
+                          : (r.isPendingAdminReview
+                              ? 'Review'
+                              : (r.lateMinutes > 0 ? '+${r.lateMinutes}m Late' : 'Present'))),
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
-                    color: isUnmarked
-                        ? AppColors.rejected
-                        : (r.isPresent ? AppColors.approved : AppColors.pending),
+                    color: isHoliday
+                        ? const Color(0xFF38BDF8)
+                        : (isUnmarked
+                            ? AppColors.rejected
+                            : (r.isPresent ? AppColors.approved : AppColors.pending)),
                   ),
                 ),
               ),
             ],
           ),
 
-          // Sub-row: Punch Time or Direct Call option
+          // Sub-row: Details & Admin Quick Actions
           const SizedBox(height: 6),
           Row(
             children: [
-              if (isUnmarked) ...[
+              if (isHoliday) ...[
+                const Icon(Icons.event_available_rounded, size: 13, color: Color(0xFF38BDF8)),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    r.adminDecisionNote ?? 'Scheduled Holiday',
+                    style: const TextStyle(fontSize: 11, color: Color(0xFF38BDF8), fontWeight: FontWeight.w500),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                InkWell(
+                  borderRadius: BorderRadius.circular(6),
+                  onTap: () => _showMarkAttendanceDialog(
+                    preselectedStaff: staffInfo,
+                    existingRecord: r,
+                  ),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppColors.approved.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: AppColors.approved.withOpacity(0.5)),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.how_to_reg_rounded, size: 12, color: AppColors.approved),
+                        SizedBox(width: 4),
+                        Text('Mark Present', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.approved)),
+                      ],
+                    ),
+                  ),
+                ),
+              ] else if (isUnmarked || r.isAbsent) ...[
                 const Icon(Icons.info_outline_rounded, size: 12, color: AppColors.rejected),
                 const SizedBox(width: 4),
                 const Text(
                   'Did not mark attendance',
                   style: TextStyle(fontSize: 11, color: AppColors.rejected),
+                ),
+                const SizedBox(width: 8),
+                InkWell(
+                  borderRadius: BorderRadius.circular(6),
+                  onTap: () => _showMarkAttendanceDialog(
+                    preselectedStaff: staffInfo,
+                    existingRecord: r,
+                  ),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: AppColors.approved.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: AppColors.approved.withOpacity(0.5)),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.how_to_reg_rounded, size: 12, color: AppColors.approved),
+                        SizedBox(width: 4),
+                        Text('Mark Present', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.approved)),
+                      ],
+                    ),
+                  ),
                 ),
                 if (phone != null && phone.isNotEmpty) ...[
                   const Spacer(),
@@ -1457,9 +2176,48 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                 const Icon(Icons.logout_rounded, size: 12, color: AppColors.secondary),
                 const SizedBox(width: 4),
                 Text('Out: ${outStr ?? "--"}', style: const TextStyle(fontSize: 11, color: Colors.white70)),
+                const Spacer(),
+                InkWell(
+                  borderRadius: BorderRadius.circular(6),
+                  onTap: () => _showMarkAttendanceDialog(
+                    preselectedStaff: staffInfo,
+                    existingRecord: r,
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.edit_note_rounded, size: 14, color: AppColors.primary),
+                        const SizedBox(width: 2),
+                        Text('Edit', style: TextStyle(fontSize: 11, color: AppColors.primary.withOpacity(0.9), fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  ),
+                ),
               ],
             ],
           ),
+
+          // Admin note or decision note if present
+          if (r.adminDecisionNote != null &&
+              r.adminDecisionNote!.isNotEmpty &&
+              !isHoliday &&
+              !isUnmarked) ...[
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                const Icon(Icons.admin_panel_settings_rounded, size: 11, color: AppColors.primary),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    r.adminDecisionNote!,
+                    style: const TextStyle(fontSize: 10, color: AppColors.textSecondary),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ],
 
           // If pending regularization request
           if (r.isPendingAdminReview) ...[

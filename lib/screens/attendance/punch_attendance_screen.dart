@@ -526,6 +526,21 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
     final policy = policyAsync.valueOrNull;
     final todayRecord = punchState.todayRecord;
 
+    final holidays = ref.watch(holidaysProvider).valueOrNull ?? [];
+    final isHeadOffice = currentSite.isHeadOffice;
+    final isSundayOff = _now.weekday == DateTime.sunday && isHeadOffice;
+    HolidayModel? declaredHoliday;
+    for (final h in holidays) {
+      if (h.date.year == _now.year && h.date.month == _now.month && h.date.day == _now.day) {
+        if (h.appliesTo(currentSite.id, isHeadOffice: isHeadOffice)) {
+          declaredHoliday = h;
+          break;
+        }
+      }
+    }
+    final isHolidayToday = isSundayOff || declaredHoliday != null;
+    final holidayName = isSundayOff ? 'Sunday Off (Head Office)' : (declaredHoliday?.title ?? 'Holiday');
+
     return Scaffold(
       backgroundColor: AppColors.scaffoldDark,
       appBar: AppBar(
@@ -569,6 +584,41 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
               _buildStaffHeaderCard(currentSite, currentStaff),
 
               const SizedBox(height: 16),
+
+              // Holiday Announcement Banner
+              if (isHolidayToday) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0284C7).withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFF0284C7).withOpacity(0.4)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.beach_access_rounded, color: Color(0xFF38BDF8), size: 28),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Today is a Holiday — $holidayName',
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                            ),
+                            const SizedBox(height: 2),
+                            const Text(
+                              'Attendance is optional today. You are not marked absent. If you are working today, you may still punch in below.',
+                              style: TextStyle(color: Color(0xFFBAE6FD), fontSize: 11),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
 
               // Live Digital Clock & Date
               _buildLiveClockCard(),

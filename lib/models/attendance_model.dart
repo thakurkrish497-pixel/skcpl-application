@@ -109,7 +109,8 @@ enum AttendanceStatus {
   regularizedPresent,
   regularizedHalfDay,
   rejected,
-  absent;
+  absent,
+  holiday;
 
   String get displayName {
     switch (this) {
@@ -129,6 +130,8 @@ enum AttendanceStatus {
         return 'Request Rejected';
       case AttendanceStatus.absent:
         return 'Absent';
+      case AttendanceStatus.holiday:
+        return 'Holiday';
     }
   }
 
@@ -154,6 +157,9 @@ enum AttendanceStatus {
       return AttendanceStatus.regularizedHalfDay;
     }
     if (clean == 'rejected') return AttendanceStatus.rejected;
+    if (clean == 'holiday' || clean == 'weekoff' || clean == 'week_off') {
+      return AttendanceStatus.holiday;
+    }
     return AttendanceStatus.absent;
   }
 }
@@ -212,6 +218,7 @@ class AttendanceRecordModel {
 
   bool get isPunchedIn => punchInTime != null;
   bool get isPunchedOut => punchOutTime != null;
+  bool get isHoliday => status == AttendanceStatus.holiday;
   bool get isPresent =>
       status == AttendanceStatus.presentOnTime ||
       status == AttendanceStatus.presentLate ||
@@ -219,13 +226,15 @@ class AttendanceRecordModel {
   bool get isHalfDay => status == AttendanceStatus.regularizedHalfDay;
   bool get isPendingAdminReview => status == AttendanceStatus.regularizationPending;
   bool get isAbsent =>
-      status == AttendanceStatus.absent ||
-      status == AttendanceStatus.absentLateLockout ||
-      status == AttendanceStatus.rejected;
+      !isHoliday &&
+      (status == AttendanceStatus.absent ||
+          status == AttendanceStatus.absentLateLockout ||
+          status == AttendanceStatus.rejected);
   bool get isUnmarkedAbsent =>
-      status == AttendanceStatus.absent && punchInTime == null;
+      !isHoliday && status == AttendanceStatus.absent && punchInTime == null;
 
   String get displayStatusName {
+    if (isHoliday) return 'Holiday';
     if (isUnmarkedAbsent) return 'Absent (Not Marked)';
     return status.displayName;
   }
@@ -450,5 +459,95 @@ class StaffLiveLocationModel {
       if (accuracyMeters != null) 'accuracy_meters': accuracyMeters,
       if (address != null) 'address': address,
     };
+  }
+}
+
+/// Declared Holiday Model (Company-wide or site/office specific)
+class HolidayModel {
+  final String id;
+  final String title;
+  final DateTime date;
+  final List<String> siteIds; // ['all'], or ['office'], or [siteId1, siteId2]
+  final String createdBy;
+  final DateTime createdAt;
+
+  const HolidayModel({
+    required this.id,
+    required this.title,
+    required this.date,
+    required this.siteIds,
+    this.createdBy = '',
+    required this.createdAt,
+  });
+
+  /// Check whether this holiday applies to a specific site or head office
+  bool appliesTo(String siteId, {bool isHeadOffice = false}) {
+    if (siteIds.contains('all')) return true;
+    if (isHeadOffice && (siteIds.contains('office') || siteIds.contains(siteId))) {
+      return true;
+    }
+    return siteIds.contains(siteId);
+  }
+
+  factory HolidayModel.fromJson(Map<String, dynamic> json) {
+    DateTime parseDate(dynamic val) {
+      if (val is DateTime) return val;
+      return DateTime.tryParse(val?.toString() ?? '') ?? DateTime.now();
+    }
+
+    List<String> parseList(dynamic val) {
+      if (val is List) return val.map((e) => e.toString()).toList();
+      if (val is String) {
+        final trimmed = val.trim();
+        if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+          return trimmed
+              .substring(1, trimmed.length - 1)
+              .split(',')
+              .map((e) => e.trim().replaceAll('"', '').replaceAll("'", ""))
+              .where((e) => e.isNotEmpty)
+              .toList();
+        }
+        return [trimmed];
+      }
+      return ['all'];
+    }
+
+    return HolidayModel(
+      id: json['id'] as String? ?? '',
+      title: json['title'] as String? ?? 'Holiday',
+      date: parseDate(json['date']),
+      siteIds: parseList(json['site_ids'] ?? json['siteIds']),
+      createdBy: json['created_by'] as String? ?? '',
+      createdAt: parseDate(json['created_at']),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'title': title,
+      'date': date.toIso8601String().split('T').first,
+      'site_ids': siteIds,
+      'created_by': createdBy,
+      'created_at': createdAt.toIso8601String(),
+    };
+  }
+
+  HolidayModel copyWith({
+    String? id,
+    String? title,
+    DateTime? date,
+    List<String>? siteIds,
+    String? createdBy,
+    DateTime? createdAt,
+  }) {
+    return HolidayModel(
+      id: id ?? this.id,
+      title: title ?? this.title,
+      date: date ?? this.date,
+      siteIds: siteIds ?? this.siteIds,
+      createdBy: createdBy ?? this.createdBy,
+      createdAt: createdAt ?? this.createdAt,
+    );
   }
 }

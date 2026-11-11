@@ -58,6 +58,22 @@ final liveStaffLocationsProvider = FutureProvider.family<
   return service.getLiveStaffLocations(siteId);
 });
 
+/// Fetch all declared holidays
+final holidaysProvider = FutureProvider<List<HolidayModel>>((ref) async {
+  final service = ref.read(attendanceServiceProvider);
+  return service.getHolidays();
+});
+
+/// Fetch declared holidays for a specific month
+final monthHolidaysProvider =
+    FutureProvider.family<List<HolidayModel>, ({int year, int month})>(
+        (ref, arg) async {
+  final service = ref.read(attendanceServiceProvider);
+  final start = DateTime(arg.year, arg.month, 1);
+  final end = DateTime(arg.year, arg.month + 1, 0, 23, 59, 59);
+  return service.getHolidays(startDate: start, endDate: end);
+});
+
 /// State of current punch session for the staff member on this device
 class StaffPunchState {
   final AttendanceRecordModel? todayRecord;

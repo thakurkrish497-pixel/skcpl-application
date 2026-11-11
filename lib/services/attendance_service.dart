@@ -416,6 +416,160 @@ class AttendanceService {
     }
   }
 
+  /// Admin explicitly marks an employee as Present (e.g. for site visits,
+  /// out-of-geofence official duty, or missed punches)
+  Future<AttendanceRecordModel> markManualAttendance({
+    required String siteId,
+    required String siteName,
+    required String staffId,
+    required String staffName,
+    required String staffRole,
+    required DateTime date,
+    required DateTime punchInTime,
+    required DateTime punchOutTime,
+    required String reason,
+    required String adminName,
+    String? existingAttendanceId,
+  }) async {
+    final dateStr = DateFormat('yyyy-MM-dd').format(date);
+    final id = (existingAttendanceId != null &&
+            existingAttendanceId.isNotEmpty &&
+            !existingAttendanceId.startsWith('unmarked-') &&
+            !existingAttendanceId.startsWith('holiday-'))
+        ? existingAttendanceId
+        : _uuid.v4();
+
+    final record = AttendanceRecordModel(
+      id: id,
+      siteId: siteId,
+      siteName: siteName,
+      staffId: staffId,
+      staffName: staffName,
+      staffRole: staffRole,
+      date: DateTime(date.year, date.month, date.day),
+      punchInTime: punchInTime,
+      punchOutTime: punchOutTime,
+      status: AttendanceStatus.regularizedPresent,
+      lateMinutes: 0,
+      isWithinSite: true,
+      regularizationReason: reason,
+      adminDecisionNote: 'Marked Present by Admin ($adminName): $reason',
+      reviewedBy: adminName,
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+
+    // 1. Try upserting in Supabase attendance table
+    try {
+      final payload = record.toJson();
+      final res = await _client
+          .from('attendance')
+          .upsert(payload, onConflict: 'id')
+          .select()
+          .single();
+      return AttendanceRecordModel.fromJson(res);
+    } catch (_) {
+      // 2. Also try querying by staff_id & date to update existing record
+      try {
+        final existing = await _client
+            .from('attendance')
+            .select('id')
+            .eq('staff_id', staffId)
+            .eq('date', dateStr)
+            .maybeSingle();
+        if (existing != null) {
+          final res = await _client
+              .from('attendance')
+              .update(record.toJson())
+              .eq('id', existing['id'])
+              .select()
+              .single();
+          return AttendanceRecordModel.fromJson(res);
+        }
+      } catch (_) {}
+
+      // 3. Resilient fallback via tasks table
+      return _saveAttendanceFallback(record);
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // Holiday Management (Default Sunday for Office + Admin Declared)
+  // ─────────────────────────────────────────────────────────────
+
+  /// Declare a holiday for selected sites (or 'all' for company-wide)
+  Future<HolidayModel> declareHoliday({
+    required String title,
+    required DateTime date,
+    required List<String> siteIds,
+    required String createdBy,
+  }) async {
+    final id = _uuid.v4();
+    final holiday = HolidayModel(
+      id: id,
+      title: title,
+      date: DateTime(date.year, date.month, date.day),
+      siteIds: siteIds.isEmpty ? ['all'] : siteIds,
+      createdBy: createdBy,
+      createdAt: DateTime.now(),
+    );
+
+    // 1. Primary storage: holidays table (if exists)
+    try {
+      final res = await _client
+          .from('holidays')
+          .insert(holiday.toJson())
+          .select()
+          .single();
+      return HolidayModel.fromJson(res);
+    } catch (_) {
+      // 2. Resilient fallback via tasks table
+      return _saveHolidayFallback(holiday);
+    }
+  }
+
+  /// Get declared holidays (optionally filtered by date range)
+  Future<List<HolidayModel>> getHolidays({
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
+    final list = <HolidayModel>[];
+    try {
+      var query = _client.from('holidays').select();
+      if (startDate != null) {
+        query = query.gte('date', DateFormat('yyyy-MM-dd').format(startDate));
+      }
+      if (endDate != null) {
+        query = query.lte('date', DateFormat('yyyy-MM-dd').format(endDate));
+      }
+      final data = await query.order('date', ascending: true);
+      for (final json in (data as List)) {
+        list.add(HolidayModel.fromJson(json));
+      }
+    } catch (_) {}
+
+    // Combine with tasks table fallback
+    final fallbackList = await _getHolidaysFallback(startDate: startDate, endDate: endDate);
+    final seenIds = list.map((h) => h.id).toSet();
+    for (final h in fallbackList) {
+      if (!seenIds.contains(h.id)) {
+        list.add(h);
+        seenIds.add(h.id);
+      }
+    }
+
+    list.sort((a, b) => a.date.compareTo(b.date));
+    return list;
+  }
+
+  /// Delete / Revoke a declared holiday
+  Future<void> deleteHoliday(String holidayId) async {
+    try {
+      await _client.from('holidays').delete().eq('id', holidayId);
+    } catch (_) {}
+    await _deleteHolidayFallback(holidayId);
+  }
+
   // ─────────────────────────────────────────────────────────────
   // 3. Live Location Tracking
   // ─────────────────────────────────────────────────────────────
@@ -779,5 +933,64 @@ class AttendanceService {
     } catch (_) {
       return [];
     }
+  }
+
+  Future<HolidayModel> _saveHolidayFallback(HolidayModel holiday) async {
+    final dateStr = DateFormat('yyyy-MM-dd').format(holiday.date);
+    final tag = 'HOLIDAY:$dateStr:${holiday.id}';
+    final payload = jsonEncode(holiday.toJson());
+    try {
+      await _client.from('tasks').insert({
+        'site_id': _indoreOfficeSiteId,
+        'created_by': _defaultAdminUserId,
+        'title': tag,
+        'description': payload,
+        'status': 'completed',
+        'priority': 'low',
+      });
+    } catch (_) {}
+    return holiday;
+  }
+
+  Future<List<HolidayModel>> _getHolidaysFallback({
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
+    try {
+      final rows = await _client.from('tasks').select().like('title', 'HOLIDAY:%');
+      final list = <HolidayModel>[];
+      for (final r in (rows as List)) {
+        final desc = r['description'] as String?;
+        if (desc != null && desc.startsWith('{')) {
+          try {
+            final h = HolidayModel.fromJson(jsonDecode(desc));
+            if (startDate != null &&
+                h.date.isBefore(DateTime(startDate.year, startDate.month, startDate.day))) {
+              continue;
+            }
+            if (endDate != null &&
+                h.date.isAfter(DateTime(endDate.year, endDate.month, endDate.day, 23, 59, 59))) {
+              continue;
+            }
+            list.add(h);
+          } catch (_) {}
+        }
+      }
+      return list;
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<void> _deleteHolidayFallback(String holidayId) async {
+    try {
+      final rows = await _client.from('tasks').select('id, description').like('title', 'HOLIDAY:%');
+      for (final r in (rows as List)) {
+        final desc = r['description'] as String?;
+        if (desc != null && desc.contains(holidayId)) {
+          await _client.from('tasks').delete().eq('id', r['id']);
+        }
+      }
+    } catch (_) {}
   }
 }

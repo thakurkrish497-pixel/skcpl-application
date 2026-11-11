@@ -74,6 +74,10 @@ class AttendanceExcelService {
       final empName = firstRec.staffName;
       final role = firstRec.staffRole.toUpperCase();
       final siteName = firstRec.siteName;
+      final isHeadOffice = siteName.toLowerCase().contains('head office') ||
+          siteName.toLowerCase().contains('indore office') ||
+          siteName.toLowerCase().trim() == 'indore' ||
+          siteName.toLowerCase().contains('corporate');
 
       sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: rowIdx)).value =
           TextCellValue(empName);
@@ -101,8 +105,8 @@ class AttendanceExcelService {
           final targetDate = DateTime(month.year, month.month, d);
           if (targetDate.isAfter(DateTime.now())) {
             cell.value = TextCellValue('-'); // Future date
-          } else if (targetDate.weekday == DateTime.sunday) {
-            cell.value = TextCellValue('WO'); // Week Off
+          } else if (targetDate.weekday == DateTime.sunday && isHeadOffice) {
+            cell.value = TextCellValue('WO'); // Week Off for Head Office only
             cell.cellStyle = CellStyle(
               fontColorHex: ExcelColor.fromHexString('#64748B'),
               horizontalAlign: HorizontalAlign.Center,
@@ -137,6 +141,9 @@ class AttendanceExcelService {
             code = 'HD';
             hdCount++;
             colorHex = '#F97316';
+          } else if (dayRecord.status == AttendanceStatus.holiday) {
+            code = 'H';
+            colorHex = '#0EA5E9';
           } else if (dayRecord.status == AttendanceStatus.absentLateLockout ||
               dayRecord.status == AttendanceStatus.rejected ||
               dayRecord.status == AttendanceStatus.absent) {

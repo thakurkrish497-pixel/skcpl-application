@@ -72,7 +72,21 @@ class AuthService {
       final configuredProjectHeadEmail = dynamicConfig.projectHeadEmail.toLowerCase().trim();
       final configuredAccountsEmail = dynamicConfig.accountsEmail.toLowerCase().trim();
 
-      if ((cleanEmail == configuredProjectHeadEmail || cleanEmail == 'projecthead@skcpl.com' || cleanEmail == 'head@skcpl.com' || cleanEmail == 'supervisor@skcpl.com') &&
+      final matchesProjectHead = cleanEmail == configuredProjectHeadEmail ||
+          cleanEmail == 'project' ||
+          cleanEmail == 'projec' ||
+          cleanEmail == 'projecthead' ||
+          cleanEmail == 'projecthead@skcpl.com' ||
+          cleanEmail == 'head@skcpl.com' ||
+          cleanEmail == 'supervisor@skcpl.com';
+
+      final matchesAccounts = cleanEmail == configuredAccountsEmail ||
+          cleanEmail == 'account' ||
+          cleanEmail == 'accounts' ||
+          cleanEmail == 'accounts@skcpl.com' ||
+          cleanEmail == 'account@skcpl.com';
+
+      if (matchesProjectHead &&
           (password == dynamicConfig.projectHeadPassword || password == 'projecthead123' || password == 'skcpl123' || password == '123456' || password == 'admin123')) {
         return UserModel(
           id: 'b194578e-67ba-4513-93f6-a8e691c01908',
@@ -82,7 +96,7 @@ class AuthService {
           createdAt: DateTime.now(),
           updatedAt: DateTime.now(),
         );
-      } else if ((cleanEmail == configuredAccountsEmail || cleanEmail == 'accounts@skcpl.com') &&
+      } else if (matchesAccounts &&
           (password == dynamicConfig.accountsPassword || password == 'accounts123' || password == 'skcpl123' || password == '123456' || password == 'admin123')) {
         return UserModel(
           id: '3f6ae45e-67ba-4513-93f6-a8e691c01907',

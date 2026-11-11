@@ -81,15 +81,7 @@ class AccountsDashboard extends ConsumerWidget {
         backgroundColor: AppColors.scaffoldDark,
         drawer: AppDrawer(
           user: authState.user,
-          onSignOut: () async {
-            await ref.read(authProvider.notifier).signOut();
-            if (context.mounted) {
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (_) => const HomeScreen()),
-                (route) => false,
-              );
-            }
-          },
+          onSignOut: () => _showSignOutDialog(context, ref),
         ),
         appBar: AppBar(
           title: const Text('Accounts Dashboard'),
@@ -101,17 +93,9 @@ class AccountsDashboard extends ConsumerWidget {
               onPressed: () => NoticeBoardDialog.show(context),
             ),
             IconButton(
-              icon: const Icon(Icons.logout_rounded),
+              icon: const Icon(Icons.logout_rounded, color: AppColors.rejected),
               tooltip: 'Sign Out',
-              onPressed: () async {
-                await ref.read(authProvider.notifier).signOut();
-                if (context.mounted) {
-                  Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute(builder: (_) => const HomeScreen()),
-                    (route) => false,
-                  );
-                }
-              },
+              onPressed: () => _showSignOutDialog(context, ref),
             ),
           ],
           bottom: TabBar(
@@ -597,6 +581,41 @@ class AccountsDashboard extends ConsumerWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showSignOutDialog(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surfaceDark,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Sign Out', style: TextStyle(color: Colors.white)),
+        content: const Text(
+          'Are you sure you want to sign out from the Accounts dashboard?',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.rejected),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await ref.read(authProvider.notifier).signOut();
+              if (context.mounted) {
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (_) => const HomeScreen()),
+                  (route) => false,
+                );
+              }
+            },
+            child: const Text('Sign Out'),
+          ),
+        ],
       ),
     );
   }

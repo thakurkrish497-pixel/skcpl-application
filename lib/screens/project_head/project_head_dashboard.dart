@@ -29,6 +29,7 @@ import '../../widgets/sla_notification_bar.dart';
 import '../../widgets/skcpl_announcement_bar.dart';
 import '../../widgets/notice_board_dialog.dart';
 import '../../widgets/notification_bell_button.dart';
+import '../../widgets/universal_sync_button.dart';
 import '../home/home_screen.dart';
 
 /// Clean, state-of-the-art Project Head Command Dashboard
@@ -194,11 +195,7 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
             padding: EdgeInsets.symmetric(horizontal: 4, vertical: 8),
             child: LanguageToggleButton(isCompact: true),
           ),
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded, color: AppColors.textSecondary),
-            tooltip: 'Refresh all submissions',
-            onPressed: _refreshAllData,
-          ),
+          const UniversalSyncButton(),
           IconButton(
             icon: const Icon(Icons.logout_rounded, color: AppColors.rejected),
             tooltip: 'Sign Out',

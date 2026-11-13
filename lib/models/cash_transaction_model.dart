@@ -182,7 +182,7 @@ class CashTransactionModel {
       expenseTypeName: typeName,
       expenseAmount: (json['expense_amount'] as num?)?.toDouble() ?? 0,
       amountReceived: (json['amount_received'] as num?)?.toDouble() ?? 0,
-      cashInHand: (json['cash_in_hand'] as num).toDouble(),
+      cashInHand: (json['cash_in_hand'] as num?)?.toDouble() ?? 0.0,
       remarks: json['remarks'] as String?,
       photoUrls: List<String>.from(json['photo_urls'] ?? []),
       status: TransactionStatus.fromString(json['status'] as String),

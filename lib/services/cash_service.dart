@@ -35,6 +35,11 @@ class CashService {
       clean['expense_type_id'] = _otherExpensePlaceholder;
     }
 
+    clean['cash_in_hand'] = (clean['cash_in_hand'] as num?)?.toDouble() ?? 0.0;
+    clean['expense_amount'] = (clean['expense_amount'] as num?)?.toDouble() ?? 0.0;
+    clean['amount_received'] = (clean['amount_received'] as num?)?.toDouble() ?? 0.0;
+    clean['status'] = clean['status'] ?? 'pending_accounts';
+
     return clean;
   }
 

@@ -11,7 +11,7 @@ import '../../widgets/language_toggle_button.dart';
 import '../../widgets/skcpl_brand_logo.dart';
 import '../auth/site_staff_selection_screen.dart';
 import '../attendance/punch_attendance_screen.dart';
-import '../../widgets/offline_indicator.dart';
+import '../../widgets/universal_sync_button.dart';
 import '../../providers/stock_provider.dart';
 
 /// Screen presenting choices: Add Product (Inbound) and Use Product (Outbound)
@@ -66,11 +66,11 @@ class _StockChoiceScreenState extends ConsumerState<StockChoiceScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         actions: const [
+          UniversalSyncButton(),
           Padding(
             padding: EdgeInsets.only(right: 8),
             child: LanguageToggleButton(isCompact: true),
           ),
-          OfflineSyncButton(),
         ],
       ),
       body: activeSite?.isHeadOffice == true

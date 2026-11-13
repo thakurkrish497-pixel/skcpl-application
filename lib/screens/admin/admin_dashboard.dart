@@ -22,6 +22,7 @@ import '../../widgets/sla_notification_bar.dart';
 import '../../widgets/skcpl_announcement_bar.dart';
 import '../../widgets/notice_board_dialog.dart';
 import '../../widgets/notification_bell_button.dart';
+import '../../widgets/universal_sync_button.dart';
 import '../home/home_screen.dart';
 
 /// Next-Generation Admin Master Dashboard
@@ -135,17 +136,7 @@ class AdminDashboard extends ConsumerWidget {
             tooltip: 'Role Access & Approval Powers',
             onPressed: () => Navigator.pushNamed(context, '/admin-role-access'),
           ),
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded, color: AppColors.textSecondary),
-            tooltip: 'Refresh live data',
-            onPressed: () {
-              ref.invalidate(pendingStockAdminProvider);
-              ref.invalidate(pendingCashAdminProvider);
-              ref.invalidate(activeSitesProvider);
-              ref.invalidate(allStaffProvider);
-              ref.invalidate(todayAttendanceForSiteProvider);
-            },
-          ),
+          const UniversalSyncButton(),
           IconButton(
             icon: const Icon(Icons.logout_rounded, color: AppColors.rejected),
             tooltip: context.tr('logout'),

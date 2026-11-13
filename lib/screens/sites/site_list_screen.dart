@@ -10,6 +10,8 @@ import '../../widgets/download_apps_dialog.dart';
 import '../../widgets/language_toggle_button.dart';
 import '../../widgets/site_card.dart';
 import '../../widgets/skcpl_brand_logo.dart';
+import '../../widgets/universal_sync_button.dart';
+import '../../services/auto_sync_engine.dart';
 import '../auth/site_login_screen.dart';
 
 /// Displays a grid of construction sites for Stock, Cashbook, and Daily Site Reports,
@@ -52,6 +54,7 @@ class SiteListScreen extends ConsumerWidget {
           ],
         ),
         actions: [
+          const UniversalSyncButton(),
           IconButton(
             icon: const Icon(Icons.install_mobile_rounded, color: AppColors.waveCyan),
             tooltip: 'Download Native Apps (Android, Windows, Mac)',
@@ -119,9 +122,16 @@ class SiteListScreen extends ConsumerWidget {
             );
           }
 
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
+          return RefreshIndicator(
+            color: AppColors.waveCyan,
+            backgroundColor: AppColors.cardDark,
+            onRefresh: () async {
+              ref.invalidate(activeSitesProvider);
+              await ref.read(autoSyncProvider.notifier).syncNow();
+            },
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
               // ── Dedicated Head Office Section (Attendance & Daily Reports) ──
               if (allowOffice && headOffices.isNotEmpty) ...[
                 Row(
@@ -199,8 +209,9 @@ class SiteListScreen extends ConsumerWidget {
                 },
               ),
             ],
-          );
-        },
+          ),
+        );
+      },
       ),
     );
   }

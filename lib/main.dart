@@ -8,6 +8,8 @@ import 'core/theme/app_theme.dart';
 import 'providers/locale_provider.dart';
 import 'providers/theme_provider.dart';
 import 'widgets/app_background_watermark.dart';
+import 'services/auto_sync_engine.dart';
+import 'services/realtime_sync_service.dart';
 
 // Screens
 import 'screens/home/home_screen.dart';
@@ -57,6 +59,10 @@ class SKCPLApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final currentLocale = ref.watch(localeProvider);
     final themeMode = ref.watch(themeProvider);
+
+    // Continuous 30s background auto-sync & live Realtime WebSockets across all devices
+    ref.watch(autoSyncProvider);
+    ref.watch(realtimeSyncProvider);
 
     return MaterialApp(
       title: 'SKCPL Construction Management',

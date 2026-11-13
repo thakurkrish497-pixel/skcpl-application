@@ -16,7 +16,8 @@ import '../../providers/storage_provider.dart';
 import '../../widgets/locked_form_banner.dart';
 import '../../widgets/status_badge.dart';
 import '../../widgets/photo_picker.dart';
-import '../../widgets/offline_indicator.dart';
+import '../../widgets/universal_sync_button.dart';
+import '../../services/auto_sync_engine.dart';
 import '../../widgets/language_toggle_button.dart';
 import '../../widgets/skcpl_brand_logo.dart';
 import '../../widgets/responsive_layout.dart';
@@ -722,7 +723,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
             tooltip: 'Cash Book History',
             onPressed: () => Navigator.pushNamed(context, '/cash-history'),
           ),
-          const OfflineSyncButton(),
+          UniversalSyncButton(siteId: siteId),
           if (ref.watch(authProvider).isAdmin || ref.watch(authProvider).isAccounts)
             IconButton(
               icon: const Icon(Icons.table_view_rounded, color: Color(0xFF107C41)),
@@ -758,9 +759,19 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
         maxWidth: 720,
         child: Form(
           key: _formKey,
-          child: ListView(
-            padding: const EdgeInsets.all(20),
-          children: [
+          child: RefreshIndicator(
+            color: AppColors.waveCyan,
+            backgroundColor: AppColors.cardDark,
+            onRefresh: () async {
+              final activeSiteId = siteId ?? ref.read(authProvider).activeSite?.id;
+              if (activeSiteId != null) {
+                await ref.read(cashProvider.notifier).loadTransactions(activeSiteId);
+              }
+              await ref.read(autoSyncProvider.notifier).syncNow();
+            },
+            child: ListView(
+              padding: const EdgeInsets.all(20),
+              children: [
             if (isLocked)
               const LockedFormBanner().animate().fadeIn(),
 
@@ -1569,7 +1580,8 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
         ),
       ),
     ),
-    );
+  ),
+);
   }
 
   Widget _buildStagedEntriesTray(NumberFormat currencyFmt) {

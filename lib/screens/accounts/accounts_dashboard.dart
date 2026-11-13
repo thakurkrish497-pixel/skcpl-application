@@ -18,6 +18,7 @@ import '../../widgets/sla_notification_bar.dart';
 import '../../widgets/skcpl_announcement_bar.dart';
 import '../../widgets/notice_board_dialog.dart';
 import '../../widgets/notification_bell_button.dart';
+import '../../widgets/universal_sync_button.dart';
 import '../home/home_screen.dart';
 import '../admin/site_details_screen.dart';
 import '../stock/add_product_screen.dart';
@@ -87,6 +88,7 @@ class AccountsDashboard extends ConsumerWidget {
           title: const Text('Accounts Dashboard'),
           actions: [
             const NotificationBellButton(),
+            const UniversalSyncButton(),
             IconButton(
               icon: const Icon(Icons.campaign_rounded, color: AppColors.waveCyan),
               tooltip: 'Notice Board & Broadcast Announcements',

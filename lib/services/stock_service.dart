@@ -48,6 +48,9 @@ class StockService {
       clean['metric_unit_id'] = _otherUnitPlaceholder;
     }
 
+    clean['quantity'] = (clean['quantity'] as num?)?.toDouble() ?? 0.0;
+    clean['status'] = clean['status'] ?? 'pending_accounts';
+
     return clean;
   }
 

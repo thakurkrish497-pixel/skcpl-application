@@ -7,7 +7,8 @@ import '../../models/stock_transaction_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/stock_provider.dart';
 import '../../widgets/status_badge.dart';
-import '../../widgets/offline_indicator.dart';
+import '../../widgets/universal_sync_button.dart';
+import '../../services/auto_sync_engine.dart';
 import '../../widgets/photo_thumbnail_strip.dart';
 import '../../widgets/cache_manager_dialog.dart';
 import '../../providers/cash_provider.dart';
@@ -85,7 +86,7 @@ class _StockHistoryScreenState extends ConsumerState<StockHistoryScreen> {
               },
             ),
           const CacheActionButton(),
-          const OfflineSyncButton(),
+          const UniversalSyncButton(),
         ],
       ),
       body: stockState.isLoading
@@ -114,11 +115,25 @@ class _StockHistoryScreenState extends ConsumerState<StockHistoryScreen> {
                     ],
                   ),
                 )
-              : ListView.separated(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: stockState.transactions.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 10),
-                  itemBuilder: (context, index) {
+              : RefreshIndicator(
+                  color: AppColors.waveCyan,
+                  backgroundColor: AppColors.cardDark,
+                  onRefresh: () async {
+                    final activeSiteId = ref.read(authProvider).activeSite?.id;
+                    if (activeSiteId != null) {
+                      ref.invalidate(stockOverviewProvider(activeSiteId));
+                      await ref.read(stockProvider.notifier).loadTransactions(activeSiteId);
+                      await ref.read(stockProvider.notifier).loadCurrentStock(activeSiteId);
+                    } else {
+                      await ref.read(stockProvider.notifier).loadAllTransactions();
+                    }
+                    await ref.read(autoSyncProvider.notifier).syncNow();
+                  },
+                  child: ListView.separated(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: stockState.transactions.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 10),
+                    itemBuilder: (context, index) {
                     final tx = stockState.transactions[index];
                     final isAdmin = ref.watch(authProvider).isAdmin;
                     final canEdit = tx.isEditable || isAdmin;
@@ -158,6 +173,7 @@ class _StockHistoryScreenState extends ConsumerState<StockHistoryScreen> {
                     );
                   },
                 ),
+              ),
     );
   }
 

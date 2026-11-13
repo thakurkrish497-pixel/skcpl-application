@@ -9,7 +9,8 @@ import '../../providers/auth_provider.dart';
 import '../../providers/cash_provider.dart';
 import '../../providers/stock_provider.dart';
 import '../../widgets/status_badge.dart';
-import '../../widgets/offline_indicator.dart';
+import '../../widgets/universal_sync_button.dart';
+import '../../services/auto_sync_engine.dart';
 import '../../widgets/photo_thumbnail_strip.dart';
 import '../../widgets/cache_manager_dialog.dart';
 import '../../services/excel_service.dart';
@@ -86,7 +87,7 @@ class _CashHistoryScreenState extends ConsumerState<CashHistoryScreen> {
               },
             ),
           const CacheActionButton(),
-          const OfflineSyncButton(),
+          const UniversalSyncButton(),
         ],
       ),
       body: Builder(
@@ -187,11 +188,24 @@ class _CashHistoryScreenState extends ConsumerState<CashHistoryScreen> {
             );
           }
 
-          return ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemCount: cashState.transactions.length + (missedBanner != null ? 1 : 0),
-            separatorBuilder: (_, __) => const SizedBox(height: 10),
-            itemBuilder: (context, index) {
+          return RefreshIndicator(
+            color: AppColors.waveCyan,
+            backgroundColor: AppColors.cardDark,
+            onRefresh: () async {
+              final activeSiteId = ref.read(authProvider).activeSite?.id;
+              if (activeSiteId != null) {
+                ref.invalidate(siteCashSummaryProvider(activeSiteId));
+                await ref.read(cashProvider.notifier).loadTransactions(activeSiteId);
+              } else {
+                await ref.read(cashProvider.notifier).loadAllTransactions();
+              }
+              await ref.read(autoSyncProvider.notifier).syncNow();
+            },
+            child: ListView.separated(
+              padding: const EdgeInsets.all(16),
+              itemCount: cashState.transactions.length + (missedBanner != null ? 1 : 0),
+              separatorBuilder: (_, __) => const SizedBox(height: 10),
+              itemBuilder: (context, index) {
               if (missedBanner != null && index == 0) {
                 return missedBanner;
               }
@@ -238,8 +252,9 @@ class _CashHistoryScreenState extends ConsumerState<CashHistoryScreen> {
                 ),
               );
             },
-          );
-        },
+          ),
+        );
+      },
       ),
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: AppColors.primary,

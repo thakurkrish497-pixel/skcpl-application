@@ -30,7 +30,8 @@ class ThemeToggleButton extends ConsumerWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: (isLight ? AppColors.primary : AppColors.waveCyan).withValues(alpha: 0.15),
+            color: (isLight ? AppColors.primary : AppColors.waveCyan)
+                .withValues(alpha: 0.15),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -61,7 +62,9 @@ class ThemeToggleButton extends ConsumerWidget {
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
-                    isLight ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+                    isLight
+                        ? Icons.light_mode_rounded
+                        : Icons.dark_mode_rounded,
                     size: isCompact ? 14 : 16,
                     color: isLight ? AppColors.primary : AppColors.waveCyan,
                   ),

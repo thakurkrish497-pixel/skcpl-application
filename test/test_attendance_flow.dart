@@ -5,7 +5,7 @@ import 'package:skcpl_app/services/attendance_excel_service.dart';
 void main() {
   group('Attendance System Logic Tests', () {
     test('1. Shift Policy timing calculations & status assignment', () {
-      final policy = SiteShiftPolicyModel(
+      const policy = SiteShiftPolicyModel(
         siteId: 'site-1',
         siteName: 'Site Alpha',
         shiftStartTime: '09:00',
@@ -16,8 +16,6 @@ void main() {
         allowedRadiusMeters: 500,
       );
 
-      final date = DateTime(2026, 10, 20);
-
       // On time (09:10 -> 10 mins late, within 15m grace)
       final punchOnTime = DateTime(2026, 10, 20, 9, 10);
       final scheduledStart = DateTime(2026, 10, 20, 9, 0);
@@ -27,7 +25,8 @@ void main() {
       // Late (09:30 -> 30 mins late, between grace 15 and cutoff 40)
       final punchLate = DateTime(2026, 10, 20, 9, 30);
       final diff2 = punchLate.difference(scheduledStart).inMinutes;
-      expect(diff2 > policy.graceMinutes && diff2 <= policy.lateCutoffMinutes, isTrue);
+      expect(diff2 > policy.graceMinutes && diff2 <= policy.lateCutoffMinutes,
+          isTrue);
 
       // Absent Lockout (09:45 -> 45 mins late, > 40 cutoff)
       final punchLockout = DateTime(2026, 10, 20, 9, 45);
@@ -80,7 +79,9 @@ void main() {
       expect(approvedHalf.status, AttendanceStatus.regularizedHalfDay);
     });
 
-    test('3. Attendance Excel Register generation produces valid workbook bytes', () {
+    test(
+        '3. Attendance Excel Register generation produces valid workbook bytes',
+        () {
       final now = DateTime(2026, 10, 20);
       final sampleRecords = [
         AttendanceRecordModel(
@@ -131,7 +132,8 @@ void main() {
         ),
       ];
 
-      final bytes = AttendanceExcelService.generateMonthlyAttendanceWorkbookBytes(
+      final bytes =
+          AttendanceExcelService.generateMonthlyAttendanceWorkbookBytes(
         title: 'SKCPL Monthly Register',
         month: DateTime(2026, 10, 1),
         records: sampleRecords,

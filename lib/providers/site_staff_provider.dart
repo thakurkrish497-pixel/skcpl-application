@@ -37,7 +37,8 @@ class SiteStaffNotifier extends StateNotifier<SiteStaffState> {
   final SiteStaffService _service;
   final String siteId;
 
-  SiteStaffNotifier(this._service, this.siteId) : super(const SiteStaffState()) {
+  SiteStaffNotifier(this._service, this.siteId)
+      : super(const SiteStaffState()) {
     loadStaff();
   }
 
@@ -59,7 +60,8 @@ class SiteStaffNotifier extends StateNotifier<SiteStaffState> {
     try {
       final created = await _service.createStaff(staff);
       state = state.copyWith(
-        staffList: [...state.staffList, created]..sort((a, b) => a.name.compareTo(b.name)),
+        staffList: [...state.staffList, created]
+          ..sort((a, b) => a.name.compareTo(b.name)),
       );
     } catch (e) {
       state = state.copyWith(error: e.toString());
@@ -105,8 +107,9 @@ class ActiveStaffNotifier extends StateNotifier<SiteStaffModel?> {
   final Ref? _ref;
   ActiveStaffNotifier([this._ref]) : super(null);
 
-  static String _prefKey(String siteId, [StaffModule? module]) =>
-      module != null ? 'skcpl_active_staff_${siteId}_${module.name}' : 'skcpl_active_staff_$siteId';
+  static String _prefKey(String siteId, [StaffModule? module]) => module != null
+      ? 'skcpl_active_staff_${siteId}_${module.name}'
+      : 'skcpl_active_staff_$siteId';
 
   /// Sets the active staff member and optionally remembers them per site and module
   Future<void> setActiveStaff(
@@ -136,7 +139,8 @@ class ActiveStaffNotifier extends StateNotifier<SiteStaffModel?> {
 
   /// Attempts to restore the remembered staff member for this site and module,
   /// strictly verifying they are active and currently authorized for this module.
-  Future<SiteStaffModel?> loadRememberedStaff(String siteId, {StaffModule? module}) async {
+  Future<SiteStaffModel?> loadRememberedStaff(String siteId,
+      {StaffModule? module}) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       SiteStaffModel? staff;
@@ -222,4 +226,3 @@ final allStaffProvider = FutureProvider<List<SiteStaffModel>>((ref) async {
   final service = ref.read(siteStaffServiceProvider);
   return service.getAllStaff();
 });
-

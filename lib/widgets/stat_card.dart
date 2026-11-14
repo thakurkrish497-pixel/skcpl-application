@@ -38,15 +38,15 @@ class StatCard extends StatelessWidget {
               gradient: gradient ??
                   LinearGradient(
                     colors: [
-                      accent.withOpacity(0.15),
-                      accent.withOpacity(0.05),
+                      accent.withValues(alpha: 0.15),
+                      accent.withValues(alpha: 0.05),
                     ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: accent.withOpacity(0.2),
+                color: accent.withValues(alpha: 0.2),
                 width: 0.5,
               ),
             ),
@@ -58,7 +58,7 @@ class StatCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: accent.withOpacity(0.15),
+                    color: accent.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(icon, color: accent, size: 22),
@@ -67,7 +67,8 @@ class StatCard extends StatelessWidget {
                 // Value
                 Text(
                   value,
-                  style: AppTextStyles.h2.copyWith(color: AppColors.textPrimary),
+                  style:
+                      AppTextStyles.h2.copyWith(color: AppColors.textPrimary),
                 ),
                 const SizedBox(height: 4),
                 // Title

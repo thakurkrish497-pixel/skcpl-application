@@ -88,10 +88,13 @@ class EntryDetailDialog extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (stockTransaction != null) _buildStockContent(stockTransaction!),
-                    if (cashTransaction != null) _buildCashContent(cashTransaction!),
+                    if (stockTransaction != null)
+                      _buildStockContent(stockTransaction!),
+                    if (cashTransaction != null)
+                      _buildCashContent(cashTransaction!),
                     if (dailyReport != null) _buildReportContent(dailyReport!),
-                    if (attendanceRecord != null) _buildAttendanceContent(attendanceRecord!),
+                    if (attendanceRecord != null)
+                      _buildAttendanceContent(attendanceRecord!),
                   ],
                 ),
               ),
@@ -116,10 +119,12 @@ class EntryDetailDialog extends StatelessWidget {
     if (stockTransaction != null) {
       icon = Icons.inventory_2_rounded;
       iconColor = AppColors.primary;
-      title = '${stockTransaction!.type.displayName}: ${stockTransaction!.displayProductName}';
+      title =
+          '${stockTransaction!.type.displayName}: ${stockTransaction!.displayProductName}';
       status = stockTransaction!.status;
     } else if (cashTransaction != null) {
-      final isTopUp = cashTransaction!.amountReceived > 0 && cashTransaction!.expenseAmount == 0;
+      final isTopUp = cashTransaction!.amountReceived > 0 &&
+          cashTransaction!.expenseAmount == 0;
       icon = Icons.account_balance_wallet_rounded;
       iconColor = isTopUp ? AppColors.approved : const Color(0xFFF59E0B);
       title = isTopUp ? 'Cash Received (Top-up)' : 'Cash Expense';
@@ -141,7 +146,7 @@ class EntryDetailDialog extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: iconColor.withOpacity(0.15),
+              color: iconColor.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(icon, color: iconColor, size: 24),
@@ -163,7 +168,8 @@ class EntryDetailDialog extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   'Full Entry Information',
-                  style: AppTextStyles.caption.copyWith(color: AppColors.textTertiary),
+                  style: AppTextStyles.caption
+                      .copyWith(color: AppColors.textTertiary),
                 ),
               ],
             ),
@@ -171,7 +177,8 @@ class EntryDetailDialog extends StatelessWidget {
           if (status != null) StatusBadge(status: status, compact: true),
           const SizedBox(width: 8),
           IconButton(
-            icon: const Icon(Icons.close_rounded, color: AppColors.textTertiary),
+            icon:
+                const Icon(Icons.close_rounded, color: AppColors.textTertiary),
             onPressed: () => Navigator.pop(context),
             splashRadius: 20,
           ),
@@ -203,14 +210,13 @@ class EntryDetailDialog extends StatelessWidget {
             amountText: '${tx.quantity} ${tx.displayMetricUnitName}',
             color: const Color(0xFFF59E0B),
           ),
-
         _infoSectionTitle('Material & Quantity'),
         _detailRow('Transaction Type', tx.type.displayName),
         _detailRow('Product / Item', tx.displayProductName),
         _detailRow('Quantity', '${tx.quantity} ${tx.displayMetricUnitName}'),
         if (tx.rate != null && tx.rate! > 0)
-          _detailRow('Unit Rate', '₹${NumberFormat('#,##,###.##').format(tx.rate)}'),
-
+          _detailRow(
+              'Unit Rate', '₹${NumberFormat('#,##,###.##').format(tx.rate)}'),
         const SizedBox(height: 12),
         _infoSectionTitle('Commercial & Billing Details'),
         _detailRow('Date', DateFormat('dd MMMM yyyy').format(tx.date)),
@@ -219,26 +225,29 @@ class EntryDetailDialog extends StatelessWidget {
         if (tx.billNo != null && tx.billNo!.isNotEmpty)
           _detailRow('Bill / Challan No', '#${tx.billNo}'),
         if (baseAmount > 0)
-          _detailRow('Base Amount', '₹${NumberFormat('#,##,###.##').format(baseAmount)}'),
+          _detailRow('Base Amount',
+              '₹${NumberFormat('#,##,###.##').format(baseAmount)}'),
         if (tx.sgst > 0)
-          _detailRow('SGST (${tx.sgst}%)', '₹${NumberFormat('#,##,###.##').format(sgstAmount)}'),
+          _detailRow('SGST (${tx.sgst}%)',
+              '₹${NumberFormat('#,##,###.##').format(sgstAmount)}'),
         if (tx.igst > 0)
-          _detailRow('IGST (${tx.igst}%)', '₹${NumberFormat('#,##,###.##').format(igstAmount)}'),
-
+          _detailRow('IGST (${tx.igst}%)',
+              '₹${NumberFormat('#,##,###.##').format(igstAmount)}'),
         const SizedBox(height: 12),
         _infoSectionTitle('Audit & Workflow Trail'),
         if (tx.submitterName != null && tx.submitterName!.isNotEmpty)
           _detailRow('Entered By', tx.submitterName!),
-        if (tx.supervisorReviewNote != null && tx.supervisorReviewNote!.isNotEmpty)
+        if (tx.supervisorReviewNote != null &&
+            tx.supervisorReviewNote!.isNotEmpty)
           _detailRow('Project Head Note', tx.supervisorReviewNote!),
         if (tx.rejectionNote != null && tx.rejectionNote!.isNotEmpty)
           _detailRow('Rejection Reason', tx.rejectionNote!, isWarning: true),
         if (tx.cleanRemarks != null && tx.cleanRemarks!.isNotEmpty)
           _detailRow('Remarks / Notes', tx.cleanRemarks!),
-
         if (tx.photoUrls.isNotEmpty) ...[
           const SizedBox(height: 14),
-          _infoSectionTitle('Attached Bills & Challans (${tx.photoUrls.length})'),
+          _infoSectionTitle(
+              'Attached Bills & Challans (${tx.photoUrls.length})'),
           PhotoThumbnailStrip(photoUrls: tx.photoUrls, size: 76),
         ],
       ],
@@ -257,35 +266,36 @@ class EntryDetailDialog extends StatelessWidget {
           amountText: '₹${NumberFormat('#,##,###.##').format(primaryAmount)}',
           color: isTopUp ? AppColors.approved : const Color(0xFFF59E0B),
         ),
-
         _infoSectionTitle('Cash Transaction Details'),
-        _detailRow('Entry Type', isTopUp ? 'Cash Top-up / Received' : 'Site Expense'),
+        _detailRow(
+            'Entry Type', isTopUp ? 'Cash Top-up / Received' : 'Site Expense'),
         _detailRow('Category', tx.displayExpenseTypeName),
         _detailRow('Date', DateFormat('dd MMMM yyyy').format(tx.date)),
         if (tx.partyName != null && tx.partyName!.isNotEmpty)
           _detailRow('Party / Vendor / Person', tx.partyName!),
         if (tx.billNo != null && tx.billNo!.isNotEmpty)
           _detailRow('Bill / Voucher / Ref No', '#${tx.billNo}'),
-
         if (tx.amountReceived > 0 && !isTopUp)
-          _detailRow('Amount Received', '₹${NumberFormat('#,##,###.##').format(tx.amountReceived)}'),
+          _detailRow('Amount Received',
+              '₹${NumberFormat('#,##,###.##').format(tx.amountReceived)}'),
         if (tx.cashInHand > 0)
-          _detailRow('Remaining Cash In Hand', '₹${NumberFormat('#,##,###.##').format(tx.cashInHand)}'),
-
+          _detailRow('Remaining Cash In Hand',
+              '₹${NumberFormat('#,##,###.##').format(tx.cashInHand)}'),
         const SizedBox(height: 12),
         _infoSectionTitle('Audit & Workflow Trail'),
         if (tx.submitterName != null && tx.submitterName!.isNotEmpty)
           _detailRow('Entered By', tx.submitterName!),
-        if (tx.supervisorReviewNote != null && tx.supervisorReviewNote!.isNotEmpty)
+        if (tx.supervisorReviewNote != null &&
+            tx.supervisorReviewNote!.isNotEmpty)
           _detailRow('Project Head Note', tx.supervisorReviewNote!),
         if (tx.rejectionNote != null && tx.rejectionNote!.isNotEmpty)
           _detailRow('Rejection Reason', tx.rejectionNote!, isWarning: true),
         if (tx.cleanRemarks != null && tx.cleanRemarks!.isNotEmpty)
           _detailRow('Remarks / Description', tx.cleanRemarks!),
-
         if (tx.photoUrls.isNotEmpty) ...[
           const SizedBox(height: 14),
-          _infoSectionTitle('Attached Receipts & Proofs (${tx.photoUrls.length})'),
+          _infoSectionTitle(
+              'Attached Receipts & Proofs (${tx.photoUrls.length})'),
           PhotoThumbnailStrip(photoUrls: tx.photoUrls, size: 76),
         ],
       ],
@@ -299,8 +309,8 @@ class EntryDetailDialog extends StatelessWidget {
         _infoSectionTitle('Site & Submission Details'),
         _detailRow('Date', DateFormat('dd MMMM yyyy').format(report.date)),
         if (report.siteName != null) _detailRow('Site', report.siteName!),
-        if (report.submittedBy != null) _detailRow('Submitted By', report.submittedBy!),
-
+        if (report.submittedBy != null)
+          _detailRow('Submitted By', report.submittedBy!),
         const SizedBox(height: 12),
         _infoSectionTitle('Work Done & Progress'),
         if (report.workDone.isNotEmpty)
@@ -309,14 +319,21 @@ class EntryDetailDialog extends StatelessWidget {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('• ', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
-                    Expanded(child: Text(w, style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary))),
+                    const Text('• ',
+                        style: TextStyle(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.bold)),
+                    Expanded(
+                        child: Text(w,
+                            style: AppTextStyles.bodyMedium
+                                .copyWith(color: AppColors.textPrimary))),
                   ],
                 ),
               ))
         else
-          Text('No specific progress items recorded', style: AppTextStyles.bodySmall.copyWith(color: AppColors.textTertiary)),
-
+          Text('No specific progress items recorded',
+              style: AppTextStyles.bodySmall
+                  .copyWith(color: AppColors.textTertiary)),
         if (report.tomorrowPlan.isNotEmpty) ...[
           const SizedBox(height: 12),
           _infoSectionTitle('Tomorrow Plan'),
@@ -325,37 +342,48 @@ class EntryDetailDialog extends StatelessWidget {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('• ', style: TextStyle(color: Color(0xFF14B8A6), fontWeight: FontWeight.bold)),
-                    Expanded(child: Text(p, style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary))),
+                    const Text('• ',
+                        style: TextStyle(
+                            color: Color(0xFF14B8A6),
+                            fontWeight: FontWeight.bold)),
+                    Expanded(
+                        child: Text(p,
+                            style: AppTextStyles.bodyMedium
+                                .copyWith(color: AppColors.textPrimary))),
                   ],
                 ),
               )),
         ],
-
-        if (report.manpowerDetails != null && report.manpowerDetails!.isNotEmpty) ...[
+        if (report.manpowerDetails != null &&
+            report.manpowerDetails!.isNotEmpty) ...[
           const SizedBox(height: 12),
           _infoSectionTitle('Manpower & Labor'),
-          Text(report.manpowerDetails!, style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary)),
+          Text(report.manpowerDetails!,
+              style: AppTextStyles.bodyMedium
+                  .copyWith(color: AppColors.textPrimary)),
         ],
-
-        if (report.materialsUsed != null && report.materialsUsed!.isNotEmpty) ...[
+        if (report.materialsUsed != null &&
+            report.materialsUsed!.isNotEmpty) ...[
           const SizedBox(height: 12),
           _infoSectionTitle('Materials Used'),
-          Text(report.materialsUsed!, style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary)),
+          Text(report.materialsUsed!,
+              style: AppTextStyles.bodyMedium
+                  .copyWith(color: AppColors.textPrimary)),
         ],
-
         if (report.notes != null && report.notes!.isNotEmpty) ...[
           const SizedBox(height: 12),
           _infoSectionTitle('Written Notes'),
-          Text(report.notes!, style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary)),
+          Text(report.notes!,
+              style: AppTextStyles.bodyMedium
+                  .copyWith(color: AppColors.textPrimary)),
         ],
-
         if (report.remarks != null && report.remarks!.isNotEmpty) ...[
           const SizedBox(height: 12),
           _infoSectionTitle('Review Remarks'),
-          Text(report.remarks!, style: AppTextStyles.bodyMedium.copyWith(color: AppColors.primary)),
+          Text(report.remarks!,
+              style:
+                  AppTextStyles.bodyMedium.copyWith(color: AppColors.primary)),
         ],
-
         if (report.photoUrls.isNotEmpty) ...[
           const SizedBox(height: 14),
           _infoSectionTitle('Site Photos (${report.photoUrls.length})'),
@@ -373,7 +401,6 @@ class EntryDetailDialog extends StatelessWidget {
         _detailRow('Staff Name', att.staffName),
         _detailRow('Role', att.staffRole.toUpperCase()),
         _detailRow('Date', DateFormat('dd MMMM yyyy').format(att.date)),
-
         const SizedBox(height: 12),
         _infoSectionTitle('Punch Timings'),
         _detailRow(
@@ -389,16 +416,19 @@ class EntryDetailDialog extends StatelessWidget {
               : 'Not punched out',
         ),
         if (att.totalHoursWorked != null)
-          _detailRow('Total Hours', '${att.totalHoursWorked!.toStringAsFixed(1)} hrs'),
+          _detailRow(
+              'Total Hours', '${att.totalHoursWorked!.toStringAsFixed(1)} hrs'),
         _detailRow(
           'Location',
-          att.isWithinSite ? 'Within Geofence (Verified)' : 'Outside Site (${att.distanceMeters?.toStringAsFixed(0) ?? "?"}m)',
+          att.isWithinSite
+              ? 'Within Geofence (Verified)'
+              : 'Outside Site (${att.distanceMeters?.toStringAsFixed(0) ?? "?"}m)',
           isWarning: !att.isWithinSite,
         ),
-
         const SizedBox(height: 12),
         _infoSectionTitle('Regularization Details'),
-        if (att.regularizationReason != null && att.regularizationReason!.isNotEmpty)
+        if (att.regularizationReason != null &&
+            att.regularizationReason!.isNotEmpty)
           _detailRow('Worker Reason', att.regularizationReason!),
         if (att.adminDecisionNote != null && att.adminDecisionNote!.isNotEmpty)
           _detailRow('Decision Note', att.adminDecisionNote!),
@@ -416,16 +446,22 @@ class EntryDetailDialog extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.35), width: 1),
+        border: Border.all(color: color.withValues(alpha: 0.35), width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: AppTextStyles.caption.copyWith(color: color, fontWeight: FontWeight.w600)),
+          Text(label,
+              style: AppTextStyles.caption
+                  .copyWith(color: color, fontWeight: FontWeight.w600)),
           const SizedBox(height: 4),
-          Text(amountText, style: AppTextStyles.h2.copyWith(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 24)),
+          Text(amountText,
+              style: AppTextStyles.h2.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 24)),
         ],
       ),
     );
@@ -455,7 +491,8 @@ class EntryDetailDialog extends StatelessWidget {
             width: 140,
             child: Text(
               label,
-              style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
+              style: AppTextStyles.bodySmall
+                  .copyWith(color: AppColors.textSecondary),
             ),
           ),
           Expanded(
@@ -539,7 +576,8 @@ class EntryDetailDialog extends StatelessWidget {
           const Spacer(),
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Close', style: TextStyle(color: AppColors.textSecondary)),
+            child: const Text('Close',
+                style: TextStyle(color: AppColors.textSecondary)),
           ),
         ],
       ),

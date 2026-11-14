@@ -58,27 +58,39 @@ class DailySiteReportModel {
   bool get isPendingProjectHeadReview => isPendingSupervisorReview;
 
   String? get supervisorRejectionReason {
-    final match = RegExp(r'\[(?:Project Head|Supervisor):\s*Rejected\s*-\s*(.+?)(?:\s+by\s+.+?)?\]').firstMatch(remarks ?? '');
+    final match = RegExp(
+            r'\[(?:Project Head|Supervisor):\s*Rejected\s*-\s*(.+?)(?:\s+by\s+.+?)?\]')
+        .firstMatch(remarks ?? '');
     return match?.group(1)?.trim();
   }
+
   String? get projectHeadRejectionReason => supervisorRejectionReason;
 
   String? get projectHeadApproverName {
-    final match = RegExp(r'\[(?:Project Head|Supervisor):\s*Approved(?:\s+by\s+(.+?))?\]').firstMatch(remarks ?? '');
+    final match =
+        RegExp(r'\[(?:Project Head|Supervisor):\s*Approved(?:\s+by\s+(.+?))?\]')
+            .firstMatch(remarks ?? '');
     return match?.group(1)?.trim();
   }
+
   factory DailySiteReportModel.fromJson(Map<String, dynamic> json) {
     // Parse workDone
     List<String> parseList(dynamic field) {
       if (field == null) return [];
       if (field is List) {
-        return field.map((e) => e.toString().trim()).where((e) => e.isNotEmpty).toList();
+        return field
+            .map((e) => e.toString().trim())
+            .where((e) => e.isNotEmpty)
+            .toList();
       }
       if (field is String) {
         try {
           final decoded = jsonDecode(field);
           if (decoded is List) {
-            return decoded.map((e) => e.toString().trim()).where((e) => e.isNotEmpty).toList();
+            return decoded
+                .map((e) => e.toString().trim())
+                .where((e) => e.isNotEmpty)
+                .toList();
           }
         } catch (_) {
           return field
@@ -101,7 +113,9 @@ class DailySiteReportModel {
         if (field.startsWith('[') && field.endsWith(']')) {
           try {
             final decoded = jsonDecode(field);
-            if (decoded is List) return decoded.map((e) => e.toString()).toList();
+            if (decoded is List) {
+              return decoded.map((e) => e.toString()).toList();
+            }
           } catch (_) {}
         }
         return [field];
@@ -118,7 +132,9 @@ class DailySiteReportModel {
     return DailySiteReportModel(
       id: json['id']?.toString() ?? '',
       siteId: json['site_id']?.toString() ?? '',
-      siteName: json['sites'] != null ? json['sites']['name'] as String? : json['site_name'] as String?,
+      siteName: json['sites'] != null
+          ? json['sites']['name'] as String?
+          : json['site_name'] as String?,
       date: parseDate(json['date']),
       submittedBy: json['submitted_by']?.toString(),
       audioUrl: json['audio_url']?.toString(),

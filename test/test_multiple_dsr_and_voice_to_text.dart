@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:skcpl_app/models/daily_site_report_model.dart';
 import 'package:skcpl_app/services/site_report_service.dart';
@@ -7,7 +8,9 @@ void main() {
   const testSiteId = '4c9e1f3a-6903-441a-a2aa-37362a13bafe'; // Nissarpur
   const testSiteName = 'Nissarpur';
 
-  test('Test multiple reports submitted on the same day are both preserved and returned', () async {
+  test(
+      'Test multiple reports submitted on the same day are both preserved and returned',
+      () async {
     final service = SiteReportService();
     final today = DateTime.now();
 
@@ -34,7 +37,8 @@ void main() {
       submittedBy: 'Supervisor Ramesh',
       audioUrl: null, // Voice-to-Text: No audio stored!
       photoUrls: ['https://example.com/evening_shuttering.jpg'],
-      notes: 'Evening update: Shuttering installed for 4 pillars. 35 bags cement used.',
+      notes:
+          'Evening update: Shuttering installed for 4 pillars. 35 bags cement used.',
       createdAt: today,
       updatedAt: today,
     );
@@ -53,9 +57,12 @@ void main() {
     expect(reportsToday.length, greaterThanOrEqualTo(2));
 
     final ids = reportsToday.map((r) => r.id).toList();
-    expect(ids.contains(report1.id), isTrue, reason: 'Report 1 must be present');
-    expect(ids.contains(report2.id), isTrue, reason: 'Report 2 must be present');
+    expect(ids.contains(report1.id), isTrue,
+        reason: 'Report 1 must be present');
+    expect(ids.contains(report2.id), isTrue,
+        reason: 'Report 2 must be present');
 
-    print('VERIFIED: Multiple updates on same date are preserved! Count=${reportsToday.length}');
+    debugPrint(
+        'VERIFIED: Multiple updates on same date are preserved! Count=${reportsToday.length}');
   });
 }

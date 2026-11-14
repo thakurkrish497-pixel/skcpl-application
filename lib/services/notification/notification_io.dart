@@ -2,26 +2,34 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
-final FlutterLocalNotificationsPlugin _localNotifications = FlutterLocalNotificationsPlugin();
+final FlutterLocalNotificationsPlugin _localNotifications =
+    FlutterLocalNotificationsPlugin();
 bool _isInitialized = false;
 
 Future<void> _ensureInitialized() async {
   if (_isInitialized) return;
 
   try {
-    const androidSettings = AndroidInitializationSettings('@mipmap/launcher_icon');
+    const androidSettings =
+        AndroidInitializationSettings('@mipmap/launcher_icon');
     const darwinSettings = DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
       requestSoundPermission: true,
     );
-    const linuxSettings = LinuxInitializationSettings(defaultActionName: 'Open');
+    const linuxSettings =
+        LinuxInitializationSettings(defaultActionName: 'Open');
 
     const initSettings = InitializationSettings(
       android: androidSettings,
       iOS: darwinSettings,
       macOS: darwinSettings,
       linux: linuxSettings,
+      windows: WindowsInitializationSettings(
+        appName: 'SKCPL',
+        appUserModelId: 'SKCPL.ERP.Desktop',
+        guid: 'e96b38cf-3f81-460c-9648-b327512770fb',
+      ),
     );
 
     await _localNotifications.initialize(settings: initSettings);
@@ -94,7 +102,8 @@ Future<void> showPlatformNotification({
     const androidDetails = AndroidNotificationDetails(
       'skcpl_notifications',
       'SKCPL Operations & Alerts',
-      channelDescription: 'Notifications for missed cashbook entries, SLA alerts, and staff birthdays',
+      channelDescription:
+          'Notifications for missed cashbook entries, SLA alerts, and staff birthdays',
       importance: Importance.max,
       priority: Priority.high,
       icon: '@mipmap/launcher_icon',
@@ -112,9 +121,11 @@ Future<void> showPlatformNotification({
       android: androidDetails,
       iOS: darwinDetails,
       macOS: darwinDetails,
+      windows: WindowsNotificationDetails(),
     );
 
-    final notificationId = tag != null ? tag.hashCode.abs() % 100000 : DateTime.now().millisecond;
+    final notificationId =
+        tag != null ? tag.hashCode.abs() % 100000 : DateTime.now().millisecond;
 
     await _localNotifications.show(
       id: notificationId,

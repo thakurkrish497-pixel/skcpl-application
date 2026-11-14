@@ -39,16 +39,23 @@ class _CashHistoryScreenState extends ConsumerState<CashHistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final cashState = ref.watch(cashProvider);
+    final activeSiteId = ref.watch(authProvider).activeSite?.id;
+    final rawState = ref.watch(cashProvider);
+    final cashState = rawState.copyWith(
+        transactions: rawState.transactions
+            .where((t) => t.siteId == activeSiteId)
+            .toList());
 
     return Scaffold(
       backgroundColor: AppColors.scaffoldDark,
       appBar: AppBar(
         title: const Text('Cash Book History'),
         actions: [
-          if (ref.watch(authProvider).isAdmin || ref.watch(authProvider).isAccounts)
+          if (ref.watch(authProvider).isAdmin ||
+              ref.watch(authProvider).isAccounts)
             IconButton(
-              icon: const Icon(Icons.table_view_rounded, color: Color(0xFF107C41)),
+              icon: const Icon(Icons.table_view_rounded,
+                  color: Color(0xFF107C41)),
               tooltip: 'Export Excel Workbook (.xlsx)',
               onPressed: () async {
                 final activeSite = ref.read(authProvider).activeSite;
@@ -57,7 +64,9 @@ class _CashHistoryScreenState extends ConsumerState<CashHistoryScreen> {
                   // Ensure latest stock transactions are also loaded for this site
                   var stockList = ref.read(stockProvider).transactions;
                   if (stockList.isEmpty) {
-                    await ref.read(stockProvider.notifier).loadTransactions(activeSite.id);
+                    await ref
+                        .read(stockProvider.notifier)
+                        .loadTransactions(activeSite.id);
                     stockList = ref.read(stockProvider).transactions;
                   }
                   await ExcelService.exportAndShareComprehensiveExcel(
@@ -69,7 +78,8 @@ class _CashHistoryScreenState extends ConsumerState<CashHistoryScreen> {
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('Comprehensive Excel (Cash & Stock) exported!'),
+                        content: Text(
+                            'Comprehensive Excel (Cash & Stock) exported!'),
                         backgroundColor: Color(0xFF107C41),
                       ),
                     );
@@ -93,7 +103,8 @@ class _CashHistoryScreenState extends ConsumerState<CashHistoryScreen> {
       body: Builder(
         builder: (context) {
           if (cashState.isLoading) {
-            return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+            return const Center(
+                child: CircularProgressIndicator(color: AppColors.primary));
           }
 
           final missedDates = ref.watch(missedCashbookForWorkerProvider);
@@ -114,7 +125,8 @@ class _CashHistoryScreenState extends ConsumerState<CashHistoryScreen> {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.warning_amber_rounded, color: Color(0xFFB45309), size: 24),
+                  const Icon(Icons.warning_amber_rounded,
+                      color: Color(0xFFB45309), size: 24),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
@@ -142,15 +154,18 @@ class _CashHistoryScreenState extends ConsumerState<CashHistoryScreen> {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFFD97706),
                             foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                            textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 8),
+                            textStyle: const TextStyle(
+                                fontSize: 12, fontWeight: FontWeight.bold),
                           ),
                           icon: const Icon(Icons.add_circle_outline, size: 16),
                           label: const Text('Record Cashbook Entry Now'),
                           onPressed: () {
                             Navigator.push(
                               context,
-                              MaterialPageRoute(builder: (_) => const ExpenseFormScreen()),
+                              MaterialPageRoute(
+                                  builder: (_) => const ExpenseFormScreen()),
                             );
                           },
                         ),
@@ -173,7 +188,7 @@ class _CashHistoryScreenState extends ConsumerState<CashHistoryScreen> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.account_balance_wallet_outlined,
+                          const Icon(Icons.account_balance_wallet_outlined,
                               color: AppColors.textTertiary, size: 64),
                           const SizedBox(height: 16),
                           Text('No Entries Yet',
@@ -195,7 +210,9 @@ class _CashHistoryScreenState extends ConsumerState<CashHistoryScreen> {
               final activeSiteId = ref.read(authProvider).activeSite?.id;
               if (activeSiteId != null) {
                 ref.invalidate(siteCashSummaryProvider(activeSiteId));
-                await ref.read(cashProvider.notifier).loadTransactions(activeSiteId);
+                await ref
+                    .read(cashProvider.notifier)
+                    .loadTransactions(activeSiteId);
               } else {
                 await ref.read(cashProvider.notifier).loadAllTransactions();
               }
@@ -203,58 +220,75 @@ class _CashHistoryScreenState extends ConsumerState<CashHistoryScreen> {
             },
             child: ListView.separated(
               padding: const EdgeInsets.all(16),
-              itemCount: cashState.transactions.length + (missedBanner != null ? 1 : 0),
+              itemCount: cashState.transactions.length +
+                  (missedBanner != null ? 1 : 0),
               separatorBuilder: (_, __) => const SizedBox(height: 10),
               itemBuilder: (context, index) {
-              if (missedBanner != null && index == 0) {
-                return missedBanner;
-              }
-              final txIndex = missedBanner != null ? index - 1 : index;
-              final tx = cashState.transactions[txIndex];
-              final isAdmin = ref.watch(authProvider).isAdmin;
-              final canEdit = tx.isEditable || isAdmin;
+                if (missedBanner != null && index == 0) {
+                  return missedBanner;
+                }
+                final txIndex = missedBanner != null ? index - 1 : index;
+                final tx = cashState.transactions[txIndex];
+                final isAdmin = ref.watch(authProvider).isAdmin;
+                final canEdit = tx.isEditable;
 
-              return InkWell(
-                onTap: () {
-                  if (canEdit) {
-                    Navigator.push(context, MaterialPageRoute(
-                      builder: (_) => ExpenseFormScreen(existingTransaction: tx),
-                    )).then((didUpdate) {
-                      if (didUpdate == true) {
-                        final siteId = ref.read(authProvider).activeSite?.id ?? tx.siteId;
-                        ref.invalidate(siteCashSummaryProvider(siteId));
-                        ref.read(cashProvider.notifier).loadTransactions(siteId);
-                      }
-                    });
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('This submission has been reviewed and is locked.')),
-                    );
-                  }
-                },
-                borderRadius: BorderRadius.circular(14),
-                child: _CashTile(
-                  transaction: tx,
-                  onEdit: canEdit
-                      ? () {
-                          Navigator.push(context, MaterialPageRoute(
-                            builder: (_) => ExpenseFormScreen(existingTransaction: tx),
+                return InkWell(
+                  onTap: () {
+                    if (canEdit) {
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) =>
+                                ExpenseFormScreen(existingTransaction: tx),
                           )).then((didUpdate) {
-                            if (didUpdate == true) {
-                              final siteId = ref.read(authProvider).activeSite?.id ?? tx.siteId;
-                              ref.invalidate(siteCashSummaryProvider(siteId));
-                              ref.read(cashProvider.notifier).loadTransactions(siteId);
-                            }
-                          });
+                        if (didUpdate == true) {
+                          final siteId =
+                              ref.read(authProvider).activeSite?.id ??
+                                  tx.siteId;
+                          ref.invalidate(siteCashSummaryProvider(siteId));
+                          ref
+                              .read(cashProvider.notifier)
+                              .loadTransactions(siteId);
                         }
-                      : null,
-                  onDelete: isAdmin ? () => _confirmDeleteCash(tx) : null,
-                ),
-              );
-            },
-          ),
-        );
-      },
+                      });
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                            content: Text(
+                                'This submission has been reviewed and is locked.')),
+                      );
+                    }
+                  },
+                  borderRadius: BorderRadius.circular(14),
+                  child: _CashTile(
+                    transaction: tx,
+                    onEdit: canEdit
+                        ? () {
+                            Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => ExpenseFormScreen(
+                                      existingTransaction: tx),
+                                )).then((didUpdate) {
+                              if (didUpdate == true) {
+                                final siteId =
+                                    ref.read(authProvider).activeSite?.id ??
+                                        tx.siteId;
+                                ref.invalidate(siteCashSummaryProvider(siteId));
+                                ref
+                                    .read(cashProvider.notifier)
+                                    .loadTransactions(siteId);
+                              }
+                            });
+                          }
+                        : null,
+                    onDelete: isAdmin ? () => _confirmDeleteCash(tx) : null,
+                  ),
+                );
+              },
+            ),
+          );
+        },
       ),
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: AppColors.primary,
@@ -271,7 +305,8 @@ class _CashHistoryScreenState extends ConsumerState<CashHistoryScreen> {
           });
         },
         icon: const Icon(Icons.add_rounded, color: Colors.white),
-        label: const Text('Add Entry', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        label: const Text('Add Entry',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
       ),
     );
   }
@@ -284,16 +319,20 @@ class _CashHistoryScreenState extends ConsumerState<CashHistoryScreen> {
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.surfaceDark,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Delete Cash Entry?', style: TextStyle(color: Colors.white)),
+        title: const Text('Delete Cash Entry?',
+            style: TextStyle(color: Colors.white)),
         content: Text(
           'Are you sure you want to permanently delete this ${isExpense ? "expense" : "cash received"} entry ($amtStr - ${tx.displayExpenseTypeName})?\n\n'
           'Site cash in hand and total summary will be recalculated automatically.',
           style: const TextStyle(color: Colors.white70),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.rejected),
+            style:
+                ElevatedButton.styleFrom(backgroundColor: AppColors.rejected),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Delete Permanently'),
           ),
@@ -303,13 +342,16 @@ class _CashHistoryScreenState extends ConsumerState<CashHistoryScreen> {
 
     if (confirm == true) {
       final siteId = ref.read(authProvider).activeSite?.id ?? tx.siteId;
-      final success = await ref.read(cashProvider.notifier).deleteTransaction(tx);
+      final success =
+          await ref.read(cashProvider.notifier).deleteTransaction(tx);
       ref.invalidate(siteCashSummaryProvider(siteId));
       ref.read(cashProvider.notifier).loadTransactions(siteId);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(success ? 'Cash entry deleted & balance updated.' : 'Failed to delete cash entry.'),
+            content: Text(success
+                ? 'Cash entry deleted & balance updated.'
+                : 'Failed to delete cash entry.'),
             backgroundColor: success ? AppColors.approved : AppColors.rejected,
           ),
         );
@@ -349,12 +391,14 @@ class _CashTile extends StatelessWidget {
                     .copyWith(color: AppColors.textSecondary),
               ),
               const Spacer(),
-              if (transaction.status == TransactionStatus.approved && transaction.approvedAt != null)
+              if (transaction.status == TransactionStatus.approved &&
+                  transaction.approvedAt != null)
                 Padding(
                   padding: const EdgeInsets.only(right: 8),
                   child: Text(
                     'Approved ${DateFormat('dd MMM hh:mm a').format(transaction.approvedAt!)}',
-                    style: AppTextStyles.caption.copyWith(color: AppColors.approved),
+                    style: AppTextStyles.caption
+                        .copyWith(color: AppColors.approved),
                   ),
                 ),
               StatusBadge(
@@ -364,14 +408,19 @@ class _CashTile extends StatelessWidget {
               ),
               if (transaction.isEditable) ...[
                 const SizedBox(width: 8),
-                const Icon(Icons.edit_outlined, size: 16, color: AppColors.primary),
+                const Icon(Icons.edit_outlined,
+                    size: 16, color: AppColors.primary),
               ],
             ],
           ),
           const SizedBox(height: 12),
           Text(
             transaction.amountReceived > 0 && transaction.expenseAmount == 0
-                ? (transaction.customExpenseType ?? (transaction.partyName != null && transaction.partyName!.isNotEmpty ? 'Cash from ${transaction.partyName}' : 'Cash Received / Top-up'))
+                ? (transaction.customExpenseType ??
+                    (transaction.partyName != null &&
+                            transaction.partyName!.isNotEmpty
+                        ? 'Cash from ${transaction.partyName}'
+                        : 'Cash Received / Top-up'))
                 : transaction.displayExpenseTypeName,
             style: AppTextStyles.h4.copyWith(color: AppColors.textPrimary),
           ),
@@ -381,27 +430,34 @@ class _CashTile extends StatelessWidget {
               spacing: 12,
               runSpacing: 4,
               children: [
-                if (transaction.partyName != null && transaction.partyName!.isNotEmpty)
+                if (transaction.partyName != null &&
+                    transaction.partyName!.isNotEmpty)
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.person_outline_rounded, size: 14, color: AppColors.primary),
+                      const Icon(Icons.person_outline_rounded,
+                          size: 14, color: AppColors.primary),
                       const SizedBox(width: 4),
                       Text(
                         'Party: ${transaction.partyName!}',
-                        style: AppTextStyles.caption.copyWith(color: AppColors.primary, fontWeight: FontWeight.w600),
+                        style: AppTextStyles.caption.copyWith(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w600),
                       ),
                     ],
                   ),
-                if (transaction.billNo != null && transaction.billNo!.isNotEmpty)
+                if (transaction.billNo != null &&
+                    transaction.billNo!.isNotEmpty)
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.receipt_outlined, size: 14, color: AppColors.textSecondary),
+                      const Icon(Icons.receipt_outlined,
+                          size: 14, color: AppColors.textSecondary),
                       const SizedBox(width: 4),
                       Text(
                         'Bill: #${transaction.billNo!}',
-                        style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary),
+                        style: AppTextStyles.caption
+                            .copyWith(color: AppColors.textSecondary),
                       ),
                     ],
                   ),
@@ -413,24 +469,28 @@ class _CashTile extends StatelessWidget {
             children: [
               _MiniStat(
                 label: 'Expense',
-                value: '₹${NumberFormat('#,##,###').format(transaction.expenseAmount)}',
+                value:
+                    '₹${NumberFormat('#,##,###').format(transaction.expenseAmount)}',
                 color: AppColors.rejected,
               ),
               const SizedBox(width: 16),
               _MiniStat(
                 label: 'Received',
-                value: '₹${NumberFormat('#,##,###').format(transaction.amountReceived)}',
+                value:
+                    '₹${NumberFormat('#,##,###').format(transaction.amountReceived)}',
                 color: AppColors.approved,
               ),
               const SizedBox(width: 16),
               _MiniStat(
                 label: 'Cash in Hand',
-                value: '₹${NumberFormat('#,##,###').format(transaction.cashInHand)}',
+                value:
+                    '₹${NumberFormat('#,##,###').format(transaction.cashInHand)}',
                 color: AppColors.primary,
               ),
             ],
           ),
-          if (transaction.submitterName != null || transaction.supervisorReviewNote != null) ...[
+          if (transaction.submitterName != null ||
+              transaction.supervisorReviewNote != null) ...[
             const SizedBox(height: 6),
             Wrap(
               spacing: 6,
@@ -438,7 +498,8 @@ class _CashTile extends StatelessWidget {
               children: [
                 if (transaction.submitterName != null)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
                       color: AppColors.surfaceDark,
                       borderRadius: BorderRadius.circular(6),
@@ -447,7 +508,8 @@ class _CashTile extends StatelessWidget {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.person_outline, size: 11, color: AppColors.primary),
+                        const Icon(Icons.person_outline,
+                            size: 11, color: AppColors.primary),
                         const SizedBox(width: 4),
                         Text(
                           'By: ${transaction.submitterName}',
@@ -462,16 +524,19 @@ class _CashTile extends StatelessWidget {
                   ),
                 if (transaction.supervisorReviewNote != null)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.1),
+                      color: AppColors.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                      border: Border.all(
+                          color: AppColors.primary.withValues(alpha: 0.3)),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.verified_outlined, size: 11, color: AppColors.primary),
+                        const Icon(Icons.verified_outlined,
+                            size: 11, color: AppColors.primary),
                         const SizedBox(width: 4),
                         Text(
                           transaction.supervisorReviewNote!,
@@ -498,7 +563,7 @@ class _CashTile extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ],
-          if (transaction.status == TransactionStatus.rejected && 
+          if (transaction.status == TransactionStatus.rejected &&
               transaction.rejectionNote != null) ...[
             const SizedBox(height: 12),
             Container(
@@ -510,12 +575,14 @@ class _CashTile extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.error_outline, size: 16, color: AppColors.rejected),
+                  const Icon(Icons.error_outline,
+                      size: 16, color: AppColors.rejected),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'Rejected: ${transaction.rejectionNote!}',
-                      style: AppTextStyles.bodySmall.copyWith(color: AppColors.rejected),
+                      style: AppTextStyles.bodySmall
+                          .copyWith(color: AppColors.rejected),
                     ),
                   ),
                 ],
@@ -531,15 +598,25 @@ class _CashTile extends StatelessWidget {
               children: [
                 if (onEdit != null)
                   TextButton.icon(
-                    icon: const Icon(Icons.edit_note_rounded, size: 18, color: AppColors.primary),
-                    label: const Text('Edit Entry', style: TextStyle(color: AppColors.primary, fontSize: 13, fontWeight: FontWeight.bold)),
+                    icon: const Icon(Icons.edit_note_rounded,
+                        size: 18, color: AppColors.primary),
+                    label: const Text('Edit Entry',
+                        style: TextStyle(
+                            color: AppColors.primary,
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold)),
                     onPressed: onEdit,
                   ),
                 if (onDelete != null) ...[
                   const SizedBox(width: 8),
                   TextButton.icon(
-                    icon: const Icon(Icons.delete_outline_rounded, size: 18, color: AppColors.rejected),
-                    label: const Text('Delete', style: TextStyle(color: AppColors.rejected, fontSize: 13, fontWeight: FontWeight.bold)),
+                    icon: const Icon(Icons.delete_outline_rounded,
+                        size: 18, color: AppColors.rejected),
+                    label: const Text('Delete',
+                        style: TextStyle(
+                            color: AppColors.rejected,
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold)),
                     onPressed: onDelete,
                   ),
                 ],
@@ -570,11 +647,10 @@ class _MiniStat extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(label,
-              style:
-                  AppTextStyles.caption.copyWith(color: AppColors.textTertiary)),
+              style: AppTextStyles.caption
+                  .copyWith(color: AppColors.textTertiary)),
           const SizedBox(height: 2),
-          Text(value,
-              style: AppTextStyles.labelLarge.copyWith(color: color)),
+          Text(value, style: AppTextStyles.labelLarge.copyWith(color: color)),
         ],
       ),
     );

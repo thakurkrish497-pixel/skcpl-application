@@ -1,9 +1,9 @@
+import '../core/constants/supabase_constants.dart';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:excel/excel.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../core/constants/supabase_constants.dart';
 import 'file_saver_helper.dart';
 
 /// Layer 2: Complete Disaster Recovery & In-App Master Backup Service
@@ -12,10 +12,7 @@ import 'file_saver_helper.dart';
 /// 2. Multi-Sheet Master Excel Workbook (accounting & audit ready)
 /// 3. Media & Attachments Catalog (vouchers, bills, DSR photos, attendance selfies)
 class BackupService {
-  static final SupabaseClient _client = SupabaseClient(
-    SupabaseConstants.supabaseUrl,
-    SupabaseConstants.supabaseAnonKey,
-  );
+  static SupabaseClient get _client => Supabase.instance.client;
 
   /// Fetch all tables across the entire company
   static Future<Map<String, dynamic>> fetchFullOrganizationData() async {
@@ -52,7 +49,8 @@ class BackupService {
         'tagline': 'Connect to Waves',
         'version': '1.0.0',
         'exported_at': timestamp.toIso8601String(),
-        'exported_at_formatted': DateFormat('dd MMM yyyy, hh:mm a').format(timestamp),
+        'exported_at_formatted':
+            DateFormat('dd MMM yyyy, hh:mm a').format(timestamp),
         'database_host': SupabaseConstants.supabaseUrl,
         'counts': {
           'sites': sites.length,
@@ -90,9 +88,13 @@ class BackupService {
     };
   }
 
-  static Future<List<Map<String, dynamic>>> _safeSelect(String table, String orderColumn) async {
+  static Future<List<Map<String, dynamic>>> _safeSelect(
+      String table, String orderColumn) async {
     try {
-      final data = await _client.from(table).select().order(orderColumn, ascending: false);
+      final data = await _client
+          .from(table)
+          .select()
+          .order(orderColumn, ascending: false);
       return List<Map<String, dynamic>>.from(data);
     } catch (_) {
       try {
@@ -162,7 +164,15 @@ class BackupService {
       '',
     ]);
     _writeRow(s1, []);
-    _writeRow(s1, ['SITE ID', 'SITE NAME', 'LOCATION', 'LATITUDE', 'LONGITUDE', 'STATUS', 'RADIUS (M)']);
+    _writeRow(s1, [
+      'SITE ID',
+      'SITE NAME',
+      'LOCATION',
+      'LATITUDE',
+      'LONGITUDE',
+      'STATUS',
+      'RADIUS (M)'
+    ]);
     for (final site in sitesList) {
       if (site is Map) {
         _writeRow(s1, [
@@ -171,7 +181,9 @@ class BackupService {
           site['location']?.toString() ?? '',
           site['latitude']?.toString() ?? '',
           site['longitude']?.toString() ?? '',
-          (site['is_active'] == true || site['status'] == 'active') ? 'ACTIVE' : 'INACTIVE',
+          (site['is_active'] == true || site['status'] == 'active')
+              ? 'ACTIVE'
+              : 'INACTIVE',
           site['geofence_radius_meters']?.toString() ?? '100',
         ]);
       }
@@ -195,8 +207,11 @@ class BackupService {
     final cashList = (fullData['cash_transactions'] as List? ?? []);
     for (final c in cashList) {
       if (c is Map) {
-        final siteName = siteMap[c['site_id']?.toString()] ?? c['site_id']?.toString() ?? '';
-        final staffName = staffMap[c['submitted_by']?.toString()] ?? c['submitted_by']?.toString() ?? '';
+        final siteName =
+            siteMap[c['site_id']?.toString()] ?? c['site_id']?.toString() ?? '';
+        final staffName = staffMap[c['submitted_by']?.toString()] ??
+            c['submitted_by']?.toString() ??
+            '';
         final amt = (c['expense_amount'] ?? c['amount'] ?? 0).toString();
         _writeRow(s2, [
           c['id']?.toString() ?? '',
@@ -234,7 +249,9 @@ class BackupService {
     final stockList = (fullData['stock_transactions'] as List? ?? []);
     for (final st in stockList) {
       if (st is Map) {
-        final siteName = siteMap[st['site_id']?.toString()] ?? st['site_id']?.toString() ?? '';
+        final siteName = siteMap[st['site_id']?.toString()] ??
+            st['site_id']?.toString() ??
+            '';
         _writeRow(s3, [
           st['id']?.toString() ?? '',
           st['date']?.toString() ?? '',
@@ -272,8 +289,11 @@ class BackupService {
     final attList = (fullData['attendance'] as List? ?? []);
     for (final a in attList) {
       if (a is Map) {
-        final siteName = siteMap[a['site_id']?.toString()] ?? a['site_id']?.toString() ?? '';
-        final staffName = staffMap[a['staff_id']?.toString()] ?? a['staff_name']?.toString() ?? '';
+        final siteName =
+            siteMap[a['site_id']?.toString()] ?? a['site_id']?.toString() ?? '';
+        final staffName = staffMap[a['staff_id']?.toString()] ??
+            a['staff_name']?.toString() ??
+            '';
         _writeRow(s4, [
           a['id']?.toString() ?? '',
           a['date']?.toString() ?? '',
@@ -311,8 +331,11 @@ class BackupService {
     final dsrList = (fullData['daily_site_reports'] as List? ?? []);
     for (final d in dsrList) {
       if (d is Map) {
-        final siteName = siteMap[d['site_id']?.toString()] ?? d['site_id']?.toString() ?? '';
-        final staffName = staffMap[d['submitted_by']?.toString()] ?? d['submitted_by']?.toString() ?? '';
+        final siteName =
+            siteMap[d['site_id']?.toString()] ?? d['site_id']?.toString() ?? '';
+        final staffName = staffMap[d['submitted_by']?.toString()] ??
+            d['submitted_by']?.toString() ??
+            '';
         final photos = (d['photos'] as List?) ?? [];
         _writeRow(s5, [
           d['id']?.toString() ?? '',
@@ -351,7 +374,9 @@ class BackupService {
     ]);
     for (final st in staffList) {
       if (st is Map) {
-        final siteName = siteMap[st['site_id']?.toString()] ?? st['site_id']?.toString() ?? '';
+        final siteName = siteMap[st['site_id']?.toString()] ??
+            st['site_id']?.toString() ??
+            '';
         final modules = (st['modules'] as List?)?.join(', ') ?? 'All';
         _writeRow(s6, [
           st['id']?.toString() ?? '',
@@ -526,13 +551,26 @@ class BackupService {
       return {
         'isValid': true,
         'app': metadata['app'] ?? 'SKCPL',
-        'exportedAt': metadata['exported_at_formatted'] ?? metadata['exported_at'] ?? 'Unknown',
-        'sitesCount': (decoded['sites'] as List?)?.length ?? counts['sites'] ?? 0,
-        'staffCount': (decoded['site_staff'] as List?)?.length ?? counts['site_staff'] ?? 0,
-        'cashCount': (decoded['cash_transactions'] as List?)?.length ?? counts['cash_transactions'] ?? 0,
-        'stockCount': (decoded['stock_transactions'] as List?)?.length ?? counts['stock_transactions'] ?? 0,
-        'attendanceCount': (decoded['attendance'] as List?)?.length ?? counts['attendance'] ?? 0,
-        'dsrCount': (decoded['daily_site_reports'] as List?)?.length ?? counts['daily_site_reports'] ?? 0,
+        'exportedAt': metadata['exported_at_formatted'] ??
+            metadata['exported_at'] ??
+            'Unknown',
+        'sitesCount':
+            (decoded['sites'] as List?)?.length ?? counts['sites'] ?? 0,
+        'staffCount': (decoded['site_staff'] as List?)?.length ??
+            counts['site_staff'] ??
+            0,
+        'cashCount': (decoded['cash_transactions'] as List?)?.length ??
+            counts['cash_transactions'] ??
+            0,
+        'stockCount': (decoded['stock_transactions'] as List?)?.length ??
+            counts['stock_transactions'] ??
+            0,
+        'attendanceCount': (decoded['attendance'] as List?)?.length ??
+            counts['attendance'] ??
+            0,
+        'dsrCount': (decoded['daily_site_reports'] as List?)?.length ??
+            counts['daily_site_reports'] ??
+            0,
       };
     } catch (e) {
       return {

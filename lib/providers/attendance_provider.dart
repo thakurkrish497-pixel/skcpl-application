@@ -14,9 +14,9 @@ final shiftPolicyForSiteProvider =
 });
 
 /// Fetch today's attendance for a given site (or 'all' for company-wide)
-final todayAttendanceForSiteProvider = FutureProvider.family<
-    List<AttendanceRecordModel>,
-    String>((ref, siteId) async {
+final todayAttendanceForSiteProvider =
+    FutureProvider.family<List<AttendanceRecordModel>, String>(
+        (ref, siteId) async {
   final service = ref.read(attendanceServiceProvider);
   return service.getTodayAttendance(siteId, DateTime.now());
 });
@@ -52,8 +52,9 @@ final pendingRegularizationRequestsProvider =
 });
 
 /// Fetch live staff locations (all or filtered by site)
-final liveStaffLocationsProvider = FutureProvider.family<
-    List<StaffLiveLocationModel>, String?>((ref, siteId) async {
+final liveStaffLocationsProvider =
+    FutureProvider.family<List<StaffLiveLocationModel>, String?>(
+        (ref, siteId) async {
   final service = ref.read(attendanceServiceProvider);
   return service.getLiveStaffLocations(siteId);
 });

@@ -1,8 +1,8 @@
-import 'dart:io';
+import 'package:flutter/foundation.dart';
+import 'support/erp_test_backend.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:skcpl_app/core/constants/supabase_constants.dart';
 import 'package:skcpl_app/models/attendance_model.dart';
 import 'package:skcpl_app/models/cash_transaction_model.dart';
 import 'package:skcpl_app/models/stock_transaction_model.dart';
@@ -14,13 +14,15 @@ import 'package:skcpl_app/services/site_report_service.dart';
 import 'package:uuid/uuid.dart';
 
 void main() {
-  HttpOverrides.global = null;
   const uuid = Uuid();
 
-  test('COMPREHENSIVE VERIFICATION: Holidays, Manual Attendance & Admin Edit/Delete', () async {
+  test(
+      'COMPREHENSIVE VERIFICATION: Holidays, Manual Attendance & Admin Edit/Delete',
+      () async {
     final client = SupabaseClient(
-      SupabaseConstants.supabaseUrl,
-      SupabaseConstants.supabaseServiceRoleKey,
+      'http://erp.test.invalid',
+      'fixture-public-key',
+      httpClient: ErpTestBackend.instance.client,
     );
     final attendanceService = AttendanceService(client);
     final cashService = CashService(client);
@@ -31,9 +33,9 @@ void main() {
     // ─────────────────────────────────────────────────────────────
     // PART 1: Holiday Rules (Head Office Sunday vs 7-day Site Working)
     // ─────────────────────────────────────────────────────────────
-    print('\n======================================================');
-    print('STEP 1: Verifying Holiday Rules (Head Office vs Sites)');
-    print('======================================================');
+    debugPrint('\n======================================================');
+    debugPrint('STEP 1: Verifying Holiday Rules (Head Office vs Sites)');
+    debugPrint('======================================================');
 
     final headOffice = SiteModel(
       id: '89e1477d-7f66-4b6d-99ca-6270183143e0',
@@ -58,12 +60,17 @@ void main() {
     expect(sundayDate.weekday, equals(DateTime.sunday));
 
     // Head office staff on Sunday = Holiday
-    final hoSundayIsOff = sundayDate.weekday == DateTime.sunday && headOffice.isHeadOffice;
-    expect(hoSundayIsOff, isTrue, reason: 'Head Office must have Sunday as default holiday');
+    final hoSundayIsOff =
+        sundayDate.weekday == DateTime.sunday && headOffice.isHeadOffice;
+    expect(hoSundayIsOff, isTrue,
+        reason: 'Head Office must have Sunday as default holiday');
 
     // Site staff on Sunday = Working day (all 7 days working)
-    final siteSundayIsOff = sundayDate.weekday == DateTime.sunday && siteHosp.isHeadOffice;
-    expect(siteSundayIsOff, isFalse, reason: 'Construction sites must work all 7 days without default holiday');
+    final siteSundayIsOff =
+        sundayDate.weekday == DateTime.sunday && siteHosp.isHeadOffice;
+    expect(siteSundayIsOff, isFalse,
+        reason:
+            'Construction sites must work all 7 days without default holiday');
 
     // Declare a holiday for specific site
     final testHolidayDate = DateTime(2026, 12, 25);
@@ -86,16 +93,18 @@ void main() {
     // Clean up / Delete holiday
     await attendanceService.deleteHoliday(declared.id);
     final afterDelete = await attendanceService.getHolidays();
-    expect(afterDelete.any((h) => h.id == declared.id), isFalse, reason: 'Holiday must be cleanly deleted');
+    expect(afterDelete.any((h) => h.id == declared.id), isFalse,
+        reason: 'Holiday must be cleanly deleted');
 
-    print('✓ STEP 1 PASSED: Holiday rules, Sunday Head-Office logic & Admin declared holidays verified!');
+    debugPrint(
+        '✓ STEP 1 PASSED: Holiday rules, Sunday Head-Office logic & Admin declared holidays verified!');
 
     // ─────────────────────────────────────────────────────────────
     // PART 2: Admin Manual Attendance Grant (Mark Present / Site Visit)
     // ─────────────────────────────────────────────────────────────
-    print('\n======================================================');
-    print('STEP 2: Verifying Admin Manual Attendance (Site Visit)');
-    print('======================================================');
+    debugPrint('\n======================================================');
+    debugPrint('STEP 2: Verifying Admin Manual Attendance (Site Visit)');
+    debugPrint('======================================================');
 
     final testStaffId = 'test-manual-${uuid.v4()}';
     final testDate = DateTime(2026, 11, 10);
@@ -124,11 +133,13 @@ void main() {
     expect(rec.isWithinSite, isTrue);
 
     // Fetch attendance for that date and verify
-    final records = await attendanceService.getTodayAttendance('89e1477d-7f66-4b6d-99ca-6270183143e0', testDate);
+    final records = await attendanceService.getTodayAttendance(
+        '89e1477d-7f66-4b6d-99ca-6270183143e0', testDate);
     final found = records.where((r) => r.staffId == testStaffId).firstOrNull;
     expect(found, isNotNull);
     expect(found!.isPresent, isTrue);
-    print('Found manually granted attendance record: "${found.staffName}" status: ${found.displayStatusName}');
+    debugPrint(
+        'Found manually granted attendance record: "${found.staffName}" status: ${found.displayStatusName}');
 
     // Clean up test attendance record from database
     try {
@@ -136,28 +147,34 @@ void main() {
     } catch (_) {}
     try {
       final dateStr = DateFormat('yyyy-MM-dd').format(testDate);
-      final rows = await client.from('tasks').select('id').ilike('title', 'ATTENDANCE:$dateStr:%$testStaffId%');
+      final rows = await client
+          .from('tasks')
+          .select('id')
+          .ilike('title', 'ATTENDANCE:$dateStr:%$testStaffId%');
       for (final r in (rows as List)) {
         await client.from('tasks').delete().eq('id', r['id']);
       }
     } catch (_) {}
 
-    print('✓ STEP 2 PASSED: Admin Manual Attendance grant & cleanup verified!');
+    debugPrint(
+        '✓ STEP 2 PASSED: Admin Manual Attendance grant & cleanup verified!');
 
     // ─────────────────────────────────────────────────────────────
     // PART 3: Cashbook & DSR Admin Edit & Delete with Balance Recalc
     // ─────────────────────────────────────────────────────────────
-    print('\n======================================================');
-    print('STEP 3: Verifying Admin Edit & Delete (Balance Recalculation)');
-    print('======================================================');
+    debugPrint('\n======================================================');
+    debugPrint('STEP 3: Verifying Admin Edit & Delete (Balance Recalculation)');
+    debugPrint('======================================================');
 
-    final siteId = '4e8efe20-c680-4438-bc48-d46f5c35df09'; // PIU-HATPIPALIYA HOSPITAL
-    final expTypeId = 'e290b30c-4d5e-4471-b1f2-f4bb5284e256'; // ROOM RENT from dropdowns
+    const siteId =
+        '4e8efe20-c680-4438-bc48-d46f5c35df09'; // PIU-HATPIPALIYA HOSPITAL
+    const expTypeId =
+        'e290b30c-4d5e-4471-b1f2-f4bb5284e256'; // ROOM RENT from dropdowns
 
     // 1. Check initial balance
     final initialSummary = await cashService.getSiteCashSummary(siteId);
     final initialBalance = initialSummary['balance'] ?? 0.0;
-    print('Initial Site Cash Balance: ₹$initialBalance');
+    debugPrint('Initial Site Cash Balance: ₹$initialBalance');
 
     // 2. Insert test Cash Received (+5000)
     final testTx = CashTransactionModel(
@@ -173,25 +190,35 @@ void main() {
       updatedAt: DateTime.now(),
     );
 
-    final inserted = await client.from('cash_transactions').insert(testTx.toJson()).select().single();
+    final inserted = await client
+        .from('cash_transactions')
+        .insert(testTx.toJson())
+        .select()
+        .single();
     final actualTxId = inserted['id'] as String;
 
     // Verify balance increased by 5000
-    final balanceAfterAdd = (await cashService.getSiteCashSummary(siteId))['balance'] ?? 0.0;
+    final balanceAfterAdd =
+        (await cashService.getSiteCashSummary(siteId))['balance'] ?? 0.0;
     expect(balanceAfterAdd, closeTo(initialBalance + 5000.0, 0.01));
-    print('Balance after +5000 added: ₹$balanceAfterAdd');
+    debugPrint('Balance after +5000 added: ₹$balanceAfterAdd');
 
     // 3. Edit Cash Received from 5000 to 7500
-    await client.from('cash_transactions').update({'amount_received': 7500.0}).eq('id', actualTxId);
-    final balanceAfterEdit = (await cashService.getSiteCashSummary(siteId))['balance'] ?? 0.0;
+    await client
+        .from('cash_transactions')
+        .update({'amount_received': 7500.0}).eq('id', actualTxId);
+    final balanceAfterEdit =
+        (await cashService.getSiteCashSummary(siteId))['balance'] ?? 0.0;
     expect(balanceAfterEdit, closeTo(initialBalance + 7500.0, 0.01));
-    print('Balance after edited to 7500: ₹$balanceAfterEdit');
+    debugPrint('Balance after edited to 7500: ₹$balanceAfterEdit');
 
     // 4. Delete the test Cash Transaction
     await cashService.deleteTransaction(actualTxId);
-    final balanceAfterDelete = (await cashService.getSiteCashSummary(siteId))['balance'] ?? 0.0;
+    final balanceAfterDelete =
+        (await cashService.getSiteCashSummary(siteId))['balance'] ?? 0.0;
     expect(balanceAfterDelete, closeTo(initialBalance, 0.01));
-    print('Balance after deletion restored cleanly to: ₹$balanceAfterDelete');
+    debugPrint(
+        'Balance after deletion restored cleanly to: ₹$balanceAfterDelete');
 
     // 5. Test DSR report creation and deletion
     final testReport = DailySiteReportModel(
@@ -213,11 +240,14 @@ void main() {
         .from('tasks')
         .select('id')
         .ilike('title', '%${testReport.id}%');
-    expect(checkTasks, isEmpty, reason: 'Report must be deleted from tasks fallback storage');
+    expect(checkTasks, isEmpty,
+        reason: 'Report must be deleted from tasks fallback storage');
 
-    print('✓ STEP 3 PASSED: Cash & DSR Edit/Delete with auto balance recalculation verified!');
-    print('\n======================================================');
-    print('ALL VERIFICATIONS COMPLETED SUCCESSFULLY (0 RESIDUAL DUMMY DATA)');
-    print('======================================================');
+    debugPrint(
+        '✓ STEP 3 PASSED: Cash & DSR Edit/Delete with auto balance recalculation verified!');
+    debugPrint('\n======================================================');
+    debugPrint(
+        'ALL VERIFICATIONS COMPLETED SUCCESSFULLY (0 RESIDUAL DUMMY DATA)');
+    debugPrint('======================================================');
   });
 }

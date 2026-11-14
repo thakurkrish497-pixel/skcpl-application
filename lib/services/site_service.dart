@@ -44,14 +44,18 @@ class SiteService {
         ? createdBy
         : '24721aa3-ae89-4f10-8a19-29fdcd9137de';
 
-    final data = await _client.from('sites').insert({
-      'name': name,
-      'address': address,
-      'site_login_id': loginId,
-      'site_password_hash': passwordHash,
-      'created_by': effectiveCreatedBy,
-      'allocated_budget': allocatedBudget,
-    }).select().single();
+    final data = await _client
+        .from('sites')
+        .insert({
+          'name': name,
+          'address': address,
+          'site_login_id': loginId,
+          'site_password_hash': passwordHash,
+          'created_by': effectiveCreatedBy,
+          'allocated_budget': allocatedBudget,
+        })
+        .select()
+        .single();
 
     return SiteModel.fromJson(data);
   }

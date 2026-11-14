@@ -50,10 +50,11 @@ class _SiteCustomizationScreenState
     _tabController = TabController(length: 5, vsync: this);
 
     _nameController = TextEditingController(text: _currentSite.name);
-    _addressController = TextEditingController(text: _currentSite.address ?? '');
+    _addressController =
+        TextEditingController(text: _currentSite.address ?? '');
     _loginIdController = TextEditingController(text: _currentSite.siteLoginId);
-    _budgetController =
-        TextEditingController(text: _currentSite.allocatedBudget.toStringAsFixed(0));
+    _budgetController = TextEditingController(
+        text: _currentSite.allocatedBudget.toStringAsFixed(0));
     _isActive = _currentSite.isActive;
   }
 
@@ -88,7 +89,8 @@ class _SiteCustomizationScreenState
         updates['password'] = _passwordController.text.trim();
       }
 
-      final updatedSite = await siteService.updateSite(_currentSite.id, updates);
+      final updatedSite =
+          await siteService.updateSite(_currentSite.id, updates);
 
       setState(() {
         _currentSite = updatedSite;
@@ -132,7 +134,8 @@ class _SiteCustomizationScreenState
             Text('Customize Site', style: AppTextStyles.h4),
             Text(
               _currentSite.name,
-              style: AppTextStyles.bodySmall.copyWith(color: AppColors.textTertiary),
+              style: AppTextStyles.bodySmall
+                  .copyWith(color: AppColors.textTertiary),
             ),
           ],
         ),
@@ -144,10 +147,14 @@ class _SiteCustomizationScreenState
           indicatorColor: AppColors.primary,
           tabs: const [
             Tab(icon: Icon(Icons.tune_rounded, size: 18), text: 'Site Details'),
-            Tab(icon: Icon(Icons.inventory_2_rounded, size: 18), text: 'Materials'),
+            Tab(
+                icon: Icon(Icons.inventory_2_rounded, size: 18),
+                text: 'Materials'),
             Tab(icon: Icon(Icons.store_rounded, size: 18), text: 'Vendors'),
             Tab(icon: Icon(Icons.straighten_rounded, size: 18), text: 'Units'),
-            Tab(icon: Icon(Icons.payments_rounded, size: 18), text: 'Expense Types'),
+            Tab(
+                icon: Icon(Icons.payments_rounded, size: 18),
+                text: 'Expense Types'),
           ],
         ),
       ),
@@ -204,7 +211,8 @@ class _SiteCustomizationScreenState
                       gradient: AppColors.primaryGradient,
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Icon(Icons.location_city, color: Colors.white, size: 22),
+                    child: const Icon(Icons.location_city,
+                        color: Colors.white, size: 22),
                   ),
                   const SizedBox(width: 14),
                   Expanded(
@@ -213,7 +221,8 @@ class _SiteCustomizationScreenState
                       children: [
                         Text(
                           _currentSite.name,
-                          style: AppTextStyles.h4.copyWith(color: AppColors.textPrimary),
+                          style: AppTextStyles.h4
+                              .copyWith(color: AppColors.textPrimary),
                         ),
                         const SizedBox(height: 2),
                         Text(
@@ -236,7 +245,8 @@ class _SiteCustomizationScreenState
 
             Text(
               'SITE CREDENTIALS & INFO',
-              style: AppTextStyles.overline.copyWith(color: AppColors.textTertiary),
+              style: AppTextStyles.overline
+                  .copyWith(color: AppColors.textTertiary),
             ),
             const SizedBox(height: 12),
 
@@ -244,7 +254,8 @@ class _SiteCustomizationScreenState
             TextFormField(
               controller: _nameController,
               validator: (v) => Validators.required(v, 'Site Name'),
-              style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
+              style: AppTextStyles.bodyMedium
+                  .copyWith(color: AppColors.textPrimary),
               decoration: const InputDecoration(
                 labelText: 'Site Name',
                 prefixIcon: Icon(Icons.business_rounded),
@@ -255,7 +266,8 @@ class _SiteCustomizationScreenState
             // Address
             TextFormField(
               controller: _addressController,
-              style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
+              style: AppTextStyles.bodyMedium
+                  .copyWith(color: AppColors.textPrimary),
               decoration: const InputDecoration(
                 labelText: 'Location / Address',
                 prefixIcon: Icon(Icons.place_rounded),
@@ -272,7 +284,8 @@ class _SiteCustomizationScreenState
                 if (double.tryParse(v) == null) return 'Must be a valid number';
                 return null;
               },
-              style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
+              style: AppTextStyles.bodyMedium
+                  .copyWith(color: AppColors.textPrimary),
               decoration: const InputDecoration(
                 labelText: 'Allocated Budget (₹)',
                 prefixIcon: Icon(Icons.currency_rupee_rounded),
@@ -284,7 +297,8 @@ class _SiteCustomizationScreenState
             TextFormField(
               controller: _loginIdController,
               validator: (v) => Validators.required(v, 'Login ID'),
-              style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
+              style: AppTextStyles.bodyMedium
+                  .copyWith(color: AppColors.textPrimary),
               decoration: const InputDecoration(
                 labelText: 'Site Worker Login ID',
                 prefixIcon: Icon(Icons.badge_rounded),
@@ -303,7 +317,8 @@ class _SiteCustomizationScreenState
                 }
                 return null;
               },
-              style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
+              style: AppTextStyles.bodyMedium
+                  .copyWith(color: AppColors.textPrimary),
               decoration: InputDecoration(
                 labelText: 'Reset Worker Password',
                 hintText: 'Leave empty to keep unchanged',
@@ -391,16 +406,18 @@ class _SiteDropdownTabState extends ConsumerState<_SiteDropdownTab> {
         content: TextFormField(
           controller: controller,
           autofocus: true,
-          style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
+          style:
+              AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
           decoration: InputDecoration(
             labelText: '${widget.category.displayName} Name',
-            hintText: 'e.g. ${widget.category == DropdownCategory.vendor ? "Sharma Building Materials" : widget.category == DropdownCategory.product ? "UltraTech Cement" : "New Item"}',
+            hintText:
+                'e.g. ${widget.category == DropdownCategory.vendor ? "Sharma Building Materials" : widget.category == DropdownCategory.product ? "UltraTech Cement" : "New Item"}',
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Cancel',
+            child: const Text('Cancel',
                 style: TextStyle(color: AppColors.textSecondary)),
           ),
           ElevatedButton(
@@ -457,13 +474,14 @@ class _SiteDropdownTabState extends ConsumerState<_SiteDropdownTab> {
         content: TextFormField(
           controller: controller,
           autofocus: true,
-          style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
+          style:
+              AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
           decoration: const InputDecoration(labelText: 'Name'),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Cancel',
+            child: const Text('Cancel',
                 style: TextStyle(color: AppColors.textSecondary)),
           ),
           ElevatedButton(
@@ -508,16 +526,18 @@ class _SiteDropdownTabState extends ConsumerState<_SiteDropdownTab> {
         ),
         content: Text(
           'Are you sure you want to delete this ${widget.category.displayName.toLowerCase()} for ${widget.siteName}? If it is already used in transactions, you should deactivate it instead.',
-          style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary),
+          style:
+              AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Cancel',
+            child: const Text('Cancel',
                 style: TextStyle(color: AppColors.textSecondary)),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.rejected),
+            style:
+                ElevatedButton.styleFrom(backgroundColor: AppColors.rejected),
             onPressed: () async {
               final nav = Navigator.of(context);
               final messenger = ScaffoldMessenger.of(this.context);
@@ -557,12 +577,12 @@ class _SiteDropdownTabState extends ConsumerState<_SiteDropdownTab> {
     final service = ref.read(dropdownServiceProvider);
 
     try {
-      final addedCount =
-          await service.seedCategoryDefaultsForSite(widget.siteId, widget.category);
+      final addedCount = await service.seedCategoryDefaultsForSite(
+          widget.siteId, widget.category);
       ref.invalidate(allDropdownsProvider(
           (category: widget.category, siteId: widget.siteId)));
-      ref.invalidate(dropdownProvider(
-          (category: widget.category, siteId: widget.siteId)));
+      ref.invalidate(
+          dropdownProvider((category: widget.category, siteId: widget.siteId)));
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -615,10 +635,13 @@ class _SiteDropdownTabState extends ConsumerState<_SiteDropdownTab> {
                 Expanded(
                   child: TextField(
                     controller: _searchController,
-                    onChanged: (v) => setState(() => _searchQuery = v.trim().toLowerCase()),
-                    style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
+                    onChanged: (v) =>
+                        setState(() => _searchQuery = v.trim().toLowerCase()),
+                    style: AppTextStyles.bodyMedium
+                        .copyWith(color: AppColors.textPrimary),
                     decoration: InputDecoration(
-                      hintText: 'Search ${widget.category.displayName.toLowerCase()}...',
+                      hintText:
+                          'Search ${widget.category.displayName.toLowerCase()}...',
                       prefixIcon: const Icon(Icons.search, size: 20),
                       suffixIcon: _searchQuery.isNotEmpty
                           ? IconButton(
@@ -630,7 +653,8 @@ class _SiteDropdownTabState extends ConsumerState<_SiteDropdownTab> {
                             )
                           : null,
                       isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 10),
                     ),
                   ),
                 ),
@@ -646,7 +670,8 @@ class _SiteDropdownTabState extends ConsumerState<_SiteDropdownTab> {
                       : const Icon(Icons.download_rounded, size: 18),
                   label: const Text('Import Defaults'),
                   style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 12),
                   ),
                 ),
               ],
@@ -678,7 +703,7 @@ class _SiteDropdownTabState extends ConsumerState<_SiteDropdownTab> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.inventory_2_outlined,
+                          const Icon(Icons.inventory_2_outlined,
                               color: AppColors.textTertiary, size: 52),
                           const SizedBox(height: 14),
                           Text(

@@ -54,7 +54,8 @@ class SiteShiftPolicyModel {
       lateCutoffMinutes: (json['late_cutoff_minutes'] as num?)?.toInt() ?? 40,
       latitude: (json['latitude'] as num?)?.toDouble(),
       longitude: (json['longitude'] as num?)?.toDouble(),
-      allowedRadiusMeters: (json['allowed_radius_meters'] as num?)?.toDouble() ?? 10000.0,
+      allowedRadiusMeters:
+          (json['allowed_radius_meters'] as num?)?.toDouble() ?? 10000.0,
     );
   }
 
@@ -138,7 +139,9 @@ enum AttendanceStatus {
   static AttendanceStatus fromString(String? value) {
     if (value == null) return AttendanceStatus.absent;
     final clean = value.toLowerCase().trim();
-    if (clean == 'presentontime' || clean == 'present_on_time' || clean == 'present') {
+    if (clean == 'presentontime' ||
+        clean == 'present_on_time' ||
+        clean == 'present') {
       return AttendanceStatus.presentOnTime;
     }
     if (clean == 'presentlate' || clean == 'present_late' || clean == 'late') {
@@ -224,7 +227,8 @@ class AttendanceRecordModel {
       status == AttendanceStatus.presentLate ||
       status == AttendanceStatus.regularizedPresent;
   bool get isHalfDay => status == AttendanceStatus.regularizedHalfDay;
-  bool get isPendingAdminReview => status == AttendanceStatus.regularizationPending;
+  bool get isPendingAdminReview =>
+      status == AttendanceStatus.regularizationPending;
   bool get isAbsent =>
       !isHoliday &&
       (status == AttendanceStatus.absent ||
@@ -265,8 +269,12 @@ class AttendanceRecordModel {
       staffName: json['staff_name'] as String? ?? '',
       staffRole: json['staff_role'] as String? ?? 'Worker',
       date: parseDate(json['date']),
-      punchInTime: json['punch_in_time'] != null ? parseDate(json['punch_in_time']) : null,
-      punchOutTime: json['punch_out_time'] != null ? parseDate(json['punch_out_time']) : null,
+      punchInTime: json['punch_in_time'] != null
+          ? parseDate(json['punch_in_time'])
+          : null,
+      punchOutTime: json['punch_out_time'] != null
+          ? parseDate(json['punch_out_time'])
+          : null,
       punchInLatitude: (json['punch_in_latitude'] as num?)?.toDouble(),
       punchInLongitude: (json['punch_in_longitude'] as num?)?.toDouble(),
       punchInAddress: json['punch_in_address'] as String?,
@@ -483,7 +491,8 @@ class HolidayModel {
   /// Check whether this holiday applies to a specific site or head office
   bool appliesTo(String siteId, {bool isHeadOffice = false}) {
     if (siteIds.contains('all')) return true;
-    if (isHeadOffice && (siteIds.contains('office') || siteIds.contains(siteId))) {
+    if (isHeadOffice &&
+        (siteIds.contains('office') || siteIds.contains(siteId))) {
       return true;
     }
     return siteIds.contains(siteId);

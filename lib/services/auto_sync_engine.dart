@@ -1,3 +1,5 @@
+import '../providers/auth_provider.dart';
+import 'transaction_refresh.dart';
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -40,12 +42,27 @@ class AutoSyncNotifier extends StateNotifier<SyncState> {
   final Ref _ref;
   Timer? _syncTimer;
   bool _isDisposed = false;
+  Future<SyncResult>? _flight;
 
   AutoSyncNotifier(this._ref) : super(const SyncState()) {
     _init();
   }
 
+  Future<void> _updateQueueCount() async {
+    try {
+      final count = await OfflineService.getPendingSyncCount();
+      if (mounted) state = state.copyWith(pendingCount: count);
+    } catch (e) {
+      if (mounted) state = state.copyWith(lastError: '$e');
+    }
+  }
+
+  void _queueChanged() {
+    _updateQueueCount();
+  }
+
   void _init() {
+    OfflineService.queueRevision.addListener(_queueChanged);
     // 1. Immediate sync check on app launch
     syncNow();
 
@@ -58,24 +75,36 @@ class AutoSyncNotifier extends StateNotifier<SyncState> {
   }
 
   /// Triggers a silent or active sync attempt
-  Future<SyncResult> syncNow() async {
-    if (state.isSyncing) {
-      return SyncResult(syncedCount: 0, remainingCount: state.pendingCount);
-    }
+  Future<SyncResult> syncNow() => _flight ??= _syncOnce().whenComplete(() {
+        _flight = null;
+      });
 
-    final pending = await OfflineService.getPendingSyncCount();
-    if (pending == 0) {
-      if (mounted) {
-        state = state.copyWith(pendingCount: 0, clearError: true);
-      }
-      return const SyncResult(syncedCount: 0, remainingCount: 0);
-    }
-
-    if (mounted) {
-      state = state.copyWith(isSyncing: true, pendingCount: pending);
-    }
-
+  Future<SyncResult> _syncOnce() async {
+    state = state.copyWith(isSyncing: true);
+    int pending = 0;
     try {
+      pending = await OfflineService.getPendingSyncCount();
+      if (pending == 0) {
+        if (mounted) {
+          state = state.copyWith(
+              isSyncing: false, pendingCount: 0, clearError: true);
+        }
+        return const SyncResult(syncedCount: 0, remainingCount: 0);
+      }
+
+      if (!mounted) return SyncResult(syncedCount: 0, remainingCount: pending);
+      final session = _ref.read(authProvider);
+      if (!session.isAuthenticated && !session.hasSiteSession) {
+        state = state.copyWith(
+            isSyncing: false,
+            pendingCount: pending,
+            lastError: 'Sign in before syncing device records.');
+        return SyncResult(
+            syncedCount: 0,
+            remainingCount: pending,
+            errors: const ['Sign in before syncing device records.']);
+      }
+      state = state.copyWith(isSyncing: true, pendingCount: pending);
       final stockService = _ref.read(stockServiceProvider);
       final cashService = _ref.read(cashServiceProvider);
 
@@ -91,12 +120,13 @@ class AutoSyncNotifier extends StateNotifier<SyncState> {
           isSyncing: false,
           pendingCount: remaining,
           lastSyncTime: DateTime.now(),
-          clearError: true,
+          clearError: result.errors.isEmpty,
+          lastError: result.errors.isEmpty ? null : result.errors.first,
         );
 
         // If any records were successfully pushed to Supabase, refresh caches
         if (result.syncedCount > 0) {
-          debugPrint('✅ [AutoSync] Successfully synced ${result.syncedCount} queued records to Supabase');
+          invalidateTransactionViews(_ref.invalidate);
           _ref.read(cashProvider.notifier).loadAllTransactions();
           _ref.read(stockProvider.notifier).loadAllTransactions();
         }
@@ -106,26 +136,25 @@ class AutoSyncNotifier extends StateNotifier<SyncState> {
     } catch (e) {
       debugPrint('⚠️ [AutoSync] Background sync hiccup: $e');
       if (mounted) {
-        final remaining = await OfflineService.getPendingSyncCount();
         state = state.copyWith(
-          isSyncing: false,
-          pendingCount: remaining,
-          lastError: e.toString(),
-        );
+            isSyncing: false, pendingCount: pending, lastError: e.toString());
       }
-      return SyncResult(syncedCount: 0, remainingCount: pending);
+      return SyncResult(
+          syncedCount: 0, remainingCount: pending, errors: [e.toString()]);
     }
   }
 
   @override
   void dispose() {
     _isDisposed = true;
+    OfflineService.queueRevision.removeListener(_queueChanged);
     _syncTimer?.cancel();
     super.dispose();
   }
 }
 
 /// Global provider for background auto-sync state and controls
-final autoSyncProvider = StateNotifierProvider<AutoSyncNotifier, SyncState>((ref) {
+final autoSyncProvider =
+    StateNotifierProvider<AutoSyncNotifier, SyncState>((ref) {
   return AutoSyncNotifier(ref);
 });

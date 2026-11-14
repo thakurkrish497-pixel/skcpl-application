@@ -11,6 +11,7 @@ import '../../widgets/skcpl_brand_logo.dart';
 import '../../widgets/skcpl_wave_widgets.dart';
 import '../../widgets/skcpl_announcement_bar.dart';
 import '../../widgets/responsive_layout.dart';
+import '../../widgets/universal_sync_button.dart';
 
 /// Entry screen — Four main worker/site paths: Stock, Cash Book, DSR, Attendance & Admin
 class HomeScreen extends ConsumerWidget {
@@ -25,25 +26,33 @@ class HomeScreen extends ConsumerWidget {
         child: ResponsiveContainer(
           maxWidth: 1100,
           padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Column(
+          child: SingleChildScrollView(
+              child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 20),
 
               // ── Top Header with 3D Logo & Language Switcher ──
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              const Wrap(
+                spacing: 12,
+                runSpacing: 8,
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  const SkcplBrandLogo(
+                  SkcplBrandLogo(
                     variant: LogoVariant.standard,
                     showTagline: true,
                   ),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
+                  Wrap(
+                    spacing: 4,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      const ThemeToggleButton(isCompact: true),
-                      const SizedBox(width: 8),
-                      const LanguageToggleButton(isCompact: false),
+                      UniversalSyncButton(),
+                      SizedBox(width: 4),
+                      ThemeToggleButton(isCompact: true),
+                      SizedBox(width: 8),
+                      LanguageToggleButton(isCompact: true),
                     ],
                   ),
                 ],
@@ -59,15 +68,21 @@ class HomeScreen extends ConsumerWidget {
               // ── Hero Banner: "Connect to Waves" ──
               SkcplHeroBanner(
                 onQuickAction: () {
-                  Navigator.pushNamed(context, '/sites', arguments: 'attendance');
+                  Navigator.pushNamed(context, '/sites',
+                      arguments: 'attendance');
                 },
                 quickActionLabel: context.tr('attendance_punch'),
-              ).animate().fadeIn(delay: 150.ms).scale(begin: const Offset(0.97, 0.97)),
+              )
+                  .animate()
+                  .fadeIn(delay: 150.ms)
+                  .scale(begin: const Offset(0.97, 0.97)),
 
               const SizedBox(height: 20),
 
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                alignment: WrapAlignment.spaceBetween,
                 children: [
                   Text(
                     context.tr('welcome_msg'),
@@ -78,7 +93,8 @@ class HomeScreen extends ConsumerWidget {
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
                       color: AppColors.waveCyan.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(12),
@@ -87,8 +103,8 @@ class HomeScreen extends ConsumerWidget {
                         width: 0.8,
                       ),
                     ),
-                    child: Text(
-                      'ERP v1.0',
+                    child: const Text(
+                      'ERP v1.0.1',
                       style: TextStyle(
                         color: AppColors.waveCyan,
                         fontSize: 10,
@@ -102,152 +118,153 @@ class HomeScreen extends ConsumerWidget {
               const SizedBox(height: 14),
 
               // ── Module Cards (Responsive Grid: 1 col on mobile, 2 col on tablet/desktop) ──
-              Expanded(
-                child: SingleChildScrollView(
-                  physics: const BouncingScrollPhysics(),
-                  child: Column(
+              Column(
+                children: [
+                  ResponsiveGrid(
+                    mobileColumns: 1,
+                    tabletColumns: 2,
+                    desktopColumns: 2,
+                    spacing: 16,
+                    runSpacing: 14,
                     children: [
-                      ResponsiveGrid(
-                        mobileColumns: 1,
-                        tabletColumns: 2,
-                        desktopColumns: 2,
-                        spacing: 16,
-                        runSpacing: 14,
-                        children: [
-                          // Stock Management Card
-                          _ModuleCard(
-                            title: context.tr('stock_management'),
-                            subtitle: context.tr('stock_management_sub'),
-                            icon: Icons.inventory_2_rounded,
-                            gradient: AppColors.stockGradient,
-                            accentColor: AppColors.waveCyan,
-                            onTap: () {
-                              Navigator.pushNamed(context, '/sites', arguments: 'stock');
-                            },
-                          ).animate().fadeIn(delay: 300.ms).slideY(begin: 0.08),
+                      // Stock Management Card
+                      _ModuleCard(
+                        title: context.tr('stock_management'),
+                        subtitle: context.tr('stock_management_sub'),
+                        icon: Icons.inventory_2_rounded,
+                        gradient: AppColors.stockGradient,
+                        accentColor: AppColors.waveCyan,
+                        onTap: () {
+                          Navigator.pushNamed(context, '/sites',
+                              arguments: 'stock');
+                        },
+                      ).animate().fadeIn(delay: 300.ms).slideY(begin: 0.08),
 
-                          // Cash Book Card
-                          _ModuleCard(
-                            title: context.tr('cash_book'),
-                            subtitle: context.tr('cash_book_sub'),
-                            icon: Icons.account_balance_wallet_rounded,
-                            gradient: AppColors.cashGradient,
-                            accentColor: AppColors.approved,
-                            onTap: () {
-                              Navigator.pushNamed(context, '/sites', arguments: 'cashbook');
-                            },
-                          ).animate().fadeIn(delay: 350.ms).slideY(begin: 0.08),
+                      // Cash Book Card
+                      _ModuleCard(
+                        title: context.tr('cash_book'),
+                        subtitle: context.tr('cash_book_sub'),
+                        icon: Icons.account_balance_wallet_rounded,
+                        gradient: AppColors.cashGradient,
+                        accentColor: AppColors.approved,
+                        onTap: () {
+                          Navigator.pushNamed(context, '/sites',
+                              arguments: 'cashbook');
+                        },
+                      ).animate().fadeIn(delay: 350.ms).slideY(begin: 0.08),
 
-                          // Daily Site Report Card (Voice + Photos)
-                          _ModuleCard(
-                            title: context.tr('daily_site_report'),
-                            subtitle: context.tr('daily_site_report_sub'),
-                            icon: Icons.record_voice_over_rounded,
-                            gradient: AppColors.reportGradient,
-                            accentColor: AppColors.goldAccent,
-                            onTap: () {
-                              Navigator.pushNamed(context, '/sites', arguments: 'report');
-                            },
-                          ).animate().fadeIn(delay: 400.ms).slideY(begin: 0.08),
+                      // Daily Site Report Card (Voice + Photos)
+                      _ModuleCard(
+                        title: context.tr('daily_site_report'),
+                        subtitle: context.tr('daily_site_report_sub'),
+                        icon: Icons.record_voice_over_rounded,
+                        gradient: AppColors.reportGradient,
+                        accentColor: AppColors.goldAccent,
+                        onTap: () {
+                          Navigator.pushNamed(context, '/sites',
+                              arguments: 'report');
+                        },
+                      ).animate().fadeIn(delay: 400.ms).slideY(begin: 0.08),
 
-                          // Daily Attendance Card (GPS Punch-In)
-                          _ModuleCard(
-                            title: context.tr('attendance_punch'),
-                            subtitle: context.tr('attendance_punch_sub'),
-                            icon: Icons.how_to_reg_rounded,
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF0F766E), Color(0xFF14B8A6)],
-                            ),
-                            accentColor: const Color(0xFF14B8A6),
-                            onTap: () {
-                              Navigator.pushNamed(context, '/sites', arguments: 'attendance');
-                            },
-                          ).animate().fadeIn(delay: 450.ms).slideY(begin: 0.08),
-                        ],
-                      ),
-
-                      const SizedBox(height: 18),
-
-                      // Admin & Accounts Master Portal Tile
-                      Container(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(16),
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF1E293B), Color(0xFF0F172A)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          border: Border.all(
-                            color: AppColors.goldAccent.withValues(alpha: 0.35),
-                            width: 1.2,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppColors.goldAccent.withValues(alpha: 0.1),
-                              blurRadius: 12,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
+                      // Daily Attendance Card (GPS Punch-In)
+                      _ModuleCard(
+                        title: context.tr('attendance_punch'),
+                        subtitle: context.tr('attendance_punch_sub'),
+                        icon: Icons.how_to_reg_rounded,
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF0F766E), Color(0xFF14B8A6)],
                         ),
-                        child: Material(
-                          color: Colors.transparent,
-                          child: InkWell(
-                            borderRadius: BorderRadius.circular(16),
-                            onTap: () {
-                              Navigator.pushNamed(context, '/role-login');
-                            },
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.all(10),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.goldAccent.withValues(alpha: 0.15),
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(
-                                      Icons.admin_panel_settings_rounded,
-                                      color: AppColors.goldAccent,
-                                      size: 24,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 14),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          context.tr('admin_portal'),
-                                          style: AppTextStyles.labelLarge.copyWith(
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        Text(
-                                          context.tr('admin_portal_sub'),
-                                          style: AppTextStyles.caption.copyWith(
-                                            color: AppColors.textSecondary,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const Icon(
-                                    Icons.arrow_forward_ios_rounded,
-                                    color: AppColors.goldAccent,
-                                    size: 16,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ).animate().fadeIn(delay: 650.ms),
-                      const SizedBox(height: 24),
+                        accentColor: const Color(0xFF14B8A6),
+                        onTap: () {
+                          Navigator.pushNamed(context, '/sites',
+                              arguments: 'attendance');
+                        },
+                      ).animate().fadeIn(delay: 450.ms).slideY(begin: 0.08),
                     ],
                   ),
-                ),
+
+                  const SizedBox(height: 18),
+
+                  // Admin & Accounts Master Portal Tile
+                  Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF1E293B), Color(0xFF0F172A)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      border: Border.all(
+                        color: AppColors.goldAccent.withValues(alpha: 0.35),
+                        width: 1.2,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.goldAccent.withValues(alpha: 0.1),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(16),
+                        onTap: () {
+                          Navigator.pushNamed(context, '/role-login');
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 20, vertical: 16),
+                          child: Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: AppColors.goldAccent
+                                      .withValues(alpha: 0.15),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.admin_panel_settings_rounded,
+                                  color: AppColors.goldAccent,
+                                  size: 24,
+                                ),
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      context.tr('admin_portal'),
+                                      style: AppTextStyles.labelLarge.copyWith(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    Text(
+                                      context.tr('admin_portal_sub'),
+                                      style: AppTextStyles.caption.copyWith(
+                                        color: AppColors.textSecondary,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const Icon(
+                                Icons.arrow_forward_ios_rounded,
+                                color: AppColors.goldAccent,
+                                size: 16,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ).animate().fadeIn(delay: 650.ms),
+                  const SizedBox(height: 24),
+                ],
               ),
 
               // Footer & Developer Credit
@@ -258,7 +275,8 @@ class HomeScreen extends ConsumerWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 6),
                         decoration: BoxDecoration(
                           color: AppColors.isLight
                               ? AppColors.primary.withValues(alpha: 0.08)
@@ -277,13 +295,17 @@ class HomeScreen extends ConsumerWidget {
                             Icon(
                               Icons.code_rounded,
                               size: 14,
-                              color: AppColors.isLight ? AppColors.primary : AppColors.waveCyan,
+                              color: AppColors.isLight
+                                  ? AppColors.primary
+                                  : AppColors.waveCyan,
                             ),
                             const SizedBox(width: 6),
                             Text(
                               'Made by — Krish Thakur',
                               style: AppTextStyles.caption.copyWith(
-                                color: AppColors.isLight ? AppColors.primary : AppColors.waveCyan,
+                                color: AppColors.isLight
+                                    ? AppColors.primary
+                                    : AppColors.waveCyan,
                                 fontWeight: FontWeight.w600,
                                 letterSpacing: 0.3,
                               ),
@@ -293,7 +315,7 @@ class HomeScreen extends ConsumerWidget {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'v1.0.0 • S. Kumar Creation Pvt. Ltd.',
+                        'v1.0.1 • S. Kumar Creation Pvt. Ltd.',
                         style: AppTextStyles.caption.copyWith(
                           color: AppColors.textTertiary,
                           fontSize: 11,
@@ -304,7 +326,7 @@ class HomeScreen extends ConsumerWidget {
                 ),
               ),
             ],
-          ),
+          )),
         ),
       ),
     );

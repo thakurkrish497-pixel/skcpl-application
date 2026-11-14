@@ -49,7 +49,7 @@ class AppDrawer extends StatelessWidget {
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              border: Border(
+              border: const Border(
                 bottom: BorderSide(color: AppColors.cardBorder, width: 1.2),
               ),
             ),
@@ -64,7 +64,8 @@ class AppDrawer extends StatelessWidget {
                 if (user != null) ...[
                   const SizedBox(height: 14),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
                       color: AppColors.cardDark,
                       borderRadius: BorderRadius.circular(10),
@@ -73,7 +74,8 @@ class AppDrawer extends StatelessWidget {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.verified_user_rounded, color: AppColors.waveCyan, size: 14),
+                        const Icon(Icons.verified_user_rounded,
+                            color: AppColors.waveCyan, size: 14),
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
@@ -132,8 +134,7 @@ class AppDrawer extends StatelessWidget {
                 ),
 
                 // Accounts & Admin items
-                if (user != null &&
-                    (user!.isAccounts || user!.isAdmin)) ...[
+                if (user != null && (user!.isAccounts || user!.isAdmin)) ...[
                   const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                     child: Divider(color: AppColors.divider),
@@ -177,7 +178,8 @@ class AppDrawer extends StatelessWidget {
                 ),
                 _DrawerItem(
                   icon: Icons.cleaning_services_rounded,
-                  label: context.tr('storage_cache', defaultText: 'Storage & Cache'),
+                  label: context.tr('storage_cache',
+                      defaultText: 'Storage & Cache'),
                   onTap: () => CacheManagerDialog.show(context),
                 ),
               ],
@@ -221,8 +223,12 @@ class AppDrawer extends StatelessWidget {
                 Row(
                   children: [
                     Icon(
-                      AppColors.isLight ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
-                      color: AppColors.isLight ? AppColors.primary : AppColors.waveCyan,
+                      AppColors.isLight
+                          ? Icons.light_mode_rounded
+                          : Icons.dark_mode_rounded,
+                      color: AppColors.isLight
+                          ? AppColors.primary
+                          : AppColors.waveCyan,
                       size: 20,
                     ),
                     const SizedBox(width: 10),
@@ -241,7 +247,7 @@ class AppDrawer extends StatelessWidget {
           ),
 
           // Download Native Apps
-          Divider(color: AppColors.divider, height: 1),
+          const Divider(color: AppColors.divider, height: 1),
           _DrawerItem(
             icon: Icons.install_mobile_rounded,
             label: 'Download Native Apps (Phones & Laptops)',
@@ -249,7 +255,7 @@ class AppDrawer extends StatelessWidget {
           ),
 
           // Sign out
-          Divider(color: AppColors.divider, height: 1),
+          const Divider(color: AppColors.divider, height: 1),
           _DrawerItem(
             icon: Icons.logout_rounded,
             label: context.tr('sign_out', defaultText: 'Sign Out'),
@@ -284,13 +290,17 @@ class AppDrawer extends StatelessWidget {
                       Icon(
                         Icons.code_rounded,
                         size: 13,
-                        color: AppColors.isLight ? AppColors.primary : AppColors.waveCyan,
+                        color: AppColors.isLight
+                            ? AppColors.primary
+                            : AppColors.waveCyan,
                       ),
                       const SizedBox(width: 6),
                       Text(
                         'Made by — Krish Thakur',
                         style: AppTextStyles.caption.copyWith(
-                          color: AppColors.isLight ? AppColors.primary : AppColors.waveCyan,
+                          color: AppColors.isLight
+                              ? AppColors.primary
+                              : AppColors.waveCyan,
                           fontWeight: FontWeight.w600,
                           fontSize: 11,
                           letterSpacing: 0.2,

@@ -16,7 +16,8 @@ class Responsive {
 
   static bool isTablet(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
-    return width >= ResponsiveBreakpoints.mobile && width < ResponsiveBreakpoints.desktop;
+    return width >= ResponsiveBreakpoints.mobile &&
+        width < ResponsiveBreakpoints.desktop;
   }
 
   static bool isDesktop(BuildContext context) =>

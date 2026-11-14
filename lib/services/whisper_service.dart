@@ -7,9 +7,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Groq Whisper (whisper-large-v3-turbo) transcribes Indian Hindi/English audio
 /// in ~300ms with 99%+ accuracy and zero audio storage required.
 class WhisperService {
+  final http.Client? _client;
+  WhisperService([http.Client? client]) : _client = client;
   static const String _keyGroqApiKey = 'whisper_groq_api_key';
   static const String _keyOpenAiApiKey = 'whisper_openai_api_key';
-  static const String _keySelectedProvider = 'whisper_selected_provider'; // 'groq' | 'openai'
+  static const String _keySelectedProvider =
+      'whisper_selected_provider'; // 'groq' | 'openai'
 
   Future<String?> getApiKey() async {
     final prefs = await SharedPreferences.getInstance();
@@ -109,11 +112,13 @@ class WhisperService {
       ),
     );
 
-    final streamedResponse = await request.send().timeout(const Duration(seconds: 25));
+    final streamedResponse = await (_client?.send(request) ?? request.send())
+        .timeout(const Duration(seconds: 25));
     final response = await http.Response.fromStream(streamedResponse);
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
-      final decoded = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+      final decoded =
+          jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
       final text = decoded['text'] as String?;
       if (text != null && text.trim().isNotEmpty) {
         return text.trim();
@@ -121,17 +126,21 @@ class WhisperService {
       return '';
     } else {
       if (response.statusCode == 401) {
-        throw Exception('Invalid API Key for ${isGroq ? "Groq" : "OpenAI"}. Please tap the Settings (⚙️) icon to enter a valid key, or switch to Live (No Key) mode.');
+        throw Exception(
+            'Invalid API Key for ${isGroq ? "Groq" : "OpenAI"}. Please tap the Settings (⚙️) icon to enter a valid key, or switch to Live (No Key) mode.');
       } else if (response.statusCode == 429) {
-        throw Exception('Rate limit exceeded for ${isGroq ? "Groq" : "OpenAI"}. Please wait a few seconds or switch to Live (No Key) mode.');
+        throw Exception(
+            'Rate limit exceeded for ${isGroq ? "Groq" : "OpenAI"}. Please wait a few seconds or switch to Live (No Key) mode.');
       }
       try {
         final errJson = jsonDecode(response.body);
         final errMsg = errJson['error']?['message'] ?? response.body;
-        throw Exception('Transcription error (${response.statusCode}): $errMsg');
+        throw Exception(
+            'Transcription error (${response.statusCode}): $errMsg');
       } catch (e) {
         if (e is Exception) rethrow;
-        throw Exception('Transcription failed (${response.statusCode}): ${response.body}');
+        throw Exception(
+            'Transcription failed (${response.statusCode}): ${response.body}');
       }
     }
   }
@@ -144,7 +153,7 @@ class WhisperService {
           ? Uri.parse('https://api.groq.com/openai/v1/models')
           : Uri.parse('https://api.openai.com/v1/models');
 
-      final resp = await http.get(
+      final resp = await (_client ?? http.Client()).get(
         endpoint,
         headers: {'Authorization': 'Bearer ${key.trim()}'},
       ).timeout(const Duration(seconds: 10));

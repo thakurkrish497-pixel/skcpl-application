@@ -30,10 +30,15 @@ class NotificationBellButton extends ConsumerWidget {
       children: [
         IconButton(
           icon: Icon(
-            count > 0 ? Icons.notifications_active_rounded : Icons.notifications_none_rounded,
-            color: count > 0 ? const Color(0xFFF59E0B) : AppColors.textSecondary,
+            count > 0
+                ? Icons.notifications_active_rounded
+                : Icons.notifications_none_rounded,
+            color:
+                count > 0 ? const Color(0xFFF59E0B) : AppColors.textSecondary,
           ),
-          tooltip: count > 0 ? '$count Overdue Alerts (>36h)' : 'Notifications & Alerts',
+          tooltip: count > 0
+              ? '$count Overdue Alerts (>36h)'
+              : 'Notifications & Alerts',
           onPressed: () => showSlaAlertsModal(context, ref),
         ),
         if (count > 0)
@@ -129,20 +134,27 @@ void showSlaAlertsModal(BuildContext context, WidgetRef ref) {
                     builder: (context, snapshot) {
                       final isGranted = snapshot.data ?? false;
                       return Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 10),
                         margin: const EdgeInsets.only(bottom: 14),
                         decoration: BoxDecoration(
                           color: AppColors.cardDark,
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: isGranted ? AppColors.approved.withValues(alpha: 0.4) : AppColors.cardBorder,
+                            color: isGranted
+                                ? AppColors.approved.withValues(alpha: 0.4)
+                                : AppColors.cardBorder,
                           ),
                         ),
                         child: Row(
                           children: [
                             Icon(
-                              isGranted ? Icons.check_circle_rounded : Icons.phonelink_ring_rounded,
-                              color: isGranted ? AppColors.approved : AppColors.waveCyan,
+                              isGranted
+                                  ? Icons.check_circle_rounded
+                                  : Icons.phonelink_ring_rounded,
+                              color: isGranted
+                                  ? AppColors.approved
+                                  : AppColors.waveCyan,
                               size: 20,
                             ),
                             const SizedBox(width: 10),
@@ -177,19 +189,24 @@ void showSlaAlertsModal(BuildContext context, WidgetRef ref) {
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: AppColors.waveCyan,
                                   foregroundColor: Colors.black,
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 10, vertical: 6),
                                   minimumSize: Size.zero,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(6)),
                                 ),
                                 onPressed: () async {
-                                  final ok = await NotificationService.requestPermission();
+                                  final ok = await NotificationService
+                                      .requestPermission();
                                   if (ctx.mounted) {
                                     ScaffoldMessenger.of(ctx).showSnackBar(
                                       SnackBar(
                                         content: Text(ok
                                             ? '🔔 Desktop & Phone Notifications Enabled!'
                                             : '⚠️ Permission not granted.'),
-                                        backgroundColor: ok ? AppColors.approved : AppColors.goldAccent,
+                                        backgroundColor: ok
+                                            ? AppColors.approved
+                                            : AppColors.goldAccent,
                                       ),
                                     );
                                     Navigator.pop(ctx);
@@ -197,7 +214,9 @@ void showSlaAlertsModal(BuildContext context, WidgetRef ref) {
                                 },
                                 child: const Text(
                                   'Enable',
-                                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                                  style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold),
                                 ),
                               ),
                           ],
@@ -213,7 +232,8 @@ void showSlaAlertsModal(BuildContext context, WidgetRef ref) {
                       alignment: Alignment.center,
                       child: Column(
                         children: [
-                          const Icon(Icons.verified_rounded, color: AppColors.approved, size: 40),
+                          const Icon(Icons.verified_rounded,
+                              color: AppColors.approved, size: 40),
                           const SizedBox(height: 10),
                           Text(
                             'All Caught Up!',
@@ -225,7 +245,8 @@ void showSlaAlertsModal(BuildContext context, WidgetRef ref) {
                           const SizedBox(height: 4),
                           Text(
                             'No pending approval requests have exceeded the 36-hour threshold.',
-                            style: AppTextStyles.caption.copyWith(color: AppColors.textTertiary),
+                            style: AppTextStyles.caption
+                                .copyWith(color: AppColors.textTertiary),
                             textAlign: TextAlign.center,
                           ),
                         ],
@@ -240,9 +261,14 @@ void showSlaAlertsModal(BuildContext context, WidgetRef ref) {
                       itemBuilder: (context, index) {
                         final alert = alerts[index];
                         final isStock = alert.type == SlaAlertType.pendingStock;
-                        final isMissedCash = alert.type == SlaAlertType.missedCashbook;
-                        final badgeColor = isMissedCash ? const Color(0xFFF59E0B) : const Color(0xFFEF4444);
-                        final badgeLabel = isMissedCash ? 'MISSED ENTRY' : '${alert.hoursElapsed}H OVERDUE';
+                        final isMissedCash =
+                            alert.type == SlaAlertType.missedCashbook;
+                        final badgeColor = isMissedCash
+                            ? const Color(0xFFF59E0B)
+                            : const Color(0xFFEF4444);
+                        final badgeLabel = isMissedCash
+                            ? 'MISSED ENTRY'
+                            : '${alert.hoursElapsed}H OVERDUE';
 
                         return Container(
                           padding: const EdgeInsets.all(12),
@@ -267,7 +293,8 @@ void showSlaAlertsModal(BuildContext context, WidgetRef ref) {
                                       ? Icons.warning_amber_rounded
                                       : (isStock
                                           ? Icons.inventory_2_rounded
-                                          : Icons.account_balance_wallet_rounded),
+                                          : Icons
+                                              .account_balance_wallet_rounded),
                                   color: badgeColor,
                                   size: 18,
                                 ),
@@ -284,7 +311,8 @@ void showSlaAlertsModal(BuildContext context, WidgetRef ref) {
                                               horizontal: 6, vertical: 2),
                                           decoration: BoxDecoration(
                                             color: badgeColor,
-                                            borderRadius: BorderRadius.circular(4),
+                                            borderRadius:
+                                                BorderRadius.circular(4),
                                           ),
                                           child: Text(
                                             badgeLabel,
@@ -331,8 +359,10 @@ void showSlaAlertsModal(BuildContext context, WidgetRef ref) {
           ),
           actions: [
             TextButton.icon(
-              icon: const Icon(Icons.campaign_rounded, size: 16, color: AppColors.waveCyan),
-              label: const Text('Open Notice Board', style: TextStyle(color: AppColors.waveCyan)),
+              icon: const Icon(Icons.campaign_rounded,
+                  size: 16, color: AppColors.waveCyan),
+              label: const Text('Open Notice Board',
+                  style: TextStyle(color: AppColors.waveCyan)),
               onPressed: () {
                 Navigator.pop(ctx);
                 NoticeBoardDialog.show(context);
@@ -340,7 +370,8 @@ void showSlaAlertsModal(BuildContext context, WidgetRef ref) {
             ),
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Close', style: TextStyle(color: AppColors.textSecondary)),
+              child: const Text('Close',
+                  style: TextStyle(color: AppColors.textSecondary)),
             ),
           ],
         );

@@ -1,7 +1,9 @@
+import '../services/submission_support.dart';
 import 'stock_transaction_model.dart';
 
 /// Model for cash book transactions
 class CashTransactionModel {
+  final List<PendingPhoto> pendingPhotos;
   final String? id;
   final String siteId;
   final String? submittedBy;
@@ -32,6 +34,7 @@ class CashTransactionModel {
   final String? siteName;
 
   const CashTransactionModel({
+    this.pendingPhotos = const [],
     this.id,
     required this.siteId,
     this.submittedBy,
@@ -55,12 +58,12 @@ class CashTransactionModel {
   });
 
   /// Whether a worker or user can still edit this record
-  bool get isEditable => 
+  bool get isEditable =>
       status == TransactionStatus.pendingAccounts ||
       status == TransactionStatus.rejected;
 
   /// Whether accounts can still review this record
-  bool get isReviewable => 
+  bool get isReviewable =>
       status == TransactionStatus.pendingAccounts ||
       status == TransactionStatus.pendingAdmin;
 
@@ -116,7 +119,8 @@ class CashTransactionModel {
 
   /// Extracts Project Head / Supervisor review note if any (e.g., "Approved by Vikas", "Edited & Approved by Vikas")
   String? get supervisorReviewNote {
-    final match = RegExp(r'\[(?:Project Head|Supervisor):\s*(.+?)\]').firstMatch(remarks ?? '');
+    final match = RegExp(r'\[(?:Project Head|Supervisor):\s*(.+?)\]')
+        .firstMatch(remarks ?? '');
     return match?.group(1)?.trim();
   }
 
@@ -140,14 +144,14 @@ class CashTransactionModel {
 
   /// Whether this cash transaction is currently waiting for Project Head / Supervisor review
   bool get isPendingSupervisorReview =>
-      status != TransactionStatus.rejected &&
-      status != TransactionStatus.approved &&
+      status == TransactionStatus.pendingAccounts &&
       !isSupervisorApproved &&
       !isSupervisorRejected &&
-      (remarks?.contains('[Project Head Review: Pending]') == true ||
-      remarks?.contains('[Project Head: Review Pending]') == true ||
-      remarks?.contains('[Supervisor Review: Pending]') == true ||
-      remarks?.contains('[Supervisor: Review Pending]') == true);
+      (remarks?.contains('[PENDING SUPERVISOR REVIEW]') == true ||
+          remarks?.contains('[Project Head Review: Pending]') == true ||
+          remarks?.contains('[Project Head: Review Pending]') == true ||
+          remarks?.contains('[Supervisor Review: Pending]') == true ||
+          remarks?.contains('[Supervisor: Review Pending]') == true);
 
   bool get isPendingProjectHeadReview => isPendingSupervisorReview;
 
@@ -155,12 +159,15 @@ class CashTransactionModel {
   String? get cleanRemarks {
     if (remarks == null) return null;
     final cleaned = remarks!
+        .replaceAll('[PENDING SUPERVISOR REVIEW]', '')
         .replaceAll(RegExp(r'\[Batch:\s*.+?\]\s*'), '')
         .replaceAll(RegExp(r'\[Expense:\s*.+?\]\s*'), '')
         .replaceAll(RegExp(r'\[Bill:\s*.+?\]\s*'), '')
         .replaceAll(RegExp(r'\[Party:\s*.+?\]\s*'), '')
         .replaceAll(RegExp(r'\[By:\s*.+?\]\s*'), '')
-        .replaceAll(RegExp(r'\[(?:Project Head|Supervisor)(?:\s+Review)?:\s*.+?\]\s*'), '')
+        .replaceAll(
+            RegExp(r'\[(?:Project Head|Supervisor)(?:\s+Review)?:\s*.+?\]\s*'),
+            '')
         .trim();
     return cleaned.isEmpty ? null : cleaned;
   }
@@ -174,6 +181,9 @@ class CashTransactionModel {
     }
 
     return CashTransactionModel(
+      pendingPhotos: (json['local_pending_photos'] as List? ?? [])
+          .map((p) => PendingPhoto.fromJson(Map<String, dynamic>.from(p)))
+          .toList(),
       id: json['id'] as String?,
       siteId: json['site_id'] as String,
       submittedBy: json['submitted_by'] as String?,
@@ -206,6 +216,9 @@ class CashTransactionModel {
 
   Map<String, dynamic> toJson() {
     return {
+      if (id != null) 'id': id,
+      if (pendingPhotos.isNotEmpty)
+        'local_pending_photos': pendingPhotos.map((p) => p.toJson()).toList(),
       'site_id': siteId,
       'submitted_by': submittedBy,
       'date': date.toIso8601String().split('T').first,
@@ -220,6 +233,7 @@ class CashTransactionModel {
   }
 
   CashTransactionModel copyWith({
+    List<PendingPhoto>? pendingPhotos,
     String? id,
     String? siteId,
     String? submittedBy,
@@ -241,6 +255,7 @@ class CashTransactionModel {
     DateTime? updatedAt,
   }) {
     return CashTransactionModel(
+      pendingPhotos: pendingPhotos ?? this.pendingPhotos,
       id: id ?? this.id,
       siteId: siteId ?? this.siteId,
       submittedBy: submittedBy ?? this.submittedBy,

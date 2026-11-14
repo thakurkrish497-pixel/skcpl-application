@@ -2,7 +2,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:iconsax/iconsax.dart';
 import '../../providers/task_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/chat_bubble.dart';
@@ -29,7 +28,8 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
   }
 
   Future<void> _pickImage() async {
-    final XFile? image = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
+    final XFile? image =
+        await _picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
     if (image != null) {
       setState(() {
         _selectedImage = File(image.path);
@@ -56,11 +56,11 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
       // }
 
       await ref.read(taskServiceProvider).addComment(
-        taskId: widget.taskId,
-        userId: user.id,
-        content: text.isNotEmpty ? text : 'Attached an image',
-        imageUrl: imageUrl,
-      );
+            taskId: widget.taskId,
+            userId: user.id,
+            content: text.isNotEmpty ? text : 'Attached an image',
+            imageUrl: imageUrl,
+          );
 
       _messageController.clear();
       setState(() {
@@ -68,7 +68,8 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error sending message: $e')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Error sending message: $e')));
       }
     } finally {
       if (mounted) {
@@ -98,19 +99,25 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                   value: task.status,
                   underline: const SizedBox(),
                   icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.bold),
                   dropdownColor: theme.colorScheme.primary,
                   onChanged: (String? newValue) {
                     if (newValue != null) {
-                      ref.read(taskServiceProvider).updateTask(task.id, {'status': newValue});
+                      ref
+                          .read(taskServiceProvider)
+                          .updateTask(task.id, {'status': newValue});
                       ref.invalidate(taskDetailProvider(widget.taskId));
                     }
                   },
                   items: const [
                     DropdownMenuItem(value: 'pending', child: Text('Pending')),
-                    DropdownMenuItem(value: 'in_progress', child: Text('In Progress')),
-                    DropdownMenuItem(value: 'completed', child: Text('Completed')),
-                    DropdownMenuItem(value: 'verified', child: Text('Verified')),
+                    DropdownMenuItem(
+                        value: 'in_progress', child: Text('In Progress')),
+                    DropdownMenuItem(
+                        value: 'completed', child: Text('Completed')),
+                    DropdownMenuItem(
+                        value: 'verified', child: Text('Verified')),
                   ],
                 ),
               ),
@@ -126,12 +133,15 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
           taskAsync.when(
             data: (task) => Container(
               padding: const EdgeInsets.all(16),
-              color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.3),
+              color: theme.colorScheme.surfaceContainerHighest
+                  .withValues(alpha: 0.3),
               width: double.infinity,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(task.title, style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                  Text(task.title,
+                      style: theme.textTheme.titleLarge
+                          ?.copyWith(fontWeight: FontWeight.bold)),
                   if (task.description != null) ...[
                     const SizedBox(height: 8),
                     Text(task.description!),
@@ -140,15 +150,18 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
               ),
             ),
             loading: () => const LinearProgressIndicator(),
-            error: (err, _) => Padding(padding: const EdgeInsets.all(16), child: Text('Error loading task: $err')),
+            error: (err, _) => Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text('Error loading task: $err')),
           ),
-          
+
           // Chat Stream
           Expanded(
             child: commentsAsync.when(
               data: (comments) {
                 if (comments.isEmpty) {
-                  return const Center(child: Text('No comments yet. Start the conversation!'));
+                  return const Center(
+                      child: Text('No comments yet. Start the conversation!'));
                 }
                 return ListView.builder(
                   reverse: false,
@@ -165,7 +178,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
               error: (err, _) => Center(child: Text('Error: $err')),
             ),
           ),
-          
+
           // Chat Input Area
           Container(
             padding: const EdgeInsets.all(8.0),
@@ -173,7 +186,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
               color: theme.colorScheme.surface,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: Colors.black.withValues(alpha: 0.05),
                   offset: const Offset(0, -1),
                   blurRadius: 4,
                 ),
@@ -186,12 +199,14 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                     Container(
                       height: 100,
                       alignment: Alignment.centerLeft,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
                       child: Stack(
                         children: [
                           ClipRRect(
                             borderRadius: BorderRadius.circular(8),
-                            child: Image.file(_selectedImage!, fit: BoxFit.cover, width: 80, height: 80),
+                            child: Image.file(_selectedImage!,
+                                fit: BoxFit.cover, width: 80, height: 80),
                           ),
                           Positioned(
                             right: -10,
@@ -211,7 +226,7 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                   Row(
                     children: [
                       IconButton(
-                        icon: const Icon(Iconsax.camera),
+                        icon: const Icon(Icons.camera_alt_rounded),
                         color: theme.colorScheme.primary,
                         onPressed: _isSending ? null : _pickImage,
                       ),
@@ -225,8 +240,10 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                               borderSide: BorderSide.none,
                             ),
                             filled: true,
-                            fillColor: theme.colorScheme.surfaceContainerHighest,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            fillColor:
+                                theme.colorScheme.surfaceContainerHighest,
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 8),
                           ),
                           textCapitalization: TextCapitalization.sentences,
                           minLines: 1,
@@ -237,10 +254,14 @@ class _TaskDetailScreenState extends ConsumerState<TaskDetailScreen> {
                       _isSending
                           ? const Padding(
                               padding: EdgeInsets.all(12.0),
-                              child: SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2)),
+                              child: SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2)),
                             )
                           : IconButton(
-                              icon: const Icon(Iconsax.send_1),
+                              icon: const Icon(Icons.send_rounded),
                               color: theme.colorScheme.primary,
                               onPressed: _sendMessage,
                             ),

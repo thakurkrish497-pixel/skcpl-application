@@ -1,8 +1,8 @@
+import 'submission_support.dart';
 import 'dart:convert';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 import '../models/site_staff_model.dart';
-import '../core/constants/supabase_constants.dart';
 
 /// Service managing site staff (Workers and Supervisors) with resilient dual-mode persistence.
 class SiteStaffService {
@@ -10,14 +10,11 @@ class SiteStaffService {
   static const _uuid = Uuid();
 
   SiteStaffService([SupabaseClient? client])
-      : _client = client ??
-            SupabaseClient(
-              SupabaseConstants.supabaseUrl,
-              SupabaseConstants.supabaseServiceRoleKey,
-            );
+      : _client = client ?? Supabase.instance.client;
 
   /// Fetch all staff members for a specific site, optionally filtered by module
-  Future<List<SiteStaffModel>> getStaffForSite(String siteId, {StaffModule? module}) async {
+  Future<List<SiteStaffModel>> getStaffForSite(String siteId,
+      {StaffModule? module}) async {
     try {
       // Primary: query site_staff table
       final data = await _client
@@ -26,15 +23,15 @@ class SiteStaffService {
           .eq('site_id', siteId)
           .order('name', ascending: true);
 
-      final list = (data as List)
-          .map((json) => SiteStaffModel.fromJson(json))
-          .toList();
+      final list =
+          (data as List).map((json) => SiteStaffModel.fromJson(json)).toList();
 
       if (module != null) {
         return list.where((s) => s.hasModule(module)).toList();
       }
       return list;
     } catch (e) {
+      if (!isSchemaUnavailable(e)) rethrow;
       // Fallback: fetch from tasks table
       return _getStaffFallback(siteId, module: module);
     }
@@ -50,7 +47,8 @@ class SiteStaffService {
       return (data as List)
           .map((json) => SiteStaffModel.fromJson(json))
           .toList();
-    } catch (_) {
+    } catch (error) {
+      if (!isSchemaUnavailable(error)) rethrow;
       try {
         final data = await _client
             .from('tasks')
@@ -68,7 +66,8 @@ class SiteStaffService {
           }
         }
         return list;
-      } catch (_) {
+      } catch (error) {
+        if (!isSchemaUnavailable(error)) rethrow;
         return [];
       }
     }
@@ -77,7 +76,8 @@ class SiteStaffService {
   /// Check if a supervisor is configured and active for a site and module
   Future<bool> hasSupervisor(String siteId, StaffModule module) async {
     final staffList = await getStaffForSite(siteId, module: module);
-    return staffList.any((s) => s.isActive && s.isSupervisor && s.hasModule(module));
+    return staffList
+        .any((s) => s.isActive && s.isSupervisor && s.hasModule(module));
   }
 
   /// Add a new staff member to a site
@@ -87,13 +87,11 @@ class SiteStaffService {
     final payload = staffWithId.toJson();
 
     try {
-      final res = await _client
-          .from('site_staff')
-          .insert(payload)
-          .select()
-          .single();
+      final res =
+          await _client.from('site_staff').insert(payload).select().single();
       return SiteStaffModel.fromJson(res);
     } catch (e) {
+      if (!isSchemaUnavailable(e)) rethrow;
       // Fallback: save into tasks table
       return _saveStaffFallback(staffWithId);
     }
@@ -112,6 +110,7 @@ class SiteStaffService {
           .single();
       result = SiteStaffModel.fromJson(res);
     } catch (e) {
+      if (!isSchemaUnavailable(e)) rethrow;
       result = await _saveStaffFallback(staff);
     }
 
@@ -153,29 +152,26 @@ class SiteStaffService {
             map['staff_role'] = staff.role.displayName;
             await _client
                 .from('tasks')
-                .update({'description': jsonEncode(map)})
-                .eq('id', r['id']);
+                .update({'description': jsonEncode(map)}).eq('id', r['id']);
           } catch (_) {}
         }
       }
 
       // Also search general LIVELOC: tasks in case format varied
-      final anyLiveRows = await _client
-          .from('tasks')
-          .select()
-          .like('title', 'LIVELOC:%');
+      final anyLiveRows =
+          await _client.from('tasks').select().like('title', 'LIVELOC:%');
       for (final r in (anyLiveRows as List)) {
         final desc = r['description'] as String?;
         if (desc != null && desc.startsWith('{')) {
           try {
             final map = jsonDecode(desc) as Map<String, dynamic>;
-            if (map['staff_id'] == staff.id && map['staff_name'] != staff.name) {
+            if (map['staff_id'] == staff.id &&
+                map['staff_name'] != staff.name) {
               map['staff_name'] = staff.name;
               map['staff_role'] = staff.role.displayName;
               await _client
                   .from('tasks')
-                  .update({'description': jsonEncode(map)})
-                  .eq('id', r['id']);
+                  .update({'description': jsonEncode(map)}).eq('id', r['id']);
             }
           } catch (_) {}
         }
@@ -195,8 +191,7 @@ class SiteStaffService {
             map['staff_role'] = staff.role.displayName;
             await _client
                 .from('tasks')
-                .update({'description': jsonEncode(map)})
-                .eq('id', r['id']);
+                .update({'description': jsonEncode(map)}).eq('id', r['id']);
           } catch (_) {}
         }
       }
@@ -208,6 +203,7 @@ class SiteStaffService {
     try {
       await _client.from('site_staff').delete().eq('id', staffId);
     } catch (e) {
+      if (!isSchemaUnavailable(e)) rethrow;
       await _deleteStaffFallback(staffId, siteId);
     }
   }
@@ -235,8 +231,9 @@ class SiteStaffService {
       }).eq('id', taskId);
     } else {
       final users = await _client.from('users').select('id').limit(1);
-      final userId =
-          (users as List).isNotEmpty ? users.first['id'] as String : staff.siteId;
+      final userId = (users as List).isNotEmpty
+          ? users.first['id'] as String
+          : staff.siteId;
 
       await _client.from('tasks').insert({
         'site_id': staff.siteId,
@@ -251,7 +248,8 @@ class SiteStaffService {
     return staff;
   }
 
-  Future<List<SiteStaffModel>> _getStaffFallback(String siteId, {StaffModule? module}) async {
+  Future<List<SiteStaffModel>> _getStaffFallback(String siteId,
+      {StaffModule? module}) async {
     try {
       final data = await _client
           .from('tasks')
@@ -274,7 +272,8 @@ class SiteStaffService {
         }
       }
       return list;
-    } catch (_) {
+    } catch (error) {
+      if (!isSchemaUnavailable(error)) rethrow;
       return [];
     }
   }
@@ -287,6 +286,8 @@ class SiteStaffService {
           .delete()
           .eq('site_id', siteId)
           .eq('title', tagTitle);
-    } catch (_) {}
+    } catch (error) {
+      if (!isSchemaUnavailable(error)) rethrow;
+    }
   }
 }

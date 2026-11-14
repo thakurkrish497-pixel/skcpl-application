@@ -1,6 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/stock_transaction_model.dart';
-import '../models/cash_transaction_model.dart';
 import '../models/user_model.dart';
 import 'stock_provider.dart';
 import 'cash_provider.dart';
@@ -87,7 +86,8 @@ final slaAlertsProvider = Provider<List<SlaAlert>>((ref) {
         id: alertId,
         type: SlaAlertType.pendingStock,
         title: '⚠️ Stock Approval Overdue (${hours}h)',
-        message: '$itemDesc (${tx.quantity} ${tx.metricUnitName ?? 'units'}) waiting >${hours}h at $sName',
+        message:
+            '$itemDesc (${tx.quantity} ${tx.metricUnitName ?? 'units'}) waiting >${hours}h at $sName',
         siteId: tx.siteId,
         siteName: sName,
         hoursElapsed: hours,
@@ -98,7 +98,8 @@ final slaAlertsProvider = Provider<List<SlaAlert>>((ref) {
       // Trigger Phone/Desktop notification
       NotificationService.showSlaNotification(
         title: 'SKCPL Alert: Stock Approval Overdue (${hours}h)',
-        body: '$sName: $itemDesc (${tx.quantity}) waiting for approval for $hours hours.',
+        body:
+            '$sName: $itemDesc (${tx.quantity}) waiting for approval for $hours hours.',
         alertKey: alertId,
       );
     }
@@ -121,7 +122,8 @@ final slaAlertsProvider = Provider<List<SlaAlert>>((ref) {
         id: alertId,
         type: SlaAlertType.pendingCash,
         title: '⚠️ Cash Expense Overdue (${hours}h)',
-        message: '₹${tx.expenseAmount.toStringAsFixed(0)} (${tx.remarks ?? 'Expense'}) pending review for ${hours}h at $sName',
+        message:
+            '₹${tx.expenseAmount.toStringAsFixed(0)} (${tx.remarks ?? 'Expense'}) pending review for ${hours}h at $sName',
         siteId: tx.siteId,
         siteName: sName,
         hoursElapsed: hours,
@@ -131,7 +133,8 @@ final slaAlertsProvider = Provider<List<SlaAlert>>((ref) {
 
       NotificationService.showSlaNotification(
         title: 'SKCPL Alert: Cash Approval Overdue (${hours}h)',
-        body: '$sName: ₹${tx.expenseAmount.toStringAsFixed(0)} waiting for review for $hours hours.',
+        body:
+            '$sName: ₹${tx.expenseAmount.toStringAsFixed(0)} waiting for review for $hours hours.',
         alertKey: alertId,
       );
     }
@@ -155,7 +158,8 @@ final slaAlertsProvider = Provider<List<SlaAlert>>((ref) {
         id: alertId,
         type: SlaAlertType.pendingDsr,
         title: '⚠️ Daily Site Report Approval Pending (${hours}h)',
-        message: 'DSR for $sName ($submitter) waiting for Project Head approval for ${hours}h',
+        message:
+            'DSR for $sName ($submitter) waiting for Project Head approval for ${hours}h',
         siteId: report.siteId,
         siteName: sName,
         hoursElapsed: hours,
@@ -165,7 +169,8 @@ final slaAlertsProvider = Provider<List<SlaAlert>>((ref) {
 
       NotificationService.showSlaNotification(
         title: 'SKCPL Alert: DSR Approval Pending (${hours}h)',
-        body: '$sName: Daily site report from $submitter waiting for Project Head approval.',
+        body:
+            '$sName: Daily site report from $submitter waiting for Project Head approval.',
         alertKey: alertId,
       );
     }
@@ -176,7 +181,9 @@ final slaAlertsProvider = Provider<List<SlaAlert>>((ref) {
   final checkTodayMissed = now.hour >= 18;
 
   for (final site in sites) {
-    if (site.isHeadOffice) continue; // Only construction sites check cashbook entries
+    if (site.isHeadOffice) {
+      continue; // Only construction sites check cashbook entries
+    }
 
     // Check yesterday's cash entries
     final hasYesterdayEntry = cashState.transactions.any((tx) =>
@@ -193,17 +200,23 @@ final slaAlertsProvider = Provider<List<SlaAlert>>((ref) {
         id: alertId,
         type: SlaAlertType.missedCashbook,
         title: '⚠️ Missed Cashbook Entry (${site.name})',
-        message: 'No cash transactions recorded for ${site.name} on yesterday (${yesterday.day}/${yesterday.month}).',
+        message:
+            'No cash transactions recorded for ${site.name} on yesterday (${yesterday.day}/${yesterday.month}).',
         siteId: site.id,
         siteName: site.name,
-        hoursElapsed: now.difference(DateTime(yesterday.year, yesterday.month, yesterday.day, 20)).inHours.clamp(1, 999),
+        hoursElapsed: now
+            .difference(
+                DateTime(yesterday.year, yesterday.month, yesterday.day, 20))
+            .inHours
+            .clamp(1, 999),
         createdAt: DateTime(yesterday.year, yesterday.month, yesterday.day, 20),
       );
       alerts.add(alert);
 
       NotificationService.showSlaNotification(
         title: 'SKCPL Alert: Cashbook Entry Missed',
-        body: 'Site ${site.name} has missed cashbook entry for yesterday (${yesterday.day}/${yesterday.month}).',
+        body:
+            'Site ${site.name} has missed cashbook entry for yesterday (${yesterday.day}/${yesterday.month}).',
         alertKey: alertId,
       );
     }
@@ -223,7 +236,8 @@ final slaAlertsProvider = Provider<List<SlaAlert>>((ref) {
           id: alertId,
           type: SlaAlertType.missedCashbook,
           title: '⚠️ Today\'s Cashbook Pending (${site.name})',
-          message: 'No cash transactions recorded yet for ${site.name} today. Evening cut-off passed.',
+          message:
+              'No cash transactions recorded yet for ${site.name} today. Evening cut-off passed.',
           siteId: site.id,
           siteName: site.name,
           hoursElapsed: (now.hour - 18).clamp(1, 24),
@@ -281,7 +295,8 @@ final missedCashbookForWorkerProvider = Provider<List<DateTime>>((ref) {
     final isYesterday = d.day == yesterday.day;
     NotificationService.showSlaNotification(
       title: '⚠️ Missed Cashbook Entry (${activeSite.name})',
-      body: 'No cash entries recorded for ${isYesterday ? "yesterday" : "today"} at ${activeSite.name}. Tap to submit.',
+      body:
+          'No cash entries recorded for ${isYesterday ? "yesterday" : "today"} at ${activeSite.name}. Tap to submit.',
       alertKey: 'worker_missed_cash_${activeSite.id}_$dKey',
     );
   }

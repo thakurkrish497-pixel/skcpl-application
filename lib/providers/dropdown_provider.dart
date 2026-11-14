@@ -14,17 +14,20 @@ typedef DropdownParams = ({DropdownCategory category, String? siteId});
 
 /// Provider for dropdown items by category (with offline caching)
 /// Usage: ref.watch(dropdownProvider((category: DropdownCategory.vendor, siteId: '...')))
-final dropdownProvider = FutureProvider.autoDispose.family<List<DropdownItemModel>,
-    DropdownParams>((ref, params) async {
+final dropdownProvider = FutureProvider.autoDispose
+    .family<List<DropdownItemModel>, DropdownParams>((ref, params) async {
   final dropdownService = ref.read(dropdownServiceProvider);
   try {
-    final items = await dropdownService.getByCategory(params.category, siteId: params.siteId);
+    final items = await dropdownService.getByCategory(params.category,
+        siteId: params.siteId);
     if (items.isNotEmpty) {
-      await OfflineService.cacheDropdowns(params.category, params.siteId, items);
+      await OfflineService.cacheDropdowns(
+          params.category, params.siteId, items);
     }
     return items;
   } catch (e) {
-    final cached = await OfflineService.getCachedDropdowns(params.category, params.siteId);
+    final cached =
+        await OfflineService.getCachedDropdowns(params.category, params.siteId);
     if (cached.isNotEmpty) {
       return cached;
     }
@@ -33,8 +36,9 @@ final dropdownProvider = FutureProvider.autoDispose.family<List<DropdownItemMode
 });
 
 /// Provider for all dropdown items (admin management, includes inactive)
-final allDropdownsProvider = FutureProvider.autoDispose.family<List<DropdownItemModel>,
-    DropdownParams>((ref, params) async {
+final allDropdownsProvider = FutureProvider.autoDispose
+    .family<List<DropdownItemModel>, DropdownParams>((ref, params) async {
   final dropdownService = ref.read(dropdownServiceProvider);
-  return dropdownService.getAllByCategory(params.category, siteId: params.siteId);
+  return dropdownService.getAllByCategory(params.category,
+      siteId: params.siteId);
 });

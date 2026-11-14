@@ -5,7 +5,7 @@ class TaskCommentModel {
   final String content;
   final String? imageUrl;
   final DateTime createdAt;
-  
+
   // Optional field to hold the user's name if fetched via join
   final String? userName;
 
@@ -27,7 +27,8 @@ class TaskCommentModel {
       content: json['content'] as String,
       imageUrl: json['image_url'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
-      userName: json['users'] != null ? json['users']['full_name'] as String? : null,
+      userName:
+          json['users'] != null ? json['users']['full_name'] as String? : null,
     );
   }
 

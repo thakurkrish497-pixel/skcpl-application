@@ -49,21 +49,26 @@ class TaskService {
     String status = 'pending',
     String priority = 'medium',
   }) async {
-    final data = await _client.from('tasks').insert({
-      'site_id': siteId,
-      'title': title,
-      'description': description,
-      'assigned_to': assignedTo,
-      'created_by': createdBy,
-      'status': status,
-      'priority': priority,
-    }).select().single();
+    final data = await _client
+        .from('tasks')
+        .insert({
+          'site_id': siteId,
+          'title': title,
+          'description': description,
+          'assigned_to': assignedTo,
+          'created_by': createdBy,
+          'status': status,
+          'priority': priority,
+        })
+        .select()
+        .single();
 
     return TaskModel.fromJson(data);
   }
 
   /// Update an existing task
-  Future<TaskModel> updateTask(String taskId, Map<String, dynamic> updates) async {
+  Future<TaskModel> updateTask(
+      String taskId, Map<String, dynamic> updates) async {
     final data = await _client
         .from('tasks')
         .update(updates)
@@ -76,12 +81,8 @@ class TaskService {
 
   /// Fetch a single task by ID
   Future<TaskModel> getTaskById(String taskId) async {
-    final data = await _client
-        .from('tasks')
-        .select()
-        .eq('id', taskId)
-        .single();
-    
+    final data = await _client.from('tasks').select().eq('id', taskId).single();
+
     return TaskModel.fromJson(data);
   }
 
@@ -92,7 +93,8 @@ class TaskService {
         .stream(primaryKey: ['id'])
         .eq('task_id', taskId)
         .order('created_at', ascending: true)
-        .map((list) => list.map((json) => TaskCommentModel.fromJson(json)).toList());
+        .map((list) =>
+            list.map((json) => TaskCommentModel.fromJson(json)).toList());
   }
 
   /// Add a new comment to a task

@@ -28,7 +28,8 @@ class SiteModel {
       name.toLowerCase().contains('head office') ||
       name.toLowerCase().contains('head-office') ||
       name.toLowerCase().contains('indore office') ||
-      (name.toLowerCase().contains('head') && name.toLowerCase().contains('office')) ||
+      (name.toLowerCase().contains('head') &&
+          name.toLowerCase().contains('office')) ||
       name.toLowerCase().trim() == 'indore' ||
       name.toLowerCase().contains('corporate office') ||
       address?.toLowerCase().contains('[head office]') == true ||

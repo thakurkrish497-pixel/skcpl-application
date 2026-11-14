@@ -22,6 +22,19 @@ class LocationFetchResult {
 /// Service providing live GPS coordinates, Geofence distance calculations,
 /// and resilient browser/device diagnostic fallbacks.
 class LocationService {
+  static bool isUsableAttendancePosition(Position position, {DateTime? now}) {
+    final age = (now ?? DateTime.now()).difference(position.timestamp);
+    return !position.isMocked &&
+        position.latitude.isFinite &&
+        position.longitude.isFinite &&
+        position.latitude.abs() <= 90 &&
+        position.longitude.abs() <= 180 &&
+        position.accuracy.isFinite &&
+        position.accuracy >= 0 &&
+        age >= const Duration(seconds: -30) &&
+        age <= const Duration(minutes: 2);
+  }
+
   /// Request GPS permission and retrieve the current position with multi-tier fallback
   static Future<Position?> getCurrentLocation() async {
     final result = await getCurrentLocationDetailed();
@@ -50,7 +63,8 @@ class LocationService {
 
       if (!serviceEnabled && !kIsWeb) {
         return const LocationFetchResult(
-          errorMessage: 'Location Services are turned off on your device. Please turn ON Location in device Settings.',
+          errorMessage:
+              'Location Services are turned off on your device. Please turn ON Location in device Settings.',
         );
       }
 
@@ -59,7 +73,8 @@ class LocationService {
         permission = await Geolocator.checkPermission();
       } catch (_) {}
 
-      if (permission == LocationPermission.denied || permission == LocationPermission.unableToDetermine) {
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.unableToDetermine) {
         try {
           permission = await Geolocator.requestPermission();
         } catch (_) {}
@@ -67,7 +82,8 @@ class LocationService {
 
       final isMac = !kIsWeb && defaultTargetPlatform == TargetPlatform.macOS;
 
-      if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
         return LocationFetchResult(
           isPermissionDenied: true,
           isDeniedForever: permission == LocationPermission.deniedForever,
@@ -84,33 +100,37 @@ class LocationService {
               defaultTargetPlatform == TargetPlatform.windows ||
               defaultTargetPlatform == TargetPlatform.linux);
 
-      final primaryAccuracy = isDesktop ? LocationAccuracy.medium : LocationAccuracy.high;
+      final primaryAccuracy =
+          isDesktop ? LocationAccuracy.medium : LocationAccuracy.high;
 
       // Try primary accuracy (12s timeout)
       try {
         final pos = await Geolocator.getCurrentPosition(
-          desiredAccuracy: primaryAccuracy,
-          timeLimit: const Duration(seconds: 12),
+          locationSettings: LocationSettings(
+              accuracy: primaryAccuracy,
+              timeLimit: const Duration(seconds: 12)),
         );
         return LocationFetchResult(position: pos);
       } catch (e1) {
         // Fallback to low accuracy (Wi-Fi / cell triangulation)
         try {
           final fallbackPos = await Geolocator.getCurrentPosition(
-            desiredAccuracy: LocationAccuracy.low,
-            timeLimit: const Duration(seconds: 12),
+            locationSettings: const LocationSettings(
+                accuracy: LocationAccuracy.low,
+                timeLimit: Duration(seconds: 12)),
           );
           return LocationFetchResult(position: fallbackPos);
         } catch (e2) {
           try {
             final lastKnown = await Geolocator.getLastKnownPosition();
-            if (lastKnown != null) {
+            if (lastKnown != null && isUsableAttendancePosition(lastKnown)) {
               return LocationFetchResult(position: lastKnown);
             }
           } catch (_) {}
 
           final errStr = '$e1 $e2'.toLowerCase();
-          final isPerm = errStr.contains('denied') || errStr.contains('permission');
+          final isPerm =
+              errStr.contains('denied') || errStr.contains('permission');
 
           return LocationFetchResult(
             isPermissionDenied: isPerm,
@@ -145,7 +165,8 @@ class LocationService {
   static Future<bool> openAppSettings() async => Geolocator.openAppSettings();
 
   /// Open device GPS toggle settings
-  static Future<bool> openLocationSettings() async => Geolocator.openLocationSettings();
+  static Future<bool> openLocationSettings() async =>
+      Geolocator.openLocationSettings();
 
   /// Calculates distance in meters between user's coordinates and site center
   static double calculateDistanceMeters({
@@ -165,9 +186,16 @@ class LocationService {
     required double? siteLng,
     double allowedRadiusMeters = 10000.0,
   }) {
-    if (siteLat == null || siteLng == null) {
-      // If site has no coordinates configured yet, default to allow
-      return true;
+    if (siteLat == null ||
+        siteLng == null ||
+        ![userLat, userLng, siteLat, siteLng, allowedRadiusMeters]
+            .every((value) => value.isFinite) ||
+        userLat.abs() > 90 ||
+        siteLat.abs() > 90 ||
+        userLng.abs() > 180 ||
+        siteLng.abs() > 180 ||
+        allowedRadiusMeters <= 0) {
+      return false;
     }
     final distance = calculateDistanceMeters(
       userLat: userLat,

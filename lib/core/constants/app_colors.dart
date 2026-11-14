@@ -12,65 +12,70 @@ class AppColors {
 
   // ── Dark Mode Palette ──
   static const Color appBackgroundDark = Color(0xFF070D1E);
-  static const Color surfaceDark       = Color(0xFF0C162E);
-  static const Color cardDark          = Color(0xFF111E3D);
-  static const Color cardDarkAlt       = Color(0xFF16274E);
-  static const Color cardBorderDark    = Color(0xFF223A6D);
-  static const Color dividerDark       = Color(0xFF1D325E);
-  static const Color textPrimaryDark   = Color(0xFFF8FAFC);
+  static const Color surfaceDark = Color(0xFF0C162E);
+  static const Color cardDark = Color(0xFF111E3D);
+  static const Color cardDarkAlt = Color(0xFF16274E);
+  static const Color cardBorderDark = Color(0xFF223A6D);
+  static const Color dividerDark = Color(0xFF1D325E);
+  static const Color textPrimaryDark = Color(0xFFF8FAFC);
   static const Color textSecondaryDark = Color(0xFF94A3B8);
-  static const Color textTertiaryDark  = Color(0xFF64748B);
+  static const Color textTertiaryDark = Color(0xFF64748B);
 
   // ── Light Mode Palette (Executive Light / Sky Blue Theme) ──
-  static const Color appBackgroundLight = Color(0xFFF0F7FF); // Crisp sky-blue tinted background
-  static const Color surfaceLight       = Color(0xFFFFFFFF); // Pure white
-  static const Color cardLight          = Color(0xFFFFFFFF); // Pure white
-  static const Color cardLightAlt       = Color(0xFFE0F2FE); // Soft sky-blue card backing
-  static const Color cardBorderLight    = Color(0xFFBAE6FD); // Sky-200 clean border
-  static const Color dividerLight       = Color(0xFFBAE6FD); // Sky-200 divider
-  static const Color textPrimaryLight   = Color(0xFF0C4A6E); // Deep ocean/navy for maximum clarity
+  static const Color appBackgroundLight =
+      Color(0xFFF0F7FF); // Crisp sky-blue tinted background
+  static const Color surfaceLight = Color(0xFFFFFFFF); // Pure white
+  static const Color cardLight = Color(0xFFFFFFFF); // Pure white
+  static const Color cardLightAlt =
+      Color(0xFFE0F2FE); // Soft sky-blue card backing
+  static const Color cardBorderLight =
+      Color(0xFFBAE6FD); // Sky-200 clean border
+  static const Color dividerLight = Color(0xFFBAE6FD); // Sky-200 divider
+  static const Color textPrimaryLight =
+      Color(0xFF0C4A6E); // Deep ocean/navy for maximum clarity
   static const Color textSecondaryLight = Color(0xFF0369A1); // Sky blue subtext
-  static const Color textTertiaryLight  = Color(0xFF64748B); // Slate-500 caption
+  static const Color textTertiaryLight = Color(0xFF64748B); // Slate-500 caption
 
   // ── Legacy Aliases as const (Guarantees 100% compile-time compatibility) ──
-  static const Color appBackground   = appBackgroundDark;
-  static const Color scaffoldDark    = Colors.transparent;
-  static const Color cardBorder      = cardBorderDark;
-  static const Color divider         = dividerDark;
-  static const Color textPrimary     = textPrimaryDark;
-  static const Color textSecondary   = textSecondaryDark;
-  static const Color textTertiary    = textTertiaryDark;
+  static const Color appBackground = appBackgroundDark;
+  static const Color scaffoldDark = Colors.transparent;
+  static const Color cardBorder = cardBorderDark;
+  static const Color divider = dividerDark;
+  static const Color textPrimary = textPrimaryDark;
+  static const Color textSecondary = textSecondaryDark;
+  static const Color textTertiary = textTertiaryDark;
 
   // ── Primary Accent (Electric / Cosmic Blue from Logo) ──
-  static const Color primary         = Color(0xFF2563EB);
-  static const Color primaryLight    = Color(0xFF60A5FA);
-  static const Color primaryDark     = Color(0xFF1D4ED8);
-  static const Color primarySurface  = Color(0x262563EB);
+  static const Color primary = Color(0xFF2563EB);
+  static const Color primaryLight = Color(0xFF60A5FA);
+  static const Color primaryDark = Color(0xFF1D4ED8);
+  static const Color primarySurface = Color(0x262563EB);
 
   // ── Signature Waves (Neon Cyan & Aqua) ──
-  static const Color waveCyan        = Color(0xFF00E5FF);
-  static const Color waveCyanLight   = Color(0xFF67E8F9);
-  static const Color waveCyanGlow    = Color(0x3300E5FF);
-  static const Color secondary       = Color(0xFF14B8A6);
-  static const Color secondaryLight  = Color(0xFF2DD4BF);
-  static const Color secondarySurface= Color(0x1A14B8A6);
+  static const Color waveCyan = Color(0xFF00E5FF);
+  static const Color waveCyanLight = Color(0xFF67E8F9);
+  static const Color waveCyanGlow = Color(0x3300E5FF);
+  static const Color secondary = Color(0xFF14B8A6);
+  static const Color secondaryLight = Color(0xFF2DD4BF);
+  static const Color secondarySurface = Color(0x1A14B8A6);
 
   // ── Signature Gold & Amber (From 3D Logo Swoosh & Arrow) ──
-  static const Color goldAccent      = Color(0xFFFBBF24);
-  static const Color goldArrow       = Color(0xFFE5A00D);
-  static const Color goldGlow        = Color(0x33FBBF24);
+  static const Color goldAccent = Color(0xFFFBBF24);
+  static const Color goldArrow = Color(0xFFE5A00D);
+  static const Color goldGlow = Color(0x33FBBF24);
 
   // ── Status Colors ──
-  static const Color pending         = Color(0xFFF59E0B);
-  static const Color pendingSurface  = Color(0x1AF59E0B);
-  static const Color approved        = Color(0xFF10B981);
+  static const Color pending = Color(0xFFF59E0B);
+  static const Color pendingSurface = Color(0x1AF59E0B);
+  static const Color approved = Color(0xFF10B981);
   static const Color approvedSurface = Color(0x1A10B981);
-  static const Color rejected        = Color(0xFFEF4444);
+  static const Color rejected = Color(0xFFEF4444);
   static const Color rejectedSurface = Color(0x1AEF4444);
-  static const Color textOnPrimary   = Color(0xFFFFFFFF);
+  static const Color textOnPrimary = Color(0xFFFFFFFF);
 
   // ── Theme-Adaptive Dynamic Getters ──
-  static Color get background => isLight ? appBackgroundLight : appBackgroundDark;
+  static Color get background =>
+      isLight ? appBackgroundLight : appBackgroundDark;
   static Color get surface => isLight ? surfaceLight : surfaceDark;
   static Color get card => isLight ? cardLight : cardDark;
   static Color get cardAlt => isLight ? cardLightAlt : cardDarkAlt;
@@ -146,9 +151,14 @@ class AppColors {
 extension AppThemeContextExtension on BuildContext {
   bool get isLightMode => Theme.of(this).brightness == Brightness.light;
   Color get cardColor => isLightMode ? AppColors.cardLight : AppColors.cardDark;
-  Color get surfaceColor => isLightMode ? AppColors.surfaceLight : AppColors.surfaceDark;
-  Color get backgroundColor => isLightMode ? AppColors.appBackgroundLight : AppColors.appBackgroundDark;
-  Color get textColor => isLightMode ? AppColors.textPrimaryLight : AppColors.textPrimaryDark;
-  Color get subtextColor => isLightMode ? AppColors.textSecondaryLight : AppColors.textSecondaryDark;
-  Color get borderColor => isLightMode ? AppColors.cardBorderLight : AppColors.cardBorderDark;
+  Color get surfaceColor =>
+      isLightMode ? AppColors.surfaceLight : AppColors.surfaceDark;
+  Color get backgroundColor =>
+      isLightMode ? AppColors.appBackgroundLight : AppColors.appBackgroundDark;
+  Color get textColor =>
+      isLightMode ? AppColors.textPrimaryLight : AppColors.textPrimaryDark;
+  Color get subtextColor =>
+      isLightMode ? AppColors.textSecondaryLight : AppColors.textSecondaryDark;
+  Color get borderColor =>
+      isLightMode ? AppColors.cardBorderLight : AppColors.cardBorderDark;
 }

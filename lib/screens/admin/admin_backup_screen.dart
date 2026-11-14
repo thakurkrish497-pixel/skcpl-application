@@ -6,7 +6,6 @@ import '../../core/constants/app_text_styles.dart';
 import '../../services/backup_service.dart';
 import '../../services/audit_service.dart';
 import '../../widgets/skcpl_brand_logo.dart';
-import '../../widgets/skcpl_wave_widgets.dart';
 import '../../widgets/responsive_layout.dart';
 
 /// Screen for Layer 1 to 4 Data Loss Prevention, Disaster Recovery & Master Backups
@@ -65,7 +64,8 @@ class _AdminBackupScreenState extends ConsumerState<AdminBackupScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('✅ Master Excel Backup (.xlsx) generated & downloaded!'),
+            content:
+                Text('✅ Master Excel Backup (.xlsx) generated & downloaded!'),
             backgroundColor: AppColors.approved,
           ),
         );
@@ -91,7 +91,8 @@ class _AdminBackupScreenState extends ConsumerState<AdminBackupScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('✅ Full Database Snapshot (.json) generated & downloaded!'),
+            content: Text(
+                '✅ Full Database Snapshot (.json) generated & downloaded!'),
             backgroundColor: AppColors.approved,
           ),
         );
@@ -147,7 +148,8 @@ class _AdminBackupScreenState extends ConsumerState<AdminBackupScreen> {
         ),
         title: Row(
           children: [
-            const Icon(Icons.cloud_sync_rounded, color: AppColors.waveCyan, size: 28),
+            const Icon(Icons.cloud_sync_rounded,
+                color: AppColors.waveCyan, size: 28),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
@@ -190,9 +192,10 @@ class _AdminBackupScreenState extends ConsumerState<AdminBackupScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: Text(
+            child: const Text(
               'Understood',
-              style: TextStyle(color: AppColors.waveCyan, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                  color: AppColors.waveCyan, fontWeight: FontWeight.bold),
             ),
           ),
         ],
@@ -241,7 +244,8 @@ class _AdminBackupScreenState extends ConsumerState<AdminBackupScreen> {
         backgroundColor: AppColors.surfaceDark,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white, size: 20),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded,
+              color: Colors.white, size: 20),
           onPressed: () => Navigator.pop(context),
         ),
         title: Row(
@@ -293,7 +297,8 @@ class _AdminBackupScreenState extends ConsumerState<AdminBackupScreen> {
             },
           ),
           IconButton(
-            icon: const Icon(Icons.help_outline_rounded, color: AppColors.goldAccent),
+            icon: const Icon(Icons.help_outline_rounded,
+                color: AppColors.goldAccent),
             tooltip: 'Cloud Backup Architecture',
             onPressed: _showCloudBackupModal,
           ),
@@ -379,10 +384,12 @@ class _AdminBackupScreenState extends ConsumerState<AdminBackupScreen> {
                     ),
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.waveCyan.withValues(alpha: 0.2),
+                        backgroundColor:
+                            AppColors.waveCyan.withValues(alpha: 0.2),
                         foregroundColor: AppColors.waveCyan,
                         elevation: 0,
-                        side: const BorderSide(color: AppColors.waveCyan, width: 1),
+                        side: const BorderSide(
+                            color: AppColors.waveCyan, width: 1),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
                         ),
@@ -412,7 +419,8 @@ class _AdminBackupScreenState extends ConsumerState<AdminBackupScreen> {
                   ? const Center(
                       child: Padding(
                         padding: EdgeInsets.all(24),
-                        child: CircularProgressIndicator(color: AppColors.waveCyan),
+                        child: CircularProgressIndicator(
+                            color: AppColors.waveCyan),
                       ),
                     )
                   : ResponsiveGrid(
@@ -524,13 +532,15 @@ class _AdminBackupScreenState extends ConsumerState<AdminBackupScreen> {
                   ),
                   if (_vaultRecords.isNotEmpty)
                     TextButton.icon(
-                      style: TextButton.styleFrom(foregroundColor: AppColors.rejected),
+                      style: TextButton.styleFrom(
+                          foregroundColor: AppColors.rejected),
                       onPressed: () async {
                         await AuditService.clearVault();
                         _loadVault();
                       },
                       icon: const Icon(Icons.delete_sweep_rounded, size: 16),
-                      label: const Text('Clear Vault', style: TextStyle(fontSize: 12)),
+                      label: const Text('Clear Vault',
+                          style: TextStyle(fontSize: 12)),
                     ),
                 ],
               ),
@@ -544,13 +554,15 @@ class _AdminBackupScreenState extends ConsumerState<AdminBackupScreen> {
                 ),
                 child: _vaultRecords.isEmpty
                     ? Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 24, horizontal: 16),
                         child: Center(
                           child: Column(
                             children: [
                               Icon(
                                 Icons.check_circle_outline_rounded,
-                                color: AppColors.approved.withValues(alpha: 0.6),
+                                color:
+                                    AppColors.approved.withValues(alpha: 0.6),
                                 size: 36,
                               ),
                               const SizedBox(height: 8),
@@ -581,17 +593,22 @@ class _AdminBackupScreenState extends ConsumerState<AdminBackupScreen> {
                             const Divider(color: AppColors.divider, height: 1),
                         itemBuilder: (context, index) {
                           final item = _vaultRecords[index];
-                          final entity = (item['entity'] as String?)?.toUpperCase() ?? 'RECORD';
+                          final entity =
+                              (item['entity'] as String?)?.toUpperCase() ??
+                                  'RECORD';
                           final deletedAt = item['deleted_at'] as String? ?? '';
                           final user = item['user_name'] as String? ?? 'Admin';
-                          final data = item['data'] as Map<String, dynamic>? ?? {};
-                          final remarks = data['remarks'] ?? data['name'] ?? 'Record';
+                          final data =
+                              item['data'] as Map<String, dynamic>? ?? {};
+                          final remarks =
+                              data['remarks'] ?? data['name'] ?? 'Record';
 
                           return ListTile(
                             leading: Container(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
-                                color: AppColors.rejected.withValues(alpha: 0.15),
+                                color:
+                                    AppColors.rejected.withValues(alpha: 0.15),
                                 shape: BoxShape.circle,
                               ),
                               child: const Icon(
@@ -616,8 +633,10 @@ class _AdminBackupScreenState extends ConsumerState<AdminBackupScreen> {
                               ),
                             ),
                             trailing: IconButton(
-                              icon: const Icon(Icons.remove_circle_outline_rounded,
-                                  color: AppColors.textSecondary, size: 20),
+                              icon: const Icon(
+                                  Icons.remove_circle_outline_rounded,
+                                  color: AppColors.textSecondary,
+                                  size: 20),
                               tooltip: 'Purge from vault',
                               onPressed: () async {
                                 final vaultId = item['vault_id'] as String?;

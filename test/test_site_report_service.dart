@@ -1,4 +1,4 @@
-import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:skcpl_app/models/daily_site_report_model.dart';
 import 'package:skcpl_app/services/site_report_service.dart';
@@ -15,7 +15,7 @@ void main() {
       siteId: siteId,
       fileName: 'nissarpur_voice_test.m4a',
     );
-    print('Uploaded audio URL: $audioUrl');
+    debugPrint('Uploaded audio URL: $audioUrl');
     expect(audioUrl.contains('site_reports'), isTrue);
 
     // 2. Test report creation
@@ -27,9 +27,14 @@ void main() {
       submittedBy: 'Test Supervisor',
       audioUrl: audioUrl,
       photoUrls: ['https://example.com/site_photo1.jpg'],
-      notes: 'Aaj grid 1 pe footing casting hui, 40 bag cement laga, kal column shuttering hoga',
-      rawTranscript: 'Aaj grid 1 pe footing casting hui, 40 bag cement laga, kal column shuttering hoga',
-      workDone: ['Footing casting grid 1-4 completed (9 units)', 'Earth leveling in progress'],
+      notes:
+          'Aaj grid 1 pe footing casting hui, 40 bag cement laga, kal column shuttering hoga',
+      rawTranscript:
+          'Aaj grid 1 pe footing casting hui, 40 bag cement laga, kal column shuttering hoga',
+      workDone: [
+        'Footing casting grid 1-4 completed (9 units)',
+        'Earth leveling in progress'
+      ],
       tomorrowPlan: ['Column bar binding and shuttering on grid 1'],
       manpowerDetails: '5 Masons, 12 Helpers, 1 JCB (6 hrs)',
       materialsUsed: '40 bags cement, 1 dumper sand',
@@ -39,12 +44,13 @@ void main() {
     );
 
     final saved = await service.saveReport(testReport);
-    print('Saved report: id=${saved.id}, workItems=${saved.workDone.length}');
+    debugPrint(
+        'Saved report: id=${saved.id}, workItems=${saved.workDone.length}');
     expect(saved.workDone.isNotEmpty, isTrue);
 
     // 3. Test report retrieval
     final list = await service.getReportsForSite(siteId);
-    print('Retrieved reports count: ${list.length}');
+    debugPrint('Retrieved reports count: ${list.length}');
     expect(list.isNotEmpty, isTrue);
   });
 }

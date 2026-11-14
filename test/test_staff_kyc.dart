@@ -3,7 +3,8 @@ import 'package:skcpl_app/models/site_staff_model.dart';
 
 void main() {
   group('SiteStaffModel KYC & Identity Tests', () {
-    test('Staff KYC fields initialization, age calculation, and masked Aadhar', () {
+    test('Staff KYC fields initialization, age calculation, and masked Aadhar',
+        () {
       final dob = DateTime(1995, 5, 20);
       final staff = SiteStaffModel(
         id: 'staff-kyc-1',
@@ -15,9 +16,11 @@ void main() {
         createdAt: DateTime(2025, 1, 1),
         dateOfBirth: dob,
         aadharNumber: '123456789012',
-        aadharCardUrl: 'https://supabase.co/storage/v1/object/public/transaction_photos/aadhar_daksh.jpg',
+        aadharCardUrl:
+            'https://supabase.co/storage/v1/object/public/transaction_photos/aadhar_daksh.jpg',
         panNumber: 'ABCDE1234F',
-        panCardUrl: 'https://supabase.co/storage/v1/object/public/transaction_photos/pan_daksh.jpg',
+        panCardUrl:
+            'https://supabase.co/storage/v1/object/public/transaction_photos/pan_daksh.jpg',
       );
 
       // Verify basic fields
@@ -45,9 +48,11 @@ void main() {
         createdAt: DateTime(2025, 2, 1),
         dateOfBirth: dob,
         aadharNumber: '987654321098',
-        aadharCardUrl: 'https://supabase.co/storage/v1/object/public/transaction_photos/aadhar_amit.jpg',
+        aadharCardUrl:
+            'https://supabase.co/storage/v1/object/public/transaction_photos/aadhar_amit.jpg',
         panNumber: 'FGHIJ5678K',
-        panCardUrl: 'https://supabase.co/storage/v1/object/public/transaction_photos/pan_amit.jpg',
+        panCardUrl:
+            'https://supabase.co/storage/v1/object/public/transaction_photos/pan_amit.jpg',
       );
 
       final json = staff.toJson();

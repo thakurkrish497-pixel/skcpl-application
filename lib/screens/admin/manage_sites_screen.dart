@@ -14,6 +14,7 @@ import '../../providers/dropdown_provider.dart';
 import '../../services/location_service.dart';
 import '../../widgets/language_toggle_button.dart';
 import '../../widgets/skcpl_brand_logo.dart';
+import '../../widgets/universal_sync_button.dart';
 import 'site_details_screen.dart';
 import 'site_customization_screen.dart';
 import 'manage_site_staff_screen.dart';
@@ -53,7 +54,9 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
         builder: (context, setDialogState) => AlertDialog(
           backgroundColor: AppColors.surfaceDark,
           title: Text(
-            isHeadOffice ? 'Create Head Office (HQ)' : 'Create New Construction Site',
+            isHeadOffice
+                ? 'Create Head Office (HQ)'
+                : 'Create New Construction Site',
             style: AppTextStyles.h3.copyWith(color: AppColors.textPrimary),
           ),
           content: Form(
@@ -88,7 +91,9 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                               duration: const Duration(milliseconds: 150),
                               padding: const EdgeInsets.symmetric(vertical: 8),
                               decoration: BoxDecoration(
-                                color: !isHeadOffice ? AppColors.primary : Colors.transparent,
+                                color: !isHeadOffice
+                                    ? AppColors.primary
+                                    : Colors.transparent,
                                 borderRadius: BorderRadius.circular(9),
                               ),
                               child: Row(
@@ -97,13 +102,17 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                                   Icon(
                                     Icons.foundation_rounded,
                                     size: 15,
-                                    color: !isHeadOffice ? Colors.white : AppColors.textSecondary,
+                                    color: !isHeadOffice
+                                        ? Colors.white
+                                        : AppColors.textSecondary,
                                   ),
                                   const SizedBox(width: 6),
                                   Text(
                                     'Construction Site',
                                     style: TextStyle(
-                                      color: !isHeadOffice ? Colors.white : AppColors.textSecondary,
+                                      color: !isHeadOffice
+                                          ? Colors.white
+                                          : AppColors.textSecondary,
                                       fontSize: 11,
                                       fontWeight: FontWeight.bold,
                                     ),
@@ -123,7 +132,8 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                                 nameController.text = 'Indore Head Office';
                               }
                               if (addressController.text.trim().isEmpty) {
-                                addressController.text = 'Indore, MP [Head Office]';
+                                addressController.text =
+                                    'Indore, MP [Head Office]';
                               }
                               if (loginIdController.text.trim().isEmpty) {
                                 loginIdController.text = 'indore-office';
@@ -133,7 +143,9 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                               duration: const Duration(milliseconds: 150),
                               padding: const EdgeInsets.symmetric(vertical: 8),
                               decoration: BoxDecoration(
-                                color: isHeadOffice ? AppColors.waveCyan : Colors.transparent,
+                                color: isHeadOffice
+                                    ? AppColors.waveCyan
+                                    : Colors.transparent,
                                 borderRadius: BorderRadius.circular(9),
                               ),
                               child: Row(
@@ -142,13 +154,17 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                                   Icon(
                                     Icons.apartment_rounded,
                                     size: 15,
-                                    color: isHeadOffice ? Colors.black : AppColors.textSecondary,
+                                    color: isHeadOffice
+                                        ? Colors.black
+                                        : AppColors.textSecondary,
                                   ),
                                   const SizedBox(width: 6),
                                   Text(
                                     'Head Office (HQ)',
                                     style: TextStyle(
-                                      color: isHeadOffice ? Colors.black : AppColors.textSecondary,
+                                      color: isHeadOffice
+                                          ? Colors.black
+                                          : AppColors.textSecondary,
                                       fontSize: 11,
                                       fontWeight: FontWeight.bold,
                                     ),
@@ -169,35 +185,45 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                       decoration: BoxDecoration(
                         color: AppColors.waveCyan.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppColors.waveCyan.withValues(alpha: 0.35)),
+                        border: Border.all(
+                            color: AppColors.waveCyan.withValues(alpha: 0.35)),
                       ),
                       child: const Row(
                         children: [
-                          Icon(Icons.info_outline_rounded, color: AppColors.waveCyan, size: 16),
+                          Icon(Icons.info_outline_rounded,
+                              color: AppColors.waveCyan, size: 16),
                           SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               'Head Office is enabled for Attendance, Office Staff, and Daily Work Reports. Construction Stock (Cement/Steel) is excluded.',
-                              style: TextStyle(color: Colors.white70, fontSize: 11),
+                              style: TextStyle(
+                                  color: Colors.white70, fontSize: 11),
                             ),
                           ),
                         ],
                       ),
                     ),
                   Text(
-                    isHeadOffice ? 'HEAD OFFICE CREDENTIALS' : 'BASIC SITE CREDENTIALS',
+                    isHeadOffice
+                        ? 'HEAD OFFICE CREDENTIALS'
+                        : 'BASIC SITE CREDENTIALS',
                     style: AppTextStyles.overline
                         .copyWith(color: AppColors.textTertiary),
                   ),
                   const SizedBox(height: 10),
                   TextFormField(
                     controller: nameController,
-                    validator: (v) => Validators.required(v, isHeadOffice ? 'Office Name' : 'Site Name'),
+                    validator: (v) => Validators.required(
+                        v, isHeadOffice ? 'Office Name' : 'Site Name'),
                     style: AppTextStyles.bodyMedium
                         .copyWith(color: AppColors.textPrimary),
                     decoration: InputDecoration(
-                      labelText: isHeadOffice ? 'Head Office Name (e.g. Indore Head Office)' : 'Site Name',
-                      prefixIcon: Icon(isHeadOffice ? Icons.apartment_rounded : Icons.business_rounded),
+                      labelText: isHeadOffice
+                          ? 'Head Office Name (e.g. Indore Head Office)'
+                          : 'Site Name',
+                      prefixIcon: Icon(isHeadOffice
+                          ? Icons.apartment_rounded
+                          : Icons.business_rounded),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -206,7 +232,9 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                     style: AppTextStyles.bodyMedium
                         .copyWith(color: AppColors.textPrimary),
                     decoration: InputDecoration(
-                      labelText: isHeadOffice ? 'Head Office Address / City' : 'Location / Address',
+                      labelText: isHeadOffice
+                          ? 'Head Office Address / City'
+                          : 'Location / Address',
                       prefixIcon: const Icon(Icons.place_rounded),
                     ),
                   ),
@@ -217,7 +245,9 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                       color: AppColors.cardDark,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: !isHeadOffice ? AppColors.primary.withValues(alpha: 0.4) : AppColors.divider,
+                        color: !isHeadOffice
+                            ? AppColors.primary.withValues(alpha: 0.4)
+                            : AppColors.divider,
                       ),
                     ),
                     child: Column(
@@ -225,14 +255,17 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                       children: [
                         Row(
                           children: [
-                            const Icon(Icons.location_on_rounded, color: AppColors.approved, size: 16),
+                            const Icon(Icons.location_on_rounded,
+                                color: AppColors.approved, size: 16),
                             const SizedBox(width: 6),
                             Text(
                               isHeadOffice
                                   ? 'OFFICE GPS GEOFENCE (DEFAULT 10 KM)'
                                   : 'SITE GPS & GOOGLE MAPS LOCATION *',
                               style: AppTextStyles.caption.copyWith(
-                                color: !isHeadOffice ? AppColors.approved : AppColors.textTertiary,
+                                color: !isHeadOffice
+                                    ? AppColors.approved
+                                    : AppColors.textTertiary,
                                 fontWeight: FontWeight.bold,
                               ),
                             ),
@@ -243,13 +276,16 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                           isHeadOffice
                               ? 'Staff can only punch attendance within 10 km of Head Office. Default Indore coordinates applied if left blank.'
                               : 'Staff can ONLY punch attendance within 10 km of this site. Paste Google Maps link or coordinates strictly.',
-                          style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary, fontSize: 11),
+                          style: AppTextStyles.caption.copyWith(
+                              color: AppColors.textSecondary, fontSize: 11),
                         ),
                         const SizedBox(height: 10),
                         TextFormField(
                           controller: mapsLocationController,
                           validator: (v) {
-                            if (isHeadOffice) return null; // Can default to Indore HQ
+                            if (isHeadOffice) {
+                              return null; // Can default to Indore HQ
+                            }
                             if (v == null || v.trim().isEmpty) {
                               return 'Google Maps link or coordinates required';
                             }
@@ -263,18 +299,24 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                             final parsed = _parseGoogleMapsLocation(val);
                             setDialogState(() {
                               if (parsed != null) {
-                                locationStatus = '✅ Coordinates verified: ${parsed.lat.toStringAsFixed(4)}, ${parsed.lng.toStringAsFixed(4)}';
+                                locationStatus =
+                                    '✅ Coordinates verified: ${parsed.lat.toStringAsFixed(4)}, ${parsed.lng.toStringAsFixed(4)}';
                               } else if (val.trim().isNotEmpty) {
-                                locationStatus = '⚠️ Could not parse coordinates yet. Paste full link or "lat, lng"';
+                                locationStatus =
+                                    '⚠️ Could not parse coordinates yet. Paste full link or "lat, lng"';
                               } else {
                                 locationStatus = null;
                               }
                             });
                           },
-                          style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
+                          style: AppTextStyles.bodyMedium
+                              .copyWith(color: AppColors.textPrimary),
                           decoration: InputDecoration(
-                            labelText: isHeadOffice ? 'Google Maps Link / GPS (Optional)' : 'Google Maps Link or GPS Coordinates *',
-                            hintText: 'e.g. https://maps.app.goo.gl/... or 22.7196, 75.8577',
+                            labelText: isHeadOffice
+                                ? 'Google Maps Link / GPS (Optional)'
+                                : 'Google Maps Link or GPS Coordinates *',
+                            hintText:
+                                'e.g. https://maps.app.goo.gl/... or 22.7196, 75.8577',
                             prefixIcon: const Icon(Icons.map_rounded),
                             isDense: true,
                           ),
@@ -285,7 +327,9 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                             locationStatus!,
                             style: TextStyle(
                               fontSize: 11,
-                              color: locationStatus!.startsWith('✅') ? AppColors.approved : AppColors.pending,
+                              color: locationStatus!.startsWith('✅')
+                                  ? AppColors.approved
+                                  : AppColors.pending,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -296,36 +340,55 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                             Expanded(
                               child: OutlinedButton.icon(
                                 style: OutlinedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(vertical: 8),
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
                                   foregroundColor: AppColors.primary,
-                                  side: const BorderSide(color: AppColors.primary, width: 0.8),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                  side: const BorderSide(
+                                      color: AppColors.primary, width: 0.8),
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8)),
                                 ),
                                 icon: isAcquiringGps
                                     ? const SizedBox(
                                         width: 14,
                                         height: 14,
-                                        child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                                        child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: AppColors.primary),
                                       )
-                                    : const Icon(Icons.my_location_rounded, size: 14),
+                                    : const Icon(Icons.my_location_rounded,
+                                        size: 14),
                                 label: Text(
-                                  isAcquiringGps ? 'Getting GPS...' : '📍 Use Current Location',
-                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                                  isAcquiringGps
+                                      ? 'Getting GPS...'
+                                      : '📍 Use Current Location',
+                                  style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold),
                                 ),
                                 onPressed: isAcquiringGps
                                     ? null
                                     : () async {
-                                        setDialogState(() => isAcquiringGps = true);
-                                        final res = await LocationService.getCurrentLocationDetailed();
+                                        setDialogState(
+                                            () => isAcquiringGps = true);
+                                        final res = await LocationService
+                                            .getCurrentLocationDetailed();
                                         setDialogState(() {
                                           isAcquiringGps = false;
                                           if (res.position != null) {
-                                            final latStr = res.position!.latitude.toStringAsFixed(6);
-                                            final lngStr = res.position!.longitude.toStringAsFixed(6);
-                                            mapsLocationController.text = '$latStr, $lngStr';
-                                            locationStatus = '✅ Coordinates verified: $latStr, $lngStr';
+                                            final latStr = res
+                                                .position!.latitude
+                                                .toStringAsFixed(6);
+                                            final lngStr = res
+                                                .position!.longitude
+                                                .toStringAsFixed(6);
+                                            mapsLocationController.text =
+                                                '$latStr, $lngStr';
+                                            locationStatus =
+                                                '✅ Coordinates verified: $latStr, $lngStr';
                                           } else {
-                                            locationStatus = '❌ Could not get GPS. Please paste Google Maps link manually.';
+                                            locationStatus =
+                                                '❌ Could not get GPS. Please paste Google Maps link manually.';
                                           }
                                         });
                                       },
@@ -338,17 +401,23 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                           controller: radiusController,
                           keyboardType: TextInputType.number,
                           validator: (v) {
-                            if (v == null || v.trim().isEmpty) return 'Radius required';
+                            if (v == null || v.trim().isEmpty) {
+                              return 'Radius required';
+                            }
                             final num = double.tryParse(v);
-                            if (num == null || num <= 0) return 'Must be a positive distance';
+                            if (num == null || num <= 0) {
+                              return 'Must be a positive distance';
+                            }
                             return null;
                           },
-                          style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
+                          style: AppTextStyles.bodyMedium
+                              .copyWith(color: AppColors.textPrimary),
                           decoration: const InputDecoration(
                             labelText: 'Attendance Geofence Radius (meters)',
                             hintText: '10000',
                             prefixIcon: Icon(Icons.radar_rounded),
-                            helperText: 'Default 10,000m (10 km). Workers outside this area cannot punch in.',
+                            helperText:
+                                'Default 10,000m (10 km). Workers outside this area cannot punch in.',
                             isDense: true,
                           ),
                         ),
@@ -358,19 +427,28 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                           child: Row(
                             children: [1000, 5000, 10000, 20000].map((r) {
                               final isSel = radiusController.text == '$r';
-                              final label = '${r ~/ 1000} km${r == 10000 ? ' (Default)' : ''}';
+                              final label =
+                                  '${r ~/ 1000} km${r == 10000 ? ' (Default)' : ''}';
                               return Padding(
                                 padding: const EdgeInsets.only(right: 6),
                                 child: ActionChip(
                                   label: Text(label),
-                                  backgroundColor: isSel ? AppColors.primary.withValues(alpha: 0.25) : AppColors.surfaceDark,
+                                  backgroundColor: isSel
+                                      ? AppColors.primary
+                                          .withValues(alpha: 0.25)
+                                      : AppColors.surfaceDark,
                                   labelStyle: TextStyle(
                                     fontSize: 11,
-                                    color: isSel ? AppColors.primary : AppColors.textSecondary,
-                                    fontWeight: isSel ? FontWeight.bold : FontWeight.normal,
+                                    color: isSel
+                                        ? AppColors.primary
+                                        : AppColors.textSecondary,
+                                    fontWeight: isSel
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
                                   ),
                                   onPressed: () {
-                                    setDialogState(() => radiusController.text = '$r');
+                                    setDialogState(
+                                        () => radiusController.text = '$r');
                                   },
                                 ),
                               );
@@ -387,7 +465,9 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                     style: AppTextStyles.bodyMedium
                         .copyWith(color: AppColors.textPrimary),
                     decoration: InputDecoration(
-                      labelText: isHeadOffice ? 'Head Office Login ID' : 'Site Login ID',
+                      labelText: isHeadOffice
+                          ? 'Head Office Login ID'
+                          : 'Site Login ID',
                       prefixIcon: const Icon(Icons.badge_rounded),
                       helperText: isHeadOffice
                           ? 'Unique ID for office staff to sign in'
@@ -407,7 +487,9 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                     style: AppTextStyles.bodyMedium
                         .copyWith(color: AppColors.textPrimary),
                     decoration: InputDecoration(
-                      labelText: isHeadOffice ? 'Operating Budget (₹) (Optional)' : 'Allocated Budget (₹)',
+                      labelText: isHeadOffice
+                          ? 'Operating Budget (₹) (Optional)'
+                          : 'Allocated Budget (₹)',
                       prefixIcon: const Icon(Icons.currency_rupee_rounded),
                     ),
                   ),
@@ -419,7 +501,9 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                     style: AppTextStyles.bodyMedium
                         .copyWith(color: AppColors.textPrimary),
                     decoration: InputDecoration(
-                      labelText: isHeadOffice ? 'Office Staff Access Password' : 'Site Worker Password',
+                      labelText: isHeadOffice
+                          ? 'Office Staff Access Password'
+                          : 'Site Worker Password',
                       prefixIcon: const Icon(Icons.lock_outline_rounded),
                     ),
                   ),
@@ -432,7 +516,8 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                       decoration: BoxDecoration(
                         color: AppColors.cardDark,
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppColors.divider, width: 0.5),
+                        border:
+                            Border.all(color: AppColors.divider, width: 0.5),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -484,7 +569,8 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                                   .copyWith(color: AppColors.textPrimary),
                               decoration: const InputDecoration(
                                 labelText: 'Initial Vendors (comma separated)',
-                                hintText: 'e.g. Verma Traders, Ganga Sand Depot',
+                                hintText:
+                                    'e.g. Verma Traders, Ganga Sand Depot',
                                 isDense: true,
                               ),
                             ),
@@ -494,7 +580,8 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                               style: AppTextStyles.bodySmall
                                   .copyWith(color: AppColors.textPrimary),
                               decoration: const InputDecoration(
-                                labelText: 'Initial Materials (comma separated)',
+                                labelText:
+                                    'Initial Materials (comma separated)',
                                 hintText: 'e.g. RMC 30, Fly Ash Bricks',
                                 isDense: true,
                               ),
@@ -511,7 +598,7 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
           actions: [
             TextButton(
               onPressed: isCreating ? null : () => Navigator.pop(dialogCtx),
-              child: Text(
+              child: const Text(
                 'Cancel',
                 style: TextStyle(color: AppColors.textSecondary),
               ),
@@ -528,7 +615,10 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
 
                       try {
                         final rawAddress = addressController.text.trim();
-                        final addressToSave = isHeadOffice && !rawAddress.toLowerCase().contains('[head office]')
+                        final addressToSave = isHeadOffice &&
+                                !rawAddress
+                                    .toLowerCase()
+                                    .contains('[head office]')
                             ? '$rawAddress [Head Office]'.trim()
                             : rawAddress;
 
@@ -549,8 +639,11 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
 
                         // Save geofenced shift policy with coordinates & default 10 km radius
                         try {
-                          final parsedLoc = _parseGoogleMapsLocation(mapsLocationController.text.trim());
-                          final radiusVal = double.tryParse(radiusController.text.trim()) ?? 10000.0;
+                          final parsedLoc = _parseGoogleMapsLocation(
+                              mapsLocationController.text.trim());
+                          final radiusVal =
+                              double.tryParse(radiusController.text.trim()) ??
+                                  10000.0;
                           final shiftPolicy = SiteShiftPolicyModel(
                             siteId: newSite.id,
                             siteName: newSite.name,
@@ -559,12 +652,17 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                             punchOutWindowEnd: '19:00',
                             graceMinutes: 15,
                             lateCutoffMinutes: 40,
-                            latitude: parsedLoc?.lat ?? (isHeadOffice ? 22.7196 : null),
-                            longitude: parsedLoc?.lng ?? (isHeadOffice ? 75.8577 : null),
+                            latitude: parsedLoc?.lat ??
+                                (isHeadOffice ? 22.7196 : null),
+                            longitude: parsedLoc?.lng ??
+                                (isHeadOffice ? 75.8577 : null),
                             allowedRadiusMeters: radiusVal,
                           );
-                          await ref.read(attendanceServiceProvider).saveShiftPolicy(shiftPolicy);
-                          ref.invalidate(shiftPolicyForSiteProvider(newSite.id));
+                          await ref
+                              .read(attendanceServiceProvider)
+                              .saveShiftPolicy(shiftPolicy);
+                          ref.invalidate(
+                              shiftPolicyForSiteProvider(newSite.id));
                         } catch (_) {}
 
                         // Seed dropdowns only if requested and it is NOT a Head Office
@@ -600,7 +698,8 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                       } catch (e) {
                         setDialogState(() => isCreating = false);
                         if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(this.context).showSnackBar(
                             SnackBar(
                               content: Text('Error creating site: $e'),
                               backgroundColor: AppColors.rejected,
@@ -645,11 +744,14 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: (isOffice ? AppColors.waveCyan : AppColors.approved).withValues(alpha: 0.15),
+                    color: (isOffice ? AppColors.waveCyan : AppColors.approved)
+                        .withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(
-                    isOffice ? Icons.apartment_rounded : Icons.check_circle_rounded,
+                    isOffice
+                        ? Icons.apartment_rounded
+                        : Icons.check_circle_rounded,
                     color: isOffice ? AppColors.waveCyan : AppColors.approved,
                     size: 28,
                   ),
@@ -661,11 +763,13 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                     children: [
                       Text(
                         isOffice ? 'Head Office Created!' : 'Site Created!',
-                        style: AppTextStyles.h3.copyWith(color: AppColors.textPrimary),
+                        style: AppTextStyles.h3
+                            .copyWith(color: AppColors.textPrimary),
                       ),
                       Text(
                         site.name,
-                        style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary),
+                        style: AppTextStyles.bodyMedium
+                            .copyWith(color: AppColors.textSecondary),
                       ),
                     ],
                   ),
@@ -677,7 +781,8 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
               isOffice
                   ? 'Your Head Office is live! You can add office staff for attendance and daily work reports, and configure GPS geofencing.'
                   : 'Your site is live! You can customize its vendors, materials, units, budget, and credentials now, or edit it anytime from Manage Sites.',
-              style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary),
+              style: AppTextStyles.bodyMedium
+                  .copyWith(color: AppColors.textSecondary),
             ),
             const SizedBox(height: 24),
             Row(
@@ -700,7 +805,8 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                       _showAttendanceAreaDialog(site);
                     },
                     icon: const Icon(Icons.location_on_rounded, size: 16),
-                    label: const Text('Set Area', style: TextStyle(fontSize: 12)),
+                    label:
+                        const Text('Set Area', style: TextStyle(fontSize: 12)),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -728,7 +834,8 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                         );
                       }
                     },
-                    icon: Icon(isOffice ? Icons.people_rounded : Icons.tune_rounded),
+                    icon: Icon(
+                        isOffice ? Icons.people_rounded : Icons.tune_rounded),
                     label: Text(isOffice ? 'Manage Staff' : 'Customize'),
                   ),
                 ),
@@ -781,12 +888,15 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                       children: [
                         Expanded(
                           child: GestureDetector(
-                            onTap: () => setDialogState(() => isHeadOffice = false),
+                            onTap: () =>
+                                setDialogState(() => isHeadOffice = false),
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 150),
                               padding: const EdgeInsets.symmetric(vertical: 8),
                               decoration: BoxDecoration(
-                                color: !isHeadOffice ? AppColors.primary : Colors.transparent,
+                                color: !isHeadOffice
+                                    ? AppColors.primary
+                                    : Colors.transparent,
                                 borderRadius: BorderRadius.circular(9),
                               ),
                               child: Row(
@@ -795,13 +905,17 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                                   Icon(
                                     Icons.foundation_rounded,
                                     size: 15,
-                                    color: !isHeadOffice ? Colors.white : AppColors.textSecondary,
+                                    color: !isHeadOffice
+                                        ? Colors.white
+                                        : AppColors.textSecondary,
                                   ),
                                   const SizedBox(width: 6),
                                   Text(
                                     'Construction Site',
                                     style: TextStyle(
-                                      color: !isHeadOffice ? Colors.white : AppColors.textSecondary,
+                                      color: !isHeadOffice
+                                          ? Colors.white
+                                          : AppColors.textSecondary,
                                       fontSize: 11,
                                       fontWeight: FontWeight.bold,
                                     ),
@@ -814,12 +928,15 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                         const SizedBox(width: 4),
                         Expanded(
                           child: GestureDetector(
-                            onTap: () => setDialogState(() => isHeadOffice = true),
+                            onTap: () =>
+                                setDialogState(() => isHeadOffice = true),
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 150),
                               padding: const EdgeInsets.symmetric(vertical: 8),
                               decoration: BoxDecoration(
-                                color: isHeadOffice ? AppColors.waveCyan : Colors.transparent,
+                                color: isHeadOffice
+                                    ? AppColors.waveCyan
+                                    : Colors.transparent,
                                 borderRadius: BorderRadius.circular(9),
                               ),
                               child: Row(
@@ -828,13 +945,17 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                                   Icon(
                                     Icons.apartment_rounded,
                                     size: 15,
-                                    color: isHeadOffice ? Colors.black : AppColors.textSecondary,
+                                    color: isHeadOffice
+                                        ? Colors.black
+                                        : AppColors.textSecondary,
                                   ),
                                   const SizedBox(width: 6),
                                   Text(
                                     'Head Office (HQ)',
                                     style: TextStyle(
-                                      color: isHeadOffice ? Colors.black : AppColors.textSecondary,
+                                      color: isHeadOffice
+                                          ? Colors.black
+                                          : AppColors.textSecondary,
                                       fontSize: 11,
                                       fontWeight: FontWeight.bold,
                                     ),
@@ -850,12 +971,16 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                   const SizedBox(height: 14),
                   TextFormField(
                     controller: nameController,
-                    validator: (v) => Validators.required(v, isHeadOffice ? 'Office Name' : 'Site Name'),
+                    validator: (v) => Validators.required(
+                        v, isHeadOffice ? 'Office Name' : 'Site Name'),
                     style: AppTextStyles.bodyMedium
                         .copyWith(color: AppColors.textPrimary),
                     decoration: InputDecoration(
-                      labelText: isHeadOffice ? 'Head Office Name' : 'Site Name',
-                      prefixIcon: Icon(isHeadOffice ? Icons.apartment_rounded : Icons.business_rounded),
+                      labelText:
+                          isHeadOffice ? 'Head Office Name' : 'Site Name',
+                      prefixIcon: Icon(isHeadOffice
+                          ? Icons.apartment_rounded
+                          : Icons.business_rounded),
                     ),
                   ),
                   const SizedBox(height: 14),
@@ -864,7 +989,8 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                     style: AppTextStyles.bodyMedium
                         .copyWith(color: AppColors.textPrimary),
                     decoration: InputDecoration(
-                      labelText: isHeadOffice ? 'Office Address / City' : 'Address',
+                      labelText:
+                          isHeadOffice ? 'Office Address / City' : 'Address',
                       prefixIcon: const Icon(Icons.place_rounded),
                     ),
                   ),
@@ -881,7 +1007,9 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                     style: AppTextStyles.bodyMedium
                         .copyWith(color: AppColors.textPrimary),
                     decoration: InputDecoration(
-                      labelText: isHeadOffice ? 'Operating Budget (₹) (Optional)' : 'Allocated Budget',
+                      labelText: isHeadOffice
+                          ? 'Operating Budget (₹) (Optional)'
+                          : 'Allocated Budget',
                       prefixIcon: const Icon(Icons.currency_rupee_rounded),
                     ),
                   ),
@@ -895,7 +1023,8 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                         padding: const EdgeInsets.symmetric(vertical: 12),
                       ),
                       icon: const Icon(Icons.location_on_rounded, size: 18),
-                      label: const Text('Configure Attendance Area (Google Maps & GPS)'),
+                      label: const Text(
+                          'Configure Attendance Area (Google Maps & GPS)'),
                       onPressed: () {
                         Navigator.pop(context);
                         _showAttendanceAreaDialog(site);
@@ -909,7 +1038,7 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: Text('Cancel',
+              child: const Text('Cancel',
                   style: TextStyle(color: AppColors.textSecondary)),
             ),
             ElevatedButton(
@@ -924,7 +1053,11 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                       rawAddr = '$rawAddr [Head Office]'.trim();
                     }
                   } else {
-                    rawAddr = rawAddr.replaceAll(RegExp(r'\[Head Office\]', caseSensitive: false), '').trim();
+                    rawAddr = rawAddr
+                        .replaceAll(
+                            RegExp(r'\[Head Office\]', caseSensitive: false),
+                            '')
+                        .trim();
                   }
 
                   await siteService.updateSite(site.id, {
@@ -936,7 +1069,8 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                   ref.invalidate(allSitesProvider);
                   if (context.mounted) Navigator.pop(context);
                   if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(this.context).showSnackBar(
                       const SnackBar(
                         content: Text('Site updated successfully!'),
                         backgroundColor: AppColors.approved,
@@ -945,7 +1079,8 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                   }
                 } catch (e) {
                   if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(this.context).showSnackBar(
                       SnackBar(
                         content: Text('Error: $e'),
                         backgroundColor: AppColors.rejected,
@@ -968,9 +1103,9 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
     if (text.isEmpty) return null;
 
     // Pattern 1: URL with query=lat,lng or q=lat,lng or daddr=lat,lng
-    final qMatch = RegExp(
-            r'[?&](?:query|q|daddr)=([+-]?\d+\.?\d*)[,\s]+([+-]?\d+\.?\d*)')
-        .firstMatch(text);
+    final qMatch =
+        RegExp(r'[?&](?:query|q|daddr)=([+-]?\d+\.?\d*)[,\s]+([+-]?\d+\.?\d*)')
+            .firstMatch(text);
     if (qMatch != null) {
       final lat = double.tryParse(qMatch.group(1)!);
       final lng = double.tryParse(qMatch.group(2)!);
@@ -1071,7 +1206,8 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                   width: double.infinity,
                   child: ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary.withOpacity(0.18),
+                      backgroundColor:
+                          AppColors.primary.withValues(alpha: 0.18),
                       foregroundColor: AppColors.primary,
                       side: const BorderSide(color: AppColors.primary),
                       padding: const EdgeInsets.symmetric(vertical: 12),
@@ -1213,13 +1349,15 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                   child: Row(
                     children: [500, 1000, 5000, 10000, 20000].map((r) {
                       final isSel = radiusController.text == '$r';
-                      final label = r >= 1000 ? '${r ~/ 1000} km${r == 10000 ? ' (Default)' : ''}' : '${r}m';
+                      final label = r >= 1000
+                          ? '${r ~/ 1000} km${r == 10000 ? ' (Default)' : ''}'
+                          : '${r}m';
                       return Padding(
                         padding: const EdgeInsets.only(right: 6),
                         child: ActionChip(
                           label: Text(label),
                           backgroundColor: isSel
-                              ? AppColors.primary.withOpacity(0.25)
+                              ? AppColors.primary.withValues(alpha: 0.25)
                               : AppColors.cardDark,
                           labelStyle: TextStyle(
                             fontSize: 11,
@@ -1259,10 +1397,8 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                       label: const Text('Verify Location on Google Maps',
                           style: TextStyle(fontSize: 12)),
                       onPressed: () {
-                        final lat =
-                            double.tryParse(latController.text.trim());
-                        final lng =
-                            double.tryParse(lngController.text.trim());
+                        final lat = double.tryParse(latController.text.trim());
+                        final lng = double.tryParse(lngController.text.trim());
                         if (lat != null && lng != null) {
                           launchUrl(
                             Uri.parse(
@@ -1326,14 +1462,15 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
     return Scaffold(
       backgroundColor: AppColors.scaffoldDark,
       appBar: AppBar(
-        title: Row(
+        title: const Row(
           children: [
-            const SkcplBrandLogo(variant: LogoVariant.compact, customSize: 30),
-            const SizedBox(width: 10),
-            const Text('Manage Sites'),
+            SkcplBrandLogo(variant: LogoVariant.compact, customSize: 30),
+            SizedBox(width: 10),
+            Text('Manage Sites'),
           ],
         ),
         actions: const [
+          UniversalSyncButton(),
           Padding(
             padding: EdgeInsets.only(right: 12),
             child: LanguageToggleButton(isCompact: true),
@@ -1354,7 +1491,7 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.location_city_outlined,
+                    const Icon(Icons.location_city_outlined,
                         color: AppColors.textTertiary, size: 52),
                     const SizedBox(height: 14),
                     Text('No sites yet. Tap + to create one.',
@@ -1395,12 +1532,18 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                                 Container(
                                   padding: const EdgeInsets.all(10),
                                   decoration: BoxDecoration(
-                                    color: site.isHeadOffice ? AppColors.primary : null,
-                                    gradient: site.isHeadOffice ? null : AppColors.primaryGradient,
+                                    color: site.isHeadOffice
+                                        ? AppColors.primary
+                                        : null,
+                                    gradient: site.isHeadOffice
+                                        ? null
+                                        : AppColors.primaryGradient,
                                     borderRadius: BorderRadius.circular(10),
                                   ),
                                   child: Icon(
-                                    site.isHeadOffice ? Icons.apartment_rounded : Icons.construction,
+                                    site.isHeadOffice
+                                        ? Icons.apartment_rounded
+                                        : Icons.construction,
                                     color: Colors.white,
                                     size: 20,
                                   ),
@@ -1417,16 +1560,23 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                                             child: Text(
                                               site.name,
                                               style: AppTextStyles.labelLarge
-                                                  .copyWith(color: AppColors.textPrimary),
+                                                  .copyWith(
+                                                      color: AppColors
+                                                          .textPrimary),
                                             ),
                                           ),
                                           if (site.isHeadOffice) ...[
                                             const SizedBox(width: 6),
                                             Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 6,
+                                                      vertical: 2),
                                               decoration: BoxDecoration(
-                                                color: AppColors.primary.withOpacity(0.18),
-                                                borderRadius: BorderRadius.circular(4),
+                                                color: AppColors.primary
+                                                    .withValues(alpha: 0.18),
+                                                borderRadius:
+                                                    BorderRadius.circular(4),
                                               ),
                                               child: const Text(
                                                 'Office Attendance Only',
@@ -1451,33 +1601,57 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                                       const SizedBox(height: 6),
                                       Consumer(
                                         builder: (context, ref, _) {
-                                          final policyAsync = ref.watch(shiftPolicyForSiteProvider(site.id));
-                                          final policy = policyAsync.valueOrNull;
-                                          final hasArea = policy?.latitude != null && policy?.longitude != null;
+                                          final policyAsync = ref.watch(
+                                              shiftPolicyForSiteProvider(
+                                                  site.id));
+                                          final policy =
+                                              policyAsync.valueOrNull;
+                                          final hasArea =
+                                              policy?.latitude != null &&
+                                                  policy?.longitude != null;
 
                                           return InkWell(
-                                            onTap: () => _showAttendanceAreaDialog(site),
-                                            borderRadius: BorderRadius.circular(6),
+                                            onTap: () =>
+                                                _showAttendanceAreaDialog(site),
+                                            borderRadius:
+                                                BorderRadius.circular(6),
                                             child: Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 8,
+                                                      vertical: 4),
                                               decoration: BoxDecoration(
                                                 color: hasArea
-                                                    ? AppColors.approved.withOpacity(0.12)
-                                                    : AppColors.pending.withOpacity(0.12),
-                                                borderRadius: BorderRadius.circular(6),
+                                                    ? AppColors.approved
+                                                        .withValues(alpha: 0.12)
+                                                    : AppColors.pending
+                                                        .withValues(
+                                                            alpha: 0.12),
+                                                borderRadius:
+                                                    BorderRadius.circular(6),
                                                 border: Border.all(
                                                   color: hasArea
-                                                      ? AppColors.approved.withOpacity(0.3)
-                                                      : AppColors.pending.withOpacity(0.3),
+                                                      ? AppColors.approved
+                                                          .withValues(
+                                                              alpha: 0.3)
+                                                      : AppColors.pending
+                                                          .withValues(
+                                                              alpha: 0.3),
                                                 ),
                                               ),
                                               child: Row(
                                                 mainAxisSize: MainAxisSize.min,
                                                 children: [
                                                   Icon(
-                                                    hasArea ? Icons.location_on_rounded : Icons.add_location_alt_rounded,
+                                                    hasArea
+                                                        ? Icons
+                                                            .location_on_rounded
+                                                        : Icons
+                                                            .add_location_alt_rounded,
                                                     size: 13,
-                                                    color: hasArea ? AppColors.approved : AppColors.pending,
+                                                    color: hasArea
+                                                        ? AppColors.approved
+                                                        : AppColors.pending,
                                                   ),
                                                   const SizedBox(width: 4),
                                                   Text(
@@ -1486,8 +1660,11 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                                                         : 'Enter Attendance Area (Google Maps & GPS)',
                                                     style: TextStyle(
                                                       fontSize: 11,
-                                                      fontWeight: FontWeight.w600,
-                                                      color: hasArea ? AppColors.approved : AppColors.pending,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      color: hasArea
+                                                          ? AppColors.approved
+                                                          : AppColors.pending,
                                                     ),
                                                   ),
                                                 ],
@@ -1540,8 +1717,7 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                                         context,
                                         MaterialPageRoute(
                                           builder: (_) =>
-                                              ManageSiteStaffScreen(
-                                                  site: site),
+                                              ManageSiteStaffScreen(site: site),
                                         ),
                                       );
                                     } else if (val == 'edit_basic') {
@@ -1623,9 +1799,10 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                                                 size: 18,
                                                 color: AppColors.rejected),
                                             const SizedBox(width: 8),
-                                            Text(site.isHeadOffice
-                                                ? 'Deactivate Office'
-                                                : 'Deactivate Site',
+                                            Text(
+                                                site.isHeadOffice
+                                                    ? 'Deactivate Office'
+                                                    : 'Deactivate Site',
                                                 style: const TextStyle(
                                                     color: AppColors.rejected)),
                                           ],
@@ -1636,13 +1813,15 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                                         value: 'activate',
                                         child: Row(
                                           children: [
-                                            const Icon(Icons.check_circle_outline,
+                                            const Icon(
+                                                Icons.check_circle_outline,
                                                 size: 18,
                                                 color: AppColors.approved),
                                             const SizedBox(width: 8),
-                                            Text(site.isHeadOffice
-                                                ? 'Activate Office'
-                                                : 'Activate Site',
+                                            Text(
+                                                site.isHeadOffice
+                                                    ? 'Activate Office'
+                                                    : 'Activate Site',
                                                 style: const TextStyle(
                                                     color: AppColors.approved)),
                                           ],
@@ -1680,7 +1859,7 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                                 ),
                               ),
                               const Spacer(),
-                               if (site.isHeadOffice)
+                              if (site.isHeadOffice)
                                 ElevatedButton.icon(
                                   onPressed: () {
                                     Navigator.push(
@@ -1691,11 +1870,12 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                                       ),
                                     );
                                   },
-                                  icon: const Icon(Icons.people_rounded, size: 16),
+                                  icon: const Icon(Icons.people_rounded,
+                                      size: 16),
                                   label: const Text('Manage Staff'),
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor:
-                                        AppColors.waveCyan.withOpacity(0.15),
+                                    backgroundColor: AppColors.waveCyan
+                                        .withValues(alpha: 0.15),
                                     foregroundColor: AppColors.waveCyan,
                                     elevation: 0,
                                     visualDensity: VisualDensity.compact,
@@ -1714,11 +1894,12 @@ class _ManageSitesScreenState extends ConsumerState<ManageSitesScreen> {
                                       ),
                                     );
                                   },
-                                  icon: const Icon(Icons.tune_rounded, size: 16),
+                                  icon:
+                                      const Icon(Icons.tune_rounded, size: 16),
                                   label: const Text('Customize Site'),
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor:
-                                        AppColors.primary.withOpacity(0.15),
+                                    backgroundColor: AppColors.primary
+                                        .withValues(alpha: 0.15),
                                     foregroundColor: AppColors.primary,
                                     elevation: 0,
                                     visualDensity: VisualDensity.compact,

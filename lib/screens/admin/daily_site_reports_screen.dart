@@ -5,7 +5,6 @@ import 'package:intl/intl.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_text_styles.dart';
-import '../../models/site_model.dart';
 import '../../models/daily_site_report_model.dart';
 import '../../providers/site_provider.dart';
 import '../../providers/site_report_provider.dart';
@@ -24,10 +23,12 @@ class DailySiteReportsScreen extends ConsumerStatefulWidget {
   const DailySiteReportsScreen({super.key, this.initialSiteId});
 
   @override
-  ConsumerState<DailySiteReportsScreen> createState() => _DailySiteReportsScreenState();
+  ConsumerState<DailySiteReportsScreen> createState() =>
+      _DailySiteReportsScreenState();
 }
 
-class _DailySiteReportsScreenState extends ConsumerState<DailySiteReportsScreen> {
+class _DailySiteReportsScreenState
+    extends ConsumerState<DailySiteReportsScreen> {
   String? _selectedSiteId;
   DateTime _selectedDate = DateTime.now();
 
@@ -63,7 +64,8 @@ class _DailySiteReportsScreenState extends ConsumerState<DailySiteReportsScreen>
     ref.invalidate(allDailyReportsProvider);
   }
 
-  void _exportToExcel(List<DailySiteReportModel> reports, String siteName) async {
+  void _exportToExcel(
+      List<DailySiteReportModel> reports, String siteName) async {
     try {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Generating Excel Daily Work Report...')),
@@ -85,7 +87,8 @@ class _DailySiteReportsScreenState extends ConsumerState<DailySiteReportsScreen>
   }
 
   void _showEditReportDialog(DailySiteReportModel report) {
-    final notesController = TextEditingController(text: report.notes ?? report.rawTranscript ?? '');
+    final notesController =
+        TextEditingController(text: report.notes ?? report.rawTranscript ?? '');
     final remarksController = TextEditingController(text: report.remarks ?? '');
     bool isSaving = false;
 
@@ -94,12 +97,14 @@ class _DailySiteReportsScreenState extends ConsumerState<DailySiteReportsScreen>
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           backgroundColor: AppColors.surfaceDark,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Row(
             children: [
               Icon(Icons.edit_note_rounded, color: AppColors.primary),
               SizedBox(width: 8),
-              Text('Edit Daily Site Report', style: TextStyle(color: Colors.white, fontSize: 18)),
+              Text('Edit Daily Site Report',
+                  style: TextStyle(color: Colors.white, fontSize: 18)),
             ],
           ),
           content: SingleChildScrollView(
@@ -107,7 +112,9 @@ class _DailySiteReportsScreenState extends ConsumerState<DailySiteReportsScreen>
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Work Report Notes *', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                const Text('Work Report Notes *',
+                    style: TextStyle(
+                        color: AppColors.textSecondary, fontSize: 12)),
                 const SizedBox(height: 6),
                 TextField(
                   controller: notesController,
@@ -117,21 +124,28 @@ class _DailySiteReportsScreenState extends ConsumerState<DailySiteReportsScreen>
                     hintText: 'Enter updated work progress...',
                     filled: true,
                     fillColor: AppColors.cardDark,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.divider)),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: AppColors.divider)),
                   ),
                 ),
                 const SizedBox(height: 14),
-                const Text('Project Head / Admin Remarks', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                const Text('Project Head / Admin Remarks',
+                    style: TextStyle(
+                        color: AppColors.textSecondary, fontSize: 12)),
                 const SizedBox(height: 6),
                 TextField(
                   controller: remarksController,
                   maxLines: 2,
                   style: const TextStyle(color: Colors.white, fontSize: 14),
                   decoration: InputDecoration(
-                    hintText: 'e.g. [Project Head: Approved by ...] Checked & Verified',
+                    hintText:
+                        'e.g. [Project Head: Approved by ...] Checked & Verified',
                     filled: true,
                     fillColor: AppColors.cardDark,
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppColors.divider)),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: AppColors.divider)),
                   ),
                 ),
               ],
@@ -143,7 +157,8 @@ class _DailySiteReportsScreenState extends ConsumerState<DailySiteReportsScreen>
               child: const Text('Cancel'),
             ),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+              style:
+                  ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
               onPressed: isSaving
                   ? null
                   : () async {
@@ -152,28 +167,42 @@ class _DailySiteReportsScreenState extends ConsumerState<DailySiteReportsScreen>
                       try {
                         final updated = report.copyWith(
                           notes: notesController.text.trim(),
-                          remarks: remarksController.text.trim().isEmpty ? null : remarksController.text.trim(),
+                          remarks: remarksController.text.trim().isEmpty
+                              ? null
+                              : remarksController.text.trim(),
                           updatedAt: DateTime.now(),
                         );
-                        await ref.read(siteReportServiceProvider).saveReport(updated);
+                        await ref
+                            .read(siteReportServiceProvider)
+                            .saveReport(updated);
                         if (context.mounted) Navigator.pop(ctx);
                         _refreshReports();
                         if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Daily Site Report updated!'), backgroundColor: AppColors.approved),
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(this.context).showSnackBar(
+                            const SnackBar(
+                                content: Text('Daily Site Report updated!'),
+                                backgroundColor: AppColors.approved),
                           );
                         }
                       } catch (e) {
                         setDialogState(() => isSaving = false);
                         if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Failed to update report: $e'), backgroundColor: AppColors.rejected),
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(this.context).showSnackBar(
+                            SnackBar(
+                                content: Text('Failed to update report: $e'),
+                                backgroundColor: AppColors.rejected),
                           );
                         }
                       }
                     },
               child: isSaving
-                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white))
                   : const Text('Save Changes'),
             ),
           ],
@@ -182,22 +211,27 @@ class _DailySiteReportsScreenState extends ConsumerState<DailySiteReportsScreen>
     );
   }
 
-  Future<void> _confirmDeleteReport(DailySiteReportModel report, int idx) async {
+  Future<void> _confirmDeleteReport(
+      DailySiteReportModel report, int idx) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.surfaceDark,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Delete Daily Site Report?', style: TextStyle(color: Colors.white)),
+        title: const Text('Delete Daily Site Report?',
+            style: TextStyle(color: Colors.white)),
         content: Text(
           'Are you sure you want to permanently delete Update #$idx logged on ${DateFormat('dd MMM yyyy').format(report.date)}?\n\n'
           'This action cannot be undone.',
           style: const TextStyle(color: Colors.white70),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.rejected),
+            style:
+                ElevatedButton.styleFrom(backgroundColor: AppColors.rejected),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Delete Permanently'),
           ),
@@ -226,7 +260,8 @@ class _DailySiteReportsScreenState extends ConsumerState<DailySiteReportsScreen>
     return Scaffold(
       backgroundColor: AppColors.scaffoldDark,
       appBar: AppBar(
-        title: Text(context.tr('daily_site_report', defaultText: 'Daily Site Reports')),
+        title: Text(
+            context.tr('daily_site_report', defaultText: 'Daily Site Reports')),
         actions: [
           const Padding(
             padding: EdgeInsets.only(right: 6),
@@ -241,219 +276,276 @@ class _DailySiteReportsScreenState extends ConsumerState<DailySiteReportsScreen>
         ],
       ),
       body: sitesAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator(color: AppColors.primary)),
-        error: (e, _) => Center(child: Text('Error loading sites: $e', style: const TextStyle(color: Colors.red))),
+        loading: () => const Center(
+            child: CircularProgressIndicator(color: AppColors.primary)),
+        error: (e, _) => Center(
+            child: Text('Error loading sites: $e',
+                style: const TextStyle(color: Colors.red))),
         data: (sites) {
           if (sites.isEmpty) {
-            return const Center(child: Text('No active sites found', style: TextStyle(color: Colors.white)));
+            return const Center(
+                child: Text('No active sites found',
+                    style: TextStyle(color: Colors.white)));
           }
 
           _selectedSiteId ??= sites.first.id;
-          final currentSite = sites.firstWhere((s) => s.id == _selectedSiteId, orElse: () => sites.first);
+          final currentSite = sites.firstWhere((s) => s.id == _selectedSiteId,
+              orElse: () => sites.first);
           final effectiveSiteName = currentSite.name;
 
-          return Column(
-            children: [
-              // ── Top Selector Bar: Site Dropdown & Date Navigation ──
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                color: AppColors.cardDark,
-                child: Column(
-                  children: [
-                    // Site Dropdown for selecting site to view DSR
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceDark,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: AppColors.divider),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: _selectedSiteId,
-                          dropdownColor: AppColors.surfaceDark,
-                          isExpanded: true,
-                          icon: const Icon(Icons.arrow_drop_down, color: AppColors.primary),
-                          items: sites.map((s) {
-                            final isOffice = s.isHeadOffice;
-                            return DropdownMenuItem(
-                              value: s.id,
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    isOffice ? Icons.apartment_rounded : Icons.construction_rounded,
-                                    color: isOffice ? AppColors.waveCyan : AppColors.primary,
-                                    size: 18,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    isOffice ? '${s.name} (Office)' : s.name,
-                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ],
-                              ),
-                            );
-                          }).toList(),
-                          onChanged: (val) {
-                            if (val != null) {
-                              setState(() => _selectedSiteId = val);
-                            }
-                          },
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 10),
-
-                    // Date Navigator: < Yesterday | Formatted Date | Next Day >
-                    Row(
+          return Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1100),
+              child: Column(
+                children: [
+                  // ── Top Selector Bar: Site Dropdown & Date Navigation ──
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
+                    color: AppColors.cardDark,
+                    child: Column(
                       children: [
-                        // Previous Day (Yesterday) Button
-                        InkWell(
-                          onTap: () => _changeDateBy(-1),
-                          borderRadius: BorderRadius.circular(10),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-                            decoration: BoxDecoration(
-                              color: AppColors.surfaceDark,
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: AppColors.divider),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.chevron_left_rounded, color: Colors.white, size: 20),
-                                Text(
-                                  context.tr('yesterday', defaultText: 'Yesterday'),
-                                  style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w600),
-                                ),
-                              ],
+                        // Site Dropdown for selecting site to view DSR
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceDark,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: AppColors.divider),
+                          ),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<String>(
+                              value: _selectedSiteId,
+                              dropdownColor: AppColors.surfaceDark,
+                              isExpanded: true,
+                              icon: const Icon(Icons.arrow_drop_down,
+                                  color: AppColors.primary),
+                              items: sites.map((s) {
+                                final isOffice = s.isHeadOffice;
+                                return DropdownMenuItem(
+                                  value: s.id,
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        isOffice
+                                            ? Icons.apartment_rounded
+                                            : Icons.construction_rounded,
+                                        color: isOffice
+                                            ? AppColors.waveCyan
+                                            : AppColors.primary,
+                                        size: 18,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        isOffice
+                                            ? '${s.name} (Office)'
+                                            : s.name,
+                                        style: const TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }).toList(),
+                              onChanged: (val) {
+                                if (val != null) {
+                                  setState(() => _selectedSiteId = val);
+                                }
+                              },
                             ),
                           ),
                         ),
 
-                        const SizedBox(width: 8),
+                        const SizedBox(height: 10),
 
-                        // Date Picker Button
-                        Expanded(
-                          child: InkWell(
-                            onTap: () async {
-                              final picked = await showDatePicker(
-                                context: context,
-                                initialDate: _selectedDate,
-                                firstDate: DateTime(2024),
-                                lastDate: DateTime.now().add(const Duration(days: 1)),
-                              );
-                              if (picked != null) {
-                                setState(() => _selectedDate = picked);
-                              }
-                            },
-                            borderRadius: BorderRadius.circular(10),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 10),
-                              decoration: BoxDecoration(
-                                color: _isToday
-                                    ? AppColors.primary.withOpacity(0.15)
-                                    : AppColors.surfaceDark,
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
-                                  color: _isToday ? AppColors.primary : AppColors.divider,
+                        // Date Navigator: < Yesterday | Formatted Date | Next Day >
+                        Row(
+                          children: [
+                            // Previous Day (Yesterday) Button
+                            InkWell(
+                              onTap: () => _changeDateBy(-1),
+                              borderRadius: BorderRadius.circular(10),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 9),
+                                decoration: BoxDecoration(
+                                  color: AppColors.surfaceDark,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: AppColors.divider),
                                 ),
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.calendar_today_rounded,
-                                    color: _isToday ? AppColors.primary : Colors.white70,
-                                    size: 15,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Flexible(
-                                    child: Text(
-                                      DateFormat('dd MMMM yyyy (EEEE)').format(_selectedDate),
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        color: _isToday ? AppColors.primary : Colors.white,
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 12.5,
-                                      ),
-                                    ),
-                                  ),
-                                  if (_isToday) ...[
-                                    const SizedBox(width: 6),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: AppColors.approved,
-                                        borderRadius: BorderRadius.circular(4),
-                                      ),
-                                      child: Text(
-                                        context.tr('today', defaultText: 'Today'),
-                                        style: const TextStyle(color: Colors.black, fontSize: 9.5, fontWeight: FontWeight.bold),
-                                      ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.chevron_left_rounded,
+                                        color: Colors.white, size: 20),
+                                    Text(
+                                      context.tr('yesterday',
+                                          defaultText: 'Yesterday'),
+                                      style: const TextStyle(
+                                          color: Colors.white70,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600),
                                     ),
                                   ],
-                                ],
+                                ),
                               ),
                             ),
-                          ),
-                        ),
 
-                        const SizedBox(width: 8),
+                            const SizedBox(width: 8),
 
-                        // Next Day Button
-                        InkWell(
-                          onTap: () => _changeDateBy(1),
-                          borderRadius: BorderRadius.circular(10),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-                            decoration: BoxDecoration(
-                              color: AppColors.surfaceDark,
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: AppColors.divider),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  context.tr('next_day', defaultText: 'Next'),
-                                  style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w600),
+                            // Date Picker Button
+                            Expanded(
+                              child: InkWell(
+                                onTap: () async {
+                                  final picked = await showDatePicker(
+                                    context: context,
+                                    initialDate: _selectedDate,
+                                    firstDate: DateTime(2024),
+                                    lastDate: DateTime.now()
+                                        .add(const Duration(days: 1)),
+                                  );
+                                  if (picked != null) {
+                                    setState(() => _selectedDate = picked);
+                                  }
+                                },
+                                borderRadius: BorderRadius.circular(10),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      vertical: 9, horizontal: 10),
+                                  decoration: BoxDecoration(
+                                    color: _isToday
+                                        ? AppColors.primary
+                                            .withValues(alpha: 0.15)
+                                        : AppColors.surfaceDark,
+                                    borderRadius: BorderRadius.circular(10),
+                                    border: Border.all(
+                                      color: _isToday
+                                          ? AppColors.primary
+                                          : AppColors.divider,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.calendar_today_rounded,
+                                        color: _isToday
+                                            ? AppColors.primary
+                                            : Colors.white70,
+                                        size: 15,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Flexible(
+                                        child: Text(
+                                          DateFormat('dd MMMM yyyy (EEEE)')
+                                              .format(_selectedDate),
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            color: _isToday
+                                                ? AppColors.primary
+                                                : Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 12.5,
+                                          ),
+                                        ),
+                                      ),
+                                      if (_isToday) ...[
+                                        const SizedBox(width: 6),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: AppColors.approved,
+                                            borderRadius:
+                                                BorderRadius.circular(4),
+                                          ),
+                                          child: Text(
+                                            context.tr('today',
+                                                defaultText: 'Today'),
+                                            style: const TextStyle(
+                                                color: Colors.black,
+                                                fontSize: 9.5,
+                                                fontWeight: FontWeight.bold),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
                                 ),
-                                const Icon(Icons.chevron_right_rounded, color: Colors.white, size: 20),
-                              ],
+                              ),
+                            ),
+
+                            const SizedBox(width: 8),
+
+                            // Next Day Button
+                            InkWell(
+                              onTap: () => _changeDateBy(1),
+                              borderRadius: BorderRadius.circular(10),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 9),
+                                decoration: BoxDecoration(
+                                  color: AppColors.surfaceDark,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(color: AppColors.divider),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      context.tr('next_day',
+                                          defaultText: 'Next'),
+                                      style: const TextStyle(
+                                          color: Colors.white70,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600),
+                                    ),
+                                    const Icon(Icons.chevron_right_rounded,
+                                        color: Colors.white, size: 20),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        if (!_isToday) ...[
+                          const SizedBox(height: 8),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: TextButton.icon(
+                              onPressed: _resetToToday,
+                              style: TextButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 2),
+                                minimumSize: Size.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                              icon: const Icon(Icons.today_rounded,
+                                  size: 14, color: AppColors.primary),
+                              label: Text(
+                                  context.tr('back_to_today',
+                                      defaultText: 'Back to Today'),
+                                  style: const TextStyle(
+                                      color: AppColors.primary,
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.bold)),
                             ),
                           ),
-                        ),
+                        ],
                       ],
                     ),
+                  ),
 
-                    if (!_isToday) ...[
-                      const SizedBox(height: 8),
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: TextButton.icon(
-                          onPressed: _resetToToday,
-                          style: TextButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                            minimumSize: Size.zero,
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                          ),
-                          icon: const Icon(Icons.today_rounded, size: 14, color: AppColors.primary),
-                          label: Text(context.tr('back_to_today', defaultText: 'Back to Today'), style: const TextStyle(color: AppColors.primary, fontSize: 11.5, fontWeight: FontWeight.bold)),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
+                  // ── Report Content Body ──
+                  Expanded(
+                    child: _buildReportBody(effectiveSiteName),
+                  ),
+                ],
               ),
-
-              // ── Report Content Body ──
-              Expanded(
-                child: _buildReportBody(effectiveSiteName),
-              ),
-            ],
+            ),
           );
         },
       ),
@@ -468,14 +560,16 @@ class _DailySiteReportsScreenState extends ConsumerState<DailySiteReportsScreen>
     ));
 
     return reportsAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator(color: AppColors.primary)),
+      loading: () => const Center(
+          child: CircularProgressIndicator(color: AppColors.primary)),
       error: (e, _) => Center(
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Error loading reports: $e', style: const TextStyle(color: Colors.red)),
+              Text('Error loading reports: $e',
+                  style: const TextStyle(color: Colors.red)),
               const SizedBox(height: 12),
               ElevatedButton.icon(
                 onPressed: _refreshReports,
@@ -488,7 +582,8 @@ class _DailySiteReportsScreenState extends ConsumerState<DailySiteReportsScreen>
       ),
       data: (allReports) {
         // Strictly filter to ONLY Project Head approved reports for Admin (hide rejected & pending)
-        final reports = allReports.where((r) => r.isProjectHeadApproved).toList();
+        final reports =
+            allReports.where((r) => r.isProjectHeadApproved).toList();
 
         if (reports.isEmpty) {
           return Center(
@@ -497,18 +592,21 @@ class _DailySiteReportsScreenState extends ConsumerState<DailySiteReportsScreen>
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.verified_outlined, size: 64, color: AppColors.textTertiary),
+                  const Icon(Icons.verified_outlined,
+                      size: 64, color: AppColors.textTertiary),
                   const SizedBox(height: 16),
                   Text(
                     'No Approved Reports for ${DateFormat('dd MMM yyyy').format(_selectedDate)}',
-                    style: AppTextStyles.h4.copyWith(color: AppColors.textPrimary),
+                    style:
+                        AppTextStyles.h4.copyWith(color: AppColors.textPrimary),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     _isToday
                         ? 'No daily site reports have been approved by the Project Head yet today for $siteName.\n(Non-approved and pending reports are waiting for Project Head verification).'
                         : 'No approved daily site reports found for $siteName on this date.',
-                    style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
+                    style: AppTextStyles.bodySmall
+                        .copyWith(color: AppColors.textSecondary),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 20),
@@ -545,13 +643,16 @@ class _DailySiteReportsScreenState extends ConsumerState<DailySiteReportsScreen>
                       children: [
                         Text(
                           siteName.toUpperCase(),
-                          style: AppTextStyles.h4.copyWith(color: AppColors.textPrimary, fontSize: 16),
+                          style: AppTextStyles.h4.copyWith(
+                              color: AppColors.textPrimary, fontSize: 16),
                           overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 2),
                         Text(
                           '${reports.length} ${reports.length == 1 ? "Report" : "Reports"} Logged on ${DateFormat('dd MMM yyyy').format(_selectedDate)}',
-                          style: AppTextStyles.caption.copyWith(color: AppColors.primary, fontWeight: FontWeight.bold),
+                          style: AppTextStyles.caption.copyWith(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.bold),
                         ),
                       ],
                     ),
@@ -559,11 +660,15 @@ class _DailySiteReportsScreenState extends ConsumerState<DailySiteReportsScreen>
                   const SizedBox(width: 8),
                   OutlinedButton.icon(
                     onPressed: () => _exportToExcel(reports, siteName),
-                    icon: const Icon(Icons.file_download_outlined, color: AppColors.primary, size: 18),
-                    label: const Text('Export Excel', style: TextStyle(color: AppColors.primary, fontSize: 13)),
+                    icon: const Icon(Icons.file_download_outlined,
+                        color: AppColors.primary, size: 18),
+                    label: const Text('Export Excel',
+                        style:
+                            TextStyle(color: AppColors.primary, fontSize: 13)),
                     style: OutlinedButton.styleFrom(
                       side: const BorderSide(color: AppColors.primary),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
                     ),
                   ),
                 ],
@@ -585,9 +690,9 @@ class _DailySiteReportsScreenState extends ConsumerState<DailySiteReportsScreen>
                     borderRadius: BorderRadius.circular(18),
                     border: Border.all(
                       color: report.isProjectHeadApproved
-                          ? AppColors.approved.withOpacity(0.4)
+                          ? AppColors.approved.withValues(alpha: 0.4)
                           : report.isProjectHeadRejected
-                              ? AppColors.rejected.withOpacity(0.4)
+                              ? AppColors.rejected.withValues(alpha: 0.4)
                               : AppColors.divider,
                     ),
                   ),
@@ -601,11 +706,15 @@ class _DailySiteReportsScreenState extends ConsumerState<DailySiteReportsScreen>
                           Row(
                             children: [
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 4),
                                 decoration: BoxDecoration(
-                                  color: AppColors.primary.withOpacity(0.15),
+                                  color:
+                                      AppColors.primary.withValues(alpha: 0.15),
                                   borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                                  border: Border.all(
+                                      color: AppColors.primary
+                                          .withValues(alpha: 0.3)),
                                 ),
                                 child: Text(
                                   'UPDATE #$idx  •  $timeStr',
@@ -616,23 +725,30 @@ class _DailySiteReportsScreenState extends ConsumerState<DailySiteReportsScreen>
                                   ),
                                 ),
                               ),
-                              if (report.siteName != null && report.siteName!.isNotEmpty) ...[
+                              if (report.siteName != null &&
+                                  report.siteName!.isNotEmpty) ...[
                                 const SizedBox(width: 8),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 4),
                                   decoration: BoxDecoration(
                                     color: AppColors.surfaceDark,
                                     borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: AppColors.divider),
+                                    border:
+                                        Border.all(color: AppColors.divider),
                                   ),
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      const Icon(Icons.location_on_rounded, size: 12, color: AppColors.waveCyan),
+                                      const Icon(Icons.location_on_rounded,
+                                          size: 12, color: AppColors.waveCyan),
                                       const SizedBox(width: 4),
                                       Text(
                                         report.siteName!,
-                                        style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600),
+                                        style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w600),
                                       ),
                                     ],
                                   ),
@@ -650,23 +766,30 @@ class _DailySiteReportsScreenState extends ConsumerState<DailySiteReportsScreen>
 
                       // Submitter Information: Submitted By Whom
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 7),
                         decoration: BoxDecoration(
                           color: AppColors.surfaceDark,
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: AppColors.waveCyan.withOpacity(0.25)),
+                          border: Border.all(
+                              color:
+                                  AppColors.waveCyan.withValues(alpha: 0.25)),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.person_rounded, size: 15, color: AppColors.waveCyan),
+                            const Icon(Icons.person_rounded,
+                                size: 15, color: AppColors.waveCyan),
                             const SizedBox(width: 6),
                             Text(
                               'Submitted by: ',
-                              style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12),
+                              style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.7),
+                                  fontSize: 12),
                             ),
                             Text(
-                              report.submittedBy != null && report.submittedBy!.isNotEmpty
+                              report.submittedBy != null &&
+                                      report.submittedBy!.isNotEmpty
                                   ? report.submittedBy!
                                   : 'Site Worker',
                               style: const TextStyle(
@@ -684,11 +807,14 @@ class _DailySiteReportsScreenState extends ConsumerState<DailySiteReportsScreen>
                       // 1. Pure Voice-to-Text Work Report
                       Row(
                         children: [
-                          const Icon(Icons.record_voice_over_rounded, size: 16, color: AppColors.primary),
+                          const Icon(Icons.record_voice_over_rounded,
+                              size: 16, color: AppColors.primary),
                           const SizedBox(width: 6),
                           Text(
                             'DAILY WORK REPORT (VOICE-TO-TEXT)',
-                            style: AppTextStyles.overline.copyWith(color: AppColors.textTertiary, letterSpacing: 0.8),
+                            style: AppTextStyles.overline.copyWith(
+                                color: AppColors.textTertiary,
+                                letterSpacing: 0.8),
                           ),
                         ],
                       ),
@@ -699,36 +825,43 @@ class _DailySiteReportsScreenState extends ConsumerState<DailySiteReportsScreen>
                         decoration: BoxDecoration(
                           color: AppColors.surfaceDark,
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: AppColors.divider.withOpacity(0.5)),
+                          border: Border.all(
+                              color: AppColors.divider.withValues(alpha: 0.5)),
                         ),
                         child: Text(
-                          (report.notes != null && report.notes!.trim().isNotEmpty)
+                          (report.notes != null &&
+                                  report.notes!.trim().isNotEmpty)
                               ? report.notes!
-                              : (report.rawTranscript != null && report.rawTranscript!.trim().isNotEmpty)
+                              : (report.rawTranscript != null &&
+                                      report.rawTranscript!.trim().isNotEmpty)
                                   ? report.rawTranscript!
                                   : 'No written notes provided with this update.',
-                          style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.5),
+                          style: const TextStyle(
+                              color: Colors.white, fontSize: 14, height: 1.5),
                         ),
                       ),
 
                       // 2. Project Head Review Remarks
-                      if (report.remarks != null && report.remarks!.isNotEmpty) ...[
+                      if (report.remarks != null &&
+                          report.remarks!.isNotEmpty) ...[
                         const SizedBox(height: 12),
                         Container(
                           width: double.infinity,
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 8),
                           decoration: BoxDecoration(
                             color: report.isProjectHeadApproved
-                                ? AppColors.approved.withOpacity(0.10)
+                                ? AppColors.approved.withValues(alpha: 0.10)
                                 : report.isProjectHeadRejected
-                                    ? AppColors.rejected.withOpacity(0.10)
+                                    ? AppColors.rejected.withValues(alpha: 0.10)
                                     : AppColors.surfaceDark,
                             borderRadius: BorderRadius.circular(10),
                             border: Border.all(
                               color: report.isProjectHeadApproved
-                                  ? AppColors.approved.withOpacity(0.3)
+                                  ? AppColors.approved.withValues(alpha: 0.3)
                                   : report.isProjectHeadRejected
-                                      ? AppColors.rejected.withOpacity(0.3)
+                                      ? AppColors.rejected
+                                          .withValues(alpha: 0.3)
                                       : AppColors.divider,
                             ),
                           ),
@@ -773,7 +906,8 @@ class _DailySiteReportsScreenState extends ConsumerState<DailySiteReportsScreen>
                         const SizedBox(height: 14),
                         Text(
                           'ATTACHED PHOTOS (${report.photoUrls.length})',
-                          style: AppTextStyles.overline.copyWith(color: AppColors.textTertiary),
+                          style: AppTextStyles.overline
+                              .copyWith(color: AppColors.textTertiary),
                         ),
                         const SizedBox(height: 8),
                         SizedBox(
@@ -781,7 +915,8 @@ class _DailySiteReportsScreenState extends ConsumerState<DailySiteReportsScreen>
                           child: ListView.separated(
                             scrollDirection: Axis.horizontal,
                             itemCount: report.photoUrls.length,
-                            separatorBuilder: (_, __) => const SizedBox(width: 10),
+                            separatorBuilder: (_, __) =>
+                                const SizedBox(width: 10),
                             itemBuilder: (context, pIdx) {
                               final pUrl = report.photoUrls[pIdx];
                               return GestureDetector(
@@ -794,8 +929,10 @@ class _DailySiteReportsScreenState extends ConsumerState<DailySiteReportsScreen>
                                     child: Image.network(
                                       pUrl,
                                       fit: BoxFit.cover,
-                                      errorBuilder: (_, __, ___) => const Center(
-                                        child: Icon(Icons.broken_image, color: Colors.white30),
+                                      errorBuilder: (_, __, ___) =>
+                                          const Center(
+                                        child: Icon(Icons.broken_image,
+                                            color: Colors.white30),
                                       ),
                                     ),
                                   ),
@@ -811,15 +948,26 @@ class _DailySiteReportsScreenState extends ConsumerState<DailySiteReportsScreen>
                           mainAxisAlignment: MainAxisAlignment.end,
                           children: [
                             TextButton.icon(
-                              icon: const Icon(Icons.edit_note_rounded, size: 18, color: AppColors.primary),
-                              label: const Text('Edit Report', style: TextStyle(color: AppColors.primary, fontSize: 13, fontWeight: FontWeight.bold)),
+                              icon: const Icon(Icons.edit_note_rounded,
+                                  size: 18, color: AppColors.primary),
+                              label: const Text('Edit Report',
+                                  style: TextStyle(
+                                      color: AppColors.primary,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold)),
                               onPressed: () => _showEditReportDialog(report),
                             ),
                             const SizedBox(width: 8),
                             TextButton.icon(
-                              icon: const Icon(Icons.delete_outline_rounded, size: 18, color: AppColors.rejected),
-                              label: const Text('Delete Report', style: TextStyle(color: AppColors.rejected, fontSize: 13, fontWeight: FontWeight.bold)),
-                              onPressed: () => _confirmDeleteReport(report, idx),
+                              icon: const Icon(Icons.delete_outline_rounded,
+                                  size: 18, color: AppColors.rejected),
+                              label: const Text('Delete Report',
+                                  style: TextStyle(
+                                      color: AppColors.rejected,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold)),
+                              onPressed: () =>
+                                  _confirmDeleteReport(report, idx),
                             ),
                           ],
                         ),
@@ -843,17 +991,20 @@ class _DailySiteReportsScreenState extends ConsumerState<DailySiteReportsScreen>
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: AppColors.approved.withOpacity(0.15),
+          color: AppColors.approved.withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: AppColors.approved.withOpacity(0.4)),
+          border: Border.all(color: AppColors.approved.withValues(alpha: 0.4)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.check_circle_rounded, size: 13, color: AppColors.approved),
+            const Icon(Icons.check_circle_rounded,
+                size: 13, color: AppColors.approved),
             const SizedBox(width: 4),
             Text(
-              approver != null ? 'Project Head Approved ($approver)' : 'Project Head Approved',
+              approver != null
+                  ? 'Project Head Approved ($approver)'
+                  : 'Project Head Approved',
               style: const TextStyle(
                 color: AppColors.approved,
                 fontSize: 11,
@@ -868,14 +1019,15 @@ class _DailySiteReportsScreenState extends ConsumerState<DailySiteReportsScreen>
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: AppColors.rejected.withOpacity(0.15),
+          color: AppColors.rejected.withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: AppColors.rejected.withOpacity(0.4)),
+          border: Border.all(color: AppColors.rejected.withValues(alpha: 0.4)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.cancel_rounded, size: 13, color: AppColors.rejected),
+            const Icon(Icons.cancel_rounded,
+                size: 13, color: AppColors.rejected),
             const SizedBox(width: 4),
             Text(
               reason != null ? 'Rejected: $reason' : 'Project Head Rejected',
@@ -892,9 +1044,9 @@ class _DailySiteReportsScreenState extends ConsumerState<DailySiteReportsScreen>
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: AppColors.pending.withOpacity(0.15),
+          color: AppColors.pending.withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: AppColors.pending.withOpacity(0.4)),
+          border: Border.all(color: AppColors.pending.withValues(alpha: 0.4)),
         ),
         child: const Row(
           mainAxisSize: MainAxisSize.min,

@@ -148,9 +148,10 @@ class _VoiceDictationDialogState extends State<VoiceDictationDialog> {
     });
 
     // Baseline prefix to append if there was existing text (matches DSR live typing)
-    final initialPrefix = widget.append && widget.controller.text.trim().isNotEmpty
-        ? '${widget.controller.text.trim()} '
-        : '';
+    final initialPrefix =
+        widget.append && widget.controller.text.trim().isNotEmpty
+            ? '${widget.controller.text.trim()} '
+            : '';
 
     final liveLang = _selectedLanguage == 'hindi'
         ? 'hi-IN'
@@ -180,7 +181,8 @@ class _VoiceDictationDialogState extends State<VoiceDictationDialog> {
           setState(() => _isListening = false);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Speech notice: $err. You can switch to Whisper AI.'),
+              content:
+                  Text('Speech notice: $err. You can switch to Whisper AI.'),
               backgroundColor: AppColors.rejected,
               duration: const Duration(seconds: 4),
             ),
@@ -217,7 +219,8 @@ class _VoiceDictationDialogState extends State<VoiceDictationDialog> {
         String? targetPath;
         if (!kIsWeb) {
           final tempDir = await getTemporaryDirectory();
-          targetPath = '${tempDir.path}/whisper_voice_${DateTime.now().millisecondsSinceEpoch}.m4a';
+          targetPath =
+              '${tempDir.path}/whisper_voice_${DateTime.now().millisecondsSinceEpoch}.m4a';
         }
 
         await _audioRecorder.start(
@@ -240,7 +243,7 @@ class _VoiceDictationDialogState extends State<VoiceDictationDialog> {
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
+            const SnackBar(
               content: Text(kIsWeb
                   ? 'Microphone permission denied. Please allow microphone in browser.'
                   : 'Microphone permission denied. Please allow microphone access in device Settings.'),
@@ -342,7 +345,9 @@ class _VoiceDictationDialogState extends State<VoiceDictationDialog> {
     final isLight = AppColors.isLight;
 
     return InkWell(
-      onTap: _isListening || _isTranscribing ? null : () => setState(() => _selectedLanguage = id),
+      onTap: _isListening || _isTranscribing
+          ? null
+          : () => setState(() => _selectedLanguage = id),
       borderRadius: BorderRadius.circular(10),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
@@ -350,7 +355,9 @@ class _VoiceDictationDialogState extends State<VoiceDictationDialog> {
         decoration: BoxDecoration(
           color: isSelected
               ? AppColors.primary.withValues(alpha: isLight ? 0.2 : 0.18)
-              : (isLight ? Colors.black.withValues(alpha: 0.04) : Colors.white.withValues(alpha: 0.05)),
+              : (isLight
+                  ? Colors.black.withValues(alpha: 0.04)
+                  : Colors.white.withValues(alpha: 0.05)),
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: isSelected ? AppColors.primary : Colors.transparent,
@@ -371,9 +378,12 @@ class _VoiceDictationDialogState extends State<VoiceDictationDialog> {
                   style: TextStyle(
                     color: isSelected
                         ? (isLight ? AppColors.primaryDark : Colors.white)
-                        : (isLight ? AppColors.textSecondaryLight : Colors.white70),
+                        : (isLight
+                            ? AppColors.textSecondaryLight
+                            : Colors.white70),
                     fontSize: 11,
-                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                    fontWeight:
+                        isSelected ? FontWeight.bold : FontWeight.normal,
                   ),
                 ),
                 Text(
@@ -422,7 +432,8 @@ class _VoiceDictationDialogState extends State<VoiceDictationDialog> {
                         color: AppColors.primary.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: const Icon(Icons.mic_rounded, color: AppColors.primary, size: 20),
+                      child: const Icon(Icons.mic_rounded,
+                          color: AppColors.primary, size: 20),
                     ),
                     const SizedBox(width: 10),
                     Column(
@@ -433,14 +444,18 @@ class _VoiceDictationDialogState extends State<VoiceDictationDialog> {
                               ? 'Voice: ${widget.fieldLabel}'
                               : 'Voice-to-Text',
                           style: AppTextStyles.labelLarge.copyWith(
-                            color: isLight ? AppColors.textPrimaryLight : AppColors.textPrimaryDark,
+                            color: isLight
+                                ? AppColors.textPrimaryLight
+                                : AppColors.textPrimaryDark,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                         Text(
                           'Same high-accuracy speech engine as DSR',
                           style: TextStyle(
-                            color: isLight ? AppColors.textSecondaryLight : AppColors.textTertiaryDark,
+                            color: isLight
+                                ? AppColors.textSecondaryLight
+                                : AppColors.textTertiaryDark,
                             fontSize: 10,
                           ),
                         ),
@@ -477,10 +492,13 @@ class _VoiceDictationDialogState extends State<VoiceDictationDialog> {
             Container(
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
-                color: isLight ? Colors.black.withValues(alpha: 0.05) : AppColors.cardDark,
+                color: isLight
+                    ? Colors.black.withValues(alpha: 0.05)
+                    : AppColors.cardDark,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: isLight ? AppColors.cardBorderLight : AppColors.divider,
+                  color:
+                      isLight ? AppColors.cardBorderLight : AppColors.divider,
                 ),
               ),
               child: Row(
@@ -493,7 +511,9 @@ class _VoiceDictationDialogState extends State<VoiceDictationDialog> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 8),
                         decoration: BoxDecoration(
-                          color: _useWhisperEngine ? AppColors.primary : Colors.transparent,
+                          color: _useWhisperEngine
+                              ? AppColors.primary
+                              : Colors.transparent,
                           borderRadius: BorderRadius.circular(9),
                         ),
                         child: Row(
@@ -502,13 +522,21 @@ class _VoiceDictationDialogState extends State<VoiceDictationDialog> {
                             Icon(
                               Icons.auto_awesome,
                               size: 13,
-                              color: _useWhisperEngine ? Colors.white : (isLight ? AppColors.textSecondaryLight : Colors.white70),
+                              color: _useWhisperEngine
+                                  ? Colors.white
+                                  : (isLight
+                                      ? AppColors.textSecondaryLight
+                                      : Colors.white70),
                             ),
                             const SizedBox(width: 5),
                             Text(
                               'Whisper AI (Extreme)',
                               style: TextStyle(
-                                color: _useWhisperEngine ? Colors.white : (isLight ? AppColors.textSecondaryLight : Colors.white70),
+                                color: _useWhisperEngine
+                                    ? Colors.white
+                                    : (isLight
+                                        ? AppColors.textSecondaryLight
+                                        : Colors.white70),
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -527,7 +555,9 @@ class _VoiceDictationDialogState extends State<VoiceDictationDialog> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 8),
                         decoration: BoxDecoration(
-                          color: !_useWhisperEngine ? AppColors.primary : Colors.transparent,
+                          color: !_useWhisperEngine
+                              ? AppColors.primary
+                              : Colors.transparent,
                           borderRadius: BorderRadius.circular(9),
                         ),
                         child: Row(
@@ -536,13 +566,21 @@ class _VoiceDictationDialogState extends State<VoiceDictationDialog> {
                             Icon(
                               Icons.mic,
                               size: 13,
-                              color: !_useWhisperEngine ? Colors.white : (isLight ? AppColors.textSecondaryLight : Colors.white70),
+                              color: !_useWhisperEngine
+                                  ? Colors.white
+                                  : (isLight
+                                      ? AppColors.textSecondaryLight
+                                      : Colors.white70),
                             ),
                             const SizedBox(width: 5),
                             Text(
                               'Live Dictation',
                               style: TextStyle(
-                                color: !_useWhisperEngine ? Colors.white : (isLight ? AppColors.textSecondaryLight : Colors.white70),
+                                color: !_useWhisperEngine
+                                    ? Colors.white
+                                    : (isLight
+                                        ? AppColors.textSecondaryLight
+                                        : Colors.white70),
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -595,7 +633,9 @@ class _VoiceDictationDialogState extends State<VoiceDictationDialog> {
               style: AppTextStyles.h4.copyWith(
                 color: _isListening
                     ? Colors.redAccent
-                    : (isLight ? AppColors.textPrimaryLight : AppColors.textPrimaryDark),
+                    : (isLight
+                        ? AppColors.textPrimaryLight
+                        : AppColors.textPrimaryDark),
                 fontWeight: FontWeight.bold,
               ),
               textAlign: TextAlign.center,
@@ -653,11 +693,13 @@ class _VoiceDictationDialogState extends State<VoiceDictationDialog> {
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       gradient: _isListening
-                          ? const LinearGradient(colors: [Colors.redAccent, Colors.red])
+                          ? const LinearGradient(
+                              colors: [Colors.redAccent, Colors.red])
                           : AppColors.primaryGradient,
                       boxShadow: [
                         BoxShadow(
-                          color: (_isListening ? Colors.red : AppColors.primary).withValues(alpha: 0.4),
+                          color: (_isListening ? Colors.red : AppColors.primary)
+                              .withValues(alpha: 0.4),
                           blurRadius: 16,
                           spreadRadius: 2,
                         ),
@@ -668,11 +710,14 @@ class _VoiceDictationDialogState extends State<VoiceDictationDialog> {
                             child: SizedBox(
                               width: 28,
                               height: 28,
-                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3),
+                              child: CircularProgressIndicator(
+                                  color: Colors.white, strokeWidth: 3),
                             ),
                           )
                         : Icon(
-                            _isListening ? Icons.stop_rounded : Icons.mic_rounded,
+                            _isListening
+                                ? Icons.stop_rounded
+                                : Icons.mic_rounded,
                             color: Colors.white,
                             size: 38,
                           ),
@@ -688,10 +733,14 @@ class _VoiceDictationDialogState extends State<VoiceDictationDialog> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: isLight ? const Color(0xFFE0F2FE) : const Color(0xFF0F2347),
+                  color: isLight
+                      ? const Color(0xFFE0F2FE)
+                      : const Color(0xFF0F2347),
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
-                    color: isLight ? const Color(0xFFBAE6FD) : AppColors.primary.withValues(alpha: 0.4),
+                    color: isLight
+                        ? const Color(0xFFBAE6FD)
+                        : AppColors.primary.withValues(alpha: 0.4),
                   ),
                 ),
                 child: Text(
@@ -721,7 +770,9 @@ class _VoiceDictationDialogState extends State<VoiceDictationDialog> {
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       side: BorderSide(
-                        color: isLight ? AppColors.cardBorderLight : AppColors.cardBorderDark,
+                        color: isLight
+                            ? AppColors.cardBorderLight
+                            : AppColors.cardBorderDark,
                       ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
@@ -730,7 +781,9 @@ class _VoiceDictationDialogState extends State<VoiceDictationDialog> {
                     child: Text(
                       'Cancel',
                       style: TextStyle(
-                        color: isLight ? AppColors.textSecondaryLight : AppColors.textSecondaryDark,
+                        color: isLight
+                            ? AppColors.textSecondaryLight
+                            : AppColors.textSecondaryDark,
                         fontSize: 13,
                       ),
                     ),

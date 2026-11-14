@@ -9,25 +9,31 @@ final siteReportServiceProvider = Provider<SiteReportService>((ref) {
 });
 
 /// Fetches reports for a site
-final siteReportsForSiteProvider = FutureProvider.family<List<DailySiteReportModel>, String>((ref, siteId) async {
+final siteReportsForSiteProvider =
+    FutureProvider.family<List<DailySiteReportModel>, String>(
+        (ref, siteId) async {
   final service = ref.watch(siteReportServiceProvider);
   return service.getReportsForSite(siteId);
 });
 
 /// Fetches all reports across all sites
-final allDailyReportsProvider = FutureProvider.autoDispose<List<DailySiteReportModel>>((ref) async {
+final allDailyReportsProvider =
+    FutureProvider.autoDispose<List<DailySiteReportModel>>((ref) async {
   final service = ref.watch(siteReportServiceProvider);
   return service.getReportsForSite('all');
 });
 
 /// Fetches all reports for a specific site on a given date (e.g. morning + evening updates)
-final siteReportsForDateProvider = FutureProvider.family<List<DailySiteReportModel>, ({String siteId, DateTime date})>((ref, arg) async {
+final siteReportsForDateProvider = FutureProvider.family<
+    List<DailySiteReportModel>,
+    ({String siteId, DateTime date})>((ref, arg) async {
   final service = ref.watch(siteReportServiceProvider);
   return service.getReportsForDate(arg.siteId, arg.date);
 });
 
 /// Fetches report for a specific site & date (backward compatibility)
-final siteReportForDateProvider = FutureProvider.family<DailySiteReportModel?, ({String siteId, DateTime date})>((ref, arg) async {
+final siteReportForDateProvider = FutureProvider.family<DailySiteReportModel?,
+    ({String siteId, DateTime date})>((ref, arg) async {
   final service = ref.watch(siteReportServiceProvider);
   return service.getReportForDate(arg.siteId, arg.date);
 });
@@ -78,7 +84,8 @@ class ReportSubmissionNotifier extends StateNotifier<ReportSubmissionState> {
   final Ref _ref;
   final SiteReportService _service;
 
-  ReportSubmissionNotifier(this._ref, this._service) : super(const ReportSubmissionState());
+  ReportSubmissionNotifier(this._ref, this._service)
+      : super(const ReportSubmissionState());
 
   Future<DailySiteReportModel?> submitDailyReport({
     required String siteId,
@@ -99,7 +106,8 @@ class ReportSubmissionNotifier extends StateNotifier<ReportSubmissionState> {
         audioUrl = await _service.uploadAudio(
           audioBytes: audioBytes,
           siteId: siteId,
-          fileName: audioFileName ?? 'voice_${DateTime.now().millisecondsSinceEpoch}.m4a',
+          fileName: audioFileName ??
+              'voice_${DateTime.now().millisecondsSinceEpoch}.m4a',
         );
       }
 
@@ -163,7 +171,9 @@ class ReportSubmissionNotifier extends StateNotifier<ReportSubmissionState> {
   }
 }
 
-final reportSubmissionProvider = StateNotifierProvider<ReportSubmissionNotifier, ReportSubmissionState>((ref) {
+final reportSubmissionProvider =
+    StateNotifierProvider<ReportSubmissionNotifier, ReportSubmissionState>(
+        (ref) {
   final service = ref.watch(siteReportServiceProvider);
   return ReportSubmissionNotifier(ref, service);
 });

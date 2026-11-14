@@ -19,7 +19,8 @@ class AppBackgroundWatermark extends StatelessWidget {
     final isLight = AppColors.isLight;
 
     return Material(
-      color: isLight ? AppColors.appBackgroundLight : AppColors.appBackgroundDark,
+      color:
+          isLight ? AppColors.appBackgroundLight : AppColors.appBackgroundDark,
       child: Stack(
         fit: StackFit.expand,
         children: [
@@ -28,7 +29,9 @@ class AppBackgroundWatermark extends StatelessWidget {
             child: IgnorePointer(
               child: Center(
                 child: Opacity(
-                  opacity: isLight ? 0.08 : 0.12, // Subtle, corporate, non-distracting
+                  opacity: isLight
+                      ? 0.08
+                      : 0.12, // Subtle, corporate, non-distracting
                   child: Container(
                     width: logoSize,
                     height: logoSize,
@@ -36,8 +39,9 @@ class AppBackgroundWatermark extends StatelessWidget {
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: (isLight ? AppColors.primary : AppColors.waveCyan)
-                              .withValues(alpha: isLight ? 0.07 : 0.12),
+                          color:
+                              (isLight ? AppColors.primary : AppColors.waveCyan)
+                                  .withValues(alpha: isLight ? 0.07 : 0.12),
                           blurRadius: 60,
                           spreadRadius: 10,
                         ),

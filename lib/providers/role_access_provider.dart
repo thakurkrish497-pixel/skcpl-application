@@ -10,33 +10,28 @@ class RoleAccessNotifier extends StateNotifier<RolePermissionsModel> {
   final RoleAccessService _service;
 
   RoleAccessNotifier(this._service) : super(const RolePermissionsModel()) {
-    loadPermissions();
+    loadPermissions(forceRefresh: true);
   }
 
-  Future<void> loadPermissions({bool forceRefresh = false}) async {
+  Future<void> loadPermissions({bool forceRefresh = true}) async {
     try {
       final perms = await _service.getPermissions(forceRefresh: forceRefresh);
-      state = perms;
+      if (mounted) state = perms;
     } catch (_) {}
   }
 
   Future<bool> saveRolePermissions(RolePermissionsModel updated) async {
-    state = updated;
     try {
       await _service.savePermissions(updated);
+      if (mounted) state = updated;
       return true;
     } catch (_) {
       return false;
     }
   }
 
-  Future<void> resetToDefaults() async {
-    const defaultModel = RolePermissionsModel();
-    state = defaultModel;
-    try {
-      await _service.resetToDefaults();
-    } catch (_) {}
-  }
+  Future<bool> resetToDefaults() =>
+      saveRolePermissions(const RolePermissionsModel());
 }
 
 final roleAccessProvider =

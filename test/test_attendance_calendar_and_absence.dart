@@ -60,7 +60,9 @@ void main() {
       expect(punchRecord.displayStatusName, 'Present (On-Time)');
     });
 
-    test('2. Unmarked employee is computed as Absent with isUnmarkedAbsent == true', () {
+    test(
+        '2. Unmarked employee is computed as Absent with isUnmarkedAbsent == true',
+        () {
       final recordedList = [
         AttendanceRecordModel(
           id: 'punch-1',
@@ -197,10 +199,11 @@ void main() {
       ];
 
       // Filtering strictly for site-a
-      final targetSite = 'site-a';
+      const targetSite = 'site-a';
 
       final siteAStaff = allStaff.where((s) => s.siteId == targetSite).toList();
-      final siteAPunches = recordedPunches.where((r) => r.siteId == targetSite).toList();
+      final siteAPunches =
+          recordedPunches.where((r) => r.siteId == targetSite).toList();
 
       final rosterA = <AttendanceRecordModel>[...siteAPunches];
       for (final s in siteAStaff) {

@@ -1,0 +1,46 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'test_admin_approval_and_rejection.dart' as suite0;
+import 'test_admin_powers_and_bypass_routing.dart' as suite1;
+import 'test_announcements.dart' as suite2;
+import 'test_attendance_calendar_and_absence.dart' as suite3;
+import 'test_attendance_e2e_integration.dart' as suite4;
+import 'test_attendance_flow.dart' as suite5;
+import 'test_backup_and_audit_service.dart' as suite6;
+import 'test_birthday_notifications.dart' as suite7;
+import 'test_daily_site_reports.dart' as suite8;
+import 'test_groq_whisper.dart' as suite9;
+import 'test_hindi_locale.dart' as suite10;
+import 'test_language_modes.dart' as suite11;
+import 'test_multiple_dsr_and_voice_to_text.dart' as suite12;
+import 'test_new_features_verification.dart' as suite13;
+import 'test_nissarpur_workflow.dart' as suite14;
+import 'test_project_head_workflow.dart' as suite15;
+import 'test_site_report_service.dart' as suite16;
+import 'test_sla_alerts.dart' as suite17;
+import 'test_staff_and_supervisor_flow.dart' as suite18;
+import 'test_staff_kyc.dart' as suite19;
+import 'test_staff_module_permissions.dart' as suite20;
+
+void main() {
+  group('test_admin_approval_and_rejection', suite0.main);
+  group('test_admin_powers_and_bypass_routing', suite1.main);
+  group('test_announcements', suite2.main);
+  group('test_attendance_calendar_and_absence', suite3.main);
+  group('test_attendance_e2e_integration', suite4.main);
+  group('test_attendance_flow', suite5.main);
+  group('test_backup_and_audit_service', suite6.main);
+  group('test_birthday_notifications', suite7.main);
+  group('test_daily_site_reports', suite8.main);
+  group('test_groq_whisper', suite9.main);
+  group('test_hindi_locale', suite10.main);
+  group('test_language_modes', suite11.main);
+  group('test_multiple_dsr_and_voice_to_text', suite12.main);
+  group('test_new_features_verification', suite13.main);
+  group('test_nissarpur_workflow', suite14.main);
+  group('test_project_head_workflow', suite15.main);
+  group('test_site_report_service', suite16.main);
+  group('test_sla_alerts', suite17.main);
+  group('test_staff_and_supervisor_flow', suite18.main);
+  group('test_staff_kyc', suite19.main);
+  group('test_staff_module_permissions', suite20.main);
+}

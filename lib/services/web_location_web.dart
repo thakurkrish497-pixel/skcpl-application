@@ -1,64 +1,39 @@
 import 'dart:async';
-import 'dart:html' as html;
+import 'dart:js_interop';
+import 'package:web/web.dart' as web;
 import 'package:geolocator/geolocator.dart';
+
+Future<Position?> _locate(bool accurate) async {
+  final completer = Completer<Position?>();
+  web.window.navigator.geolocation.getCurrentPosition(
+      ((web.GeolocationPosition pos) {
+        if (completer.isCompleted) return;
+        final c = pos.coords;
+        completer.complete(Position(
+            latitude: c.latitude,
+            longitude: c.longitude,
+            timestamp:
+                DateTime.fromMillisecondsSinceEpoch(pos.timestamp.toInt()),
+            accuracy: c.accuracy,
+            altitude: c.altitude ?? 0,
+            altitudeAccuracy: c.altitudeAccuracy ?? 0,
+            heading: c.heading ?? 0,
+            headingAccuracy: 0,
+            speed: c.speed ?? 0,
+            speedAccuracy: 0));
+      }).toJS,
+      ((web.GeolocationPositionError error) {
+        if (!completer.isCompleted) completer.complete(null);
+      }).toJS,
+      web.PositionOptions(
+          enableHighAccuracy: accurate, timeout: 8000, maximumAge: 0));
+  return completer.future
+      .timeout(const Duration(seconds: 10), onTimeout: () => null);
+}
 
 Future<Position?> getWebBrowserLocation() async {
   try {
-    final geolocation = html.window.navigator.geolocation;
-    if (geolocation == null) return null;
-
-    final completer = Completer<Position?>();
-
-    geolocation.getCurrentPosition(
-      enableHighAccuracy: true,
-      timeout: const Duration(seconds: 8),
-    ).then((pos) {
-      final coords = pos.coords;
-      if (coords != null && coords.latitude != null && coords.longitude != null) {
-        completer.complete(Position(
-          latitude: coords.latitude!.toDouble(),
-          longitude: coords.longitude!.toDouble(),
-          timestamp: DateTime.now(),
-          accuracy: (coords.accuracy ?? 10.0).toDouble(),
-          altitude: (coords.altitude ?? 0.0).toDouble(),
-          altitudeAccuracy: (coords.altitudeAccuracy ?? 0.0).toDouble(),
-          heading: (coords.heading ?? 0.0).toDouble(),
-          headingAccuracy: 0.0,
-          speed: (coords.speed ?? 0.0).toDouble(),
-          speedAccuracy: 0.0,
-        ));
-      } else {
-        completer.complete(null);
-      }
-    }).catchError((err) {
-      // If high accuracy times out on laptop, retry without high accuracy
-      geolocation.getCurrentPosition(
-        enableHighAccuracy: false,
-        timeout: const Duration(seconds: 10),
-      ).then((pos) {
-        final coords = pos.coords;
-        if (coords != null && coords.latitude != null && coords.longitude != null) {
-          completer.complete(Position(
-            latitude: coords.latitude!.toDouble(),
-            longitude: coords.longitude!.toDouble(),
-            timestamp: DateTime.now(),
-            accuracy: (coords.accuracy ?? 20.0).toDouble(),
-            altitude: (coords.altitude ?? 0.0).toDouble(),
-            altitudeAccuracy: (coords.altitudeAccuracy ?? 0.0).toDouble(),
-            heading: (coords.heading ?? 0.0).toDouble(),
-            headingAccuracy: 0.0,
-            speed: (coords.speed ?? 0.0).toDouble(),
-            speedAccuracy: 0.0,
-          ));
-        } else {
-          completer.complete(null);
-        }
-      }).catchError((e2) {
-        completer.complete(null);
-      });
-    });
-
-    return completer.future;
+    return await _locate(true) ?? await _locate(false);
   } catch (_) {
     return null;
   }

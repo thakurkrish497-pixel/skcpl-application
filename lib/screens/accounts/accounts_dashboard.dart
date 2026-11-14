@@ -1,3 +1,4 @@
+import '../../widgets/responsive_toolbar_actions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -19,6 +20,8 @@ import '../../widgets/skcpl_announcement_bar.dart';
 import '../../widgets/notice_board_dialog.dart';
 import '../../widgets/notification_bell_button.dart';
 import '../../widgets/universal_sync_button.dart';
+import '../../widgets/site_finance_summary_header.dart';
+import '../../widgets/master_entry_history_view.dart';
 import '../home/home_screen.dart';
 import '../admin/site_details_screen.dart';
 import '../stock/add_product_screen.dart';
@@ -27,8 +30,25 @@ import '../cashbook/expense_form_screen.dart';
 import 'transaction_review_screen.dart';
 
 /// Accounts Dashboard — Review and approve/reject worker submissions
-class AccountsDashboard extends ConsumerWidget {
+class AccountsDashboard extends ConsumerStatefulWidget {
   const AccountsDashboard({super.key});
+
+  @override
+  ConsumerState<AccountsDashboard> createState() => _AccountsDashboardState();
+}
+
+class _AccountsDashboardState extends ConsumerState<AccountsDashboard> {
+  String _selectedSiteId = 'all';
+
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() {
+      ref.read(cashProvider.notifier).loadAllTransactions();
+      ref.read(stockProvider.notifier).loadAllTransactions();
+      ref.invalidate(allSitesStockProvider);
+    });
+  }
 
   Future<String?> _showRejectionDialog(BuildContext context) async {
     final controller = TextEditingController();
@@ -37,7 +57,8 @@ class AccountsDashboard extends ConsumerWidget {
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.cardDark,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Reject Transaction', style: TextStyle(color: Colors.white)),
+        title: const Text('Reject Transaction',
+            style: TextStyle(color: Colors.white)),
         content: TextField(
           controller: controller,
           style: const TextStyle(color: Colors.white),
@@ -48,26 +69,30 @@ class AccountsDashboard extends ConsumerWidget {
           maxLines: 2,
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (controller.text.trim().isNotEmpty) {
-                Navigator.pop(ctx, controller.text.trim());
-              }
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.rejected),
-            child: const Text('Confirm Reject'),
-          ),
+          ResponsiveToolbarActions(actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel',
+                  style: TextStyle(color: AppColors.textSecondary)),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (controller.text.trim().isNotEmpty) {
+                  Navigator.pop(ctx, controller.text.trim());
+                }
+              },
+              style:
+                  ElevatedButton.styleFrom(backgroundColor: AppColors.rejected),
+              child: const Text('Confirm Reject'),
+            ),
+          ])
         ],
       ),
     );
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final pendingStockAsync = ref.watch(pendingStockAccountsProvider);
     final pendingCashAsync = ref.watch(pendingCashAccountsProvider);
     final allSitesAsync = ref.watch(activeSitesProvider);
@@ -77,7 +102,7 @@ class AccountsDashboard extends ConsumerWidget {
     final canApproveCash = roleAccess.accountsCanApproveCash;
 
     return DefaultTabController(
-      length: 3,
+      length: 4,
       child: Scaffold(
         backgroundColor: AppColors.scaffoldDark,
         drawer: AppDrawer(
@@ -90,7 +115,8 @@ class AccountsDashboard extends ConsumerWidget {
             const NotificationBellButton(),
             const UniversalSyncButton(),
             IconButton(
-              icon: const Icon(Icons.campaign_rounded, color: AppColors.waveCyan),
+              icon:
+                  const Icon(Icons.campaign_rounded, color: AppColors.waveCyan),
               tooltip: 'Notice Board & Broadcast Announcements',
               onPressed: () => NoticeBoardDialog.show(context),
             ),
@@ -100,7 +126,9 @@ class AccountsDashboard extends ConsumerWidget {
               onPressed: () => _showSignOutDialog(context, ref),
             ),
           ],
-          bottom: TabBar(
+          bottom: const TabBar(
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
             labelColor: AppColors.primary,
             unselectedLabelColor: AppColors.textTertiary,
             indicatorColor: AppColors.primary,
@@ -109,9 +137,9 @@ class AccountsDashboard extends ConsumerWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.inventory_2, size: 18),
-                    const SizedBox(width: 6),
-                    const Text('Stock'),
+                    Icon(Icons.inventory_2, size: 18),
+                    SizedBox(width: 6),
+                    Text('Stock'),
                   ],
                 ),
               ),
@@ -119,9 +147,9 @@ class AccountsDashboard extends ConsumerWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.account_balance_wallet, size: 18),
-                    const SizedBox(width: 6),
-                    const Text('Cash'),
+                    Icon(Icons.account_balance_wallet, size: 18),
+                    SizedBox(width: 6),
+                    Text('Cash'),
                   ],
                 ),
               ),
@@ -129,9 +157,19 @@ class AccountsDashboard extends ConsumerWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.location_on, size: 18),
-                    const SizedBox(width: 6),
-                    const Text('Sites'),
+                    Icon(Icons.location_on, size: 18),
+                    SizedBox(width: 6),
+                    Text('Sites'),
+                  ],
+                ),
+              ),
+              Tab(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.history_edu, size: 18),
+                    SizedBox(width: 6),
+                    Text('All History'),
                   ],
                 ),
               ),
@@ -140,360 +178,560 @@ class AccountsDashboard extends ConsumerWidget {
         ),
         body: ResponsiveContainer(
           maxWidth: 1100,
-          child: Column(
-            children: [
-              // ── Birthday & Corporate Announcement Bar ──
-              const Padding(
-                padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
-                child: SkcplAnnouncementBar(margin: EdgeInsets.zero),
-              ),
-              // ── In-App SLA Overdue Notification Bar (>36h) ──
-              const Padding(
-                padding: EdgeInsets.fromLTRB(16, 8, 16, 0),
-                child: SlaNotificationBar(),
-              ),
-              Expanded(
-                child: TabBarView(
-                  children: [
-            // ── Tab 1: Pending Stock ──
-            if (!canApproveStock)
-              _buildExtractedPowerBanner(
-                title: 'Stock Approval Extracted by Admin',
-                message:
-                    'Per Admin policy, stock verification is bypassed for Accounts and flows directly from Project Head to Admin.',
-              )
-            else
-              pendingStockAsync.when(
-              loading: () => const Center(
-                  child:
-                      CircularProgressIndicator(color: AppColors.primary)),
-              error: (e, _) => Center(child: Text('Error: $e')),
-              data: (transactions) {
-                final sortedStock = [...transactions]
-                  ..sort((a, b) => (b.createdAt ?? b.date).compareTo(a.createdAt ?? a.date));
-                return sortedStock.isEmpty
-                  ? _emptyState('No Pending Stock', Icons.check_circle_outline)
-                  : ListView.separated(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: sortedStock.length,
-                      separatorBuilder: (_, __) =>
-                          const SizedBox(height: 10),
-                      itemBuilder: (context, index) {
-                        final tx = sortedStock[index];
-                        final batchSiblings = tx.batchId != null
-                            ? transactions.where((t) => t.batchId == tx.batchId).toList()
-                            : <StockTransactionModel>[];
-                        final batchCount = batchSiblings.length;
-
-                        final effectiveStockAmount = (tx.finalAmount != null && tx.finalAmount! > 0)
-                            ? tx.finalAmount!
-                            : tx.calculatedFinalAmount;
-
-                        return _ReviewableTile(
-                          title:
-                              '${tx.type.displayName}: ${tx.displayProductName} (${tx.quantity} ${tx.displayMetricUnitName})',
-                          subtitle:
-                              'Date: ${DateFormat('dd MMM yyyy').format(tx.date)}${tx.displayVendorName != 'None' ? ' • ${tx.displayVendorName}' : ''}${tx.billNo != null ? ' • Bill: #${tx.billNo}' : ''}${tx.cleanRemarks != null ? ' • ${tx.cleanRemarks}' : ''}',
-                          amount: effectiveStockAmount > 0 ? effectiveStockAmount : null,
-                          submitter: tx.submitterName,
-                          supervisorNote: tx.supervisorReviewNote,
-                          status: tx.status,
-                          batchId: tx.batchId,
-                          batchCount: batchCount,
-                          onApproveBatch: batchCount > 1 ? () async {
-                            final userId = ref.read(authProvider).user?.id ?? 
-                                           ref.read(supabaseClientProvider).auth.currentUser?.id ?? '';
-                            int approved = 0;
-                            for (final sTx in batchSiblings) {
-                              final success = await ref.read(stockProvider.notifier).approveByAccounts(sTx.id!, userId);
-                              if (success) approved++;
-                            }
-                            ref.invalidate(pendingStockAccountsProvider);
-                            ref.invalidate(pendingCashAccountsProvider);
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Approved batch ($approved items)!'),
-                                  backgroundColor: AppColors.approved,
-                                ),
-                              );
-                            }
-                          } : null,
-                          onTap: () async {
-                            await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => TransactionReviewScreen(
-                                  stockTransaction: tx,
-                                ),
-                              ),
-                            );
-                            ref.invalidate(pendingStockAccountsProvider);
-                            ref.invalidate(pendingCashAccountsProvider);
-                          },
-                          onEdit: () async {
-                            bool? didUpdate = false;
-                            if (tx.type == TransactionType.inbound) {
-                              didUpdate = await Navigator.push<bool>(context, MaterialPageRoute(
-                                builder: (_) => AddProductScreen(existingTransaction: tx),
-                              ));
-                            } else {
-                              didUpdate = await Navigator.push<bool>(context, MaterialPageRoute(
-                                builder: (_) => UseProductScreen(existingTransaction: tx),
-                              ));
-                            }
-                            if (didUpdate == true) {
-                              ref.invalidate(pendingStockAccountsProvider);
-                              ref.invalidate(pendingCashAccountsProvider);
-                            }
-                          },
-                          onApprove: () async {
-                            final userId = ref.read(authProvider).user?.id ?? 
-                                           ref.read(supabaseClientProvider).auth.currentUser?.id ?? '';
-                            final success = await ref.read(stockProvider.notifier).approveByAccounts(tx.id!, userId);
-                            ref.invalidate(pendingStockAccountsProvider);
-                            ref.invalidate(pendingCashAccountsProvider);
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(success ? 'Approved & forwarded to Admin!' : 'Approval failed. Please try again.'),
-                                  backgroundColor: success ? AppColors.approved : AppColors.rejected,
-                                ),
-                              );
-                            }
-                          },
-                          onReject: () async {
-                            final note = await _showRejectionDialog(context);
-                            if (note != null && note.isNotEmpty) {
-                              final userId = ref.read(authProvider).user?.id ?? 
-                                             ref.read(supabaseClientProvider).auth.currentUser?.id ?? '';
-                              final success = await ref.read(stockProvider.notifier).rejectTransaction(tx.id!, userId, note);
-                              ref.invalidate(pendingStockAccountsProvider);
-                              ref.invalidate(pendingCashAccountsProvider);
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(success ? 'Transaction rejected' : 'Rejection failed. Please try again.'),
-                                    backgroundColor: AppColors.rejected,
-                                  ),
-                                );
-                              }
-                            }
-                          },
-                        ).animate().fadeIn(
-                              delay: Duration(milliseconds: 50 * index),
-                            );
-                      },
-                    );
-              },
-            ),
-
-            // ── Tab 2: Pending Cash ──
-            if (!canApproveCash)
-              _buildExtractedPowerBanner(
-                title: 'Cashbook Approval Extracted by Admin',
-                message:
-                    'Per Admin policy, cash expense verification is bypassed for Accounts and flows directly from Project Head to Admin.',
-              )
-            else
-              pendingCashAsync.when(
-              loading: () => const Center(
-                  child:
-                       CircularProgressIndicator(color: AppColors.primary)),
-              error: (e, _) => Center(child: Text('Error: $e')),
-              data: (transactions) {
-                final sortedCash = [...transactions]
-                  ..sort((a, b) => (b.createdAt ?? b.date).compareTo(a.createdAt ?? a.date));
-                return sortedCash.isEmpty
-                  ? _emptyState('No Pending Cash', Icons.check_circle_outline)
-                  : ListView.separated(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: sortedCash.length,
-                      separatorBuilder: (_, __) =>
-                          const SizedBox(height: 10),
-                      itemBuilder: (context, index) {
-                        final tx = sortedCash[index];
-                        final isCashReceived = tx.amountReceived > 0 && tx.expenseAmount == 0;
-                        final batchSiblings = tx.batchId != null
-                            ? transactions.where((t) => t.batchId == tx.batchId).toList()
-                            : <CashTransactionModel>[];
-                        final batchCount = batchSiblings.length;
-
-                        return _ReviewableTile(
-                          title: isCashReceived
-                              ? 'CASH RECEIVED (Top-up): ₹${NumberFormat('#,##,###').format(tx.amountReceived)}'
-                              : '${tx.displayExpenseTypeName} — ₹${NumberFormat('#,##,###').format(tx.expenseAmount)}',
-                          subtitle: isCashReceived
-                              ? 'From: ${tx.customExpenseType ?? (tx.partyName ?? "Office")} • Date: ${DateFormat('dd MMM yyyy').format(tx.date)}${tx.billNo != null ? ' • Ref: #${tx.billNo}' : ''}${tx.cleanRemarks != null ? ' • ${tx.cleanRemarks}' : ''}'
-                              : 'Date: ${DateFormat('dd MMM yyyy').format(tx.date)}${tx.partyName != null ? ' • ${tx.partyName}' : ''}${tx.billNo != null ? ' • Bill: #${tx.billNo}' : ''}${tx.cleanRemarks != null ? ' • ${tx.cleanRemarks}' : ''}',
-                          amount: isCashReceived ? tx.amountReceived : tx.expenseAmount,
-                          submitter: tx.submitterName,
-                          supervisorNote: tx.supervisorReviewNote,
-                          status: tx.status,
-                          batchId: tx.batchId,
-                          batchCount: batchCount,
-                          onApproveBatch: batchCount > 1 ? () async {
-                            final userId = ref.read(authProvider).user?.id ?? 
-                                           ref.read(supabaseClientProvider).auth.currentUser?.id ?? '';
-                            int approved = 0;
-                            for (final cTx in batchSiblings) {
-                              final success = await ref.read(cashProvider.notifier).approveByAccounts(cTx.id!, userId);
-                              if (success) approved++;
-                            }
-                            ref.invalidate(pendingCashAccountsProvider);
-                            ref.invalidate(pendingStockAccountsProvider);
-                            ref.invalidate(siteCashSummaryProvider(tx.siteId));
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Approved batch ($approved cash entries)!'),
-                                  backgroundColor: AppColors.approved,
-                                ),
-                              );
-                            }
-                          } : null,
-                          onTap: () async {
-                            await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => TransactionReviewScreen(
-                                  cashTransaction: tx,
-                                ),
-                              ),
-                            );
-                            ref.invalidate(pendingCashAccountsProvider);
-                            ref.invalidate(pendingStockAccountsProvider);
-                            ref.invalidate(siteCashSummaryProvider(tx.siteId));
-                          },
-                          onEdit: () async {
-                            final didUpdate = await Navigator.push<bool>(context, MaterialPageRoute(
-                              builder: (_) => ExpenseFormScreen(existingTransaction: tx),
-                            ));
-                            if (didUpdate == true) {
-                              ref.invalidate(pendingCashAccountsProvider);
-                              ref.invalidate(pendingStockAccountsProvider);
-                              ref.invalidate(siteCashSummaryProvider(tx.siteId));
-                            }
-                          },
-                          onApprove: () async {
-                            final userId = ref.read(authProvider).user?.id ?? 
-                                           ref.read(supabaseClientProvider).auth.currentUser?.id ?? '';
-                            final success = await ref.read(cashProvider.notifier).approveByAccounts(tx.id!, userId);
-                            ref.invalidate(pendingCashAccountsProvider);
-                            ref.invalidate(pendingStockAccountsProvider);
-                            ref.invalidate(siteCashSummaryProvider(tx.siteId));
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(success ? 'Approved & forwarded to Admin!' : 'Approval failed. Please try again.'),
-                                  backgroundColor: success ? AppColors.approved : AppColors.rejected,
-                                ),
-                              );
-                            }
-                          },
-                          onReject: () async {
-                            final note = await _showRejectionDialog(context);
-                            if (note != null && note.isNotEmpty) {
-                              final userId = ref.read(authProvider).user?.id ?? 
-                                             ref.read(supabaseClientProvider).auth.currentUser?.id ?? '';
-                              final success = await ref.read(cashProvider.notifier).rejectTransaction(tx.id!, userId, note);
-                              ref.invalidate(pendingCashAccountsProvider);
-                              ref.invalidate(pendingStockAccountsProvider);
-                              ref.invalidate(siteCashSummaryProvider(tx.siteId));
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(success ? 'Transaction rejected' : 'Rejection failed. Please try again.'),
-                                    backgroundColor: AppColors.rejected,
-                                  ),
-                                );
-                              }
-                            }
-                          },
-                        ).animate().fadeIn(
-                              delay: Duration(milliseconds: 50 * index),
-                            );
-                      },
-                    );
-              },
-            ),
-
-            // ── Tab 3: Sites Overview ──
-            allSitesAsync.when(
-              loading: () => const Center(
-                  child:
-                      CircularProgressIndicator(color: AppColors.primary)),
-              error: (e, _) => Center(child: Text('Error: $e')),
-              data: (sitesList) => sitesList.isEmpty
-                  ? _emptyState('No Sites Found', Icons.location_on_outlined)
-                  : Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Select Site for Details',
-                            style: AppTextStyles.h4
-                                .copyWith(color: AppColors.textPrimary),
-                          ).animate().fadeIn(),
-                          const SizedBox(height: 16),
-                          Expanded(
-                            child: ListView.separated(
-                              itemCount: sitesList.length,
-                              separatorBuilder: (_, __) =>
-                                  const SizedBox(height: 10),
-                              itemBuilder: (context, index) {
-                                final site = sitesList[index];
-                                return ListTile(
-                                  tileColor: AppColors.cardDark,
-                                  shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(14),
-                                      side: const BorderSide(
-                                          color: AppColors.divider, width: 0.5)),
-                                  title: Text(
-                                    site.name,
-                                    style: AppTextStyles.labelLarge
-                                        .copyWith(color: AppColors.textPrimary),
-                                  ),
-                                  subtitle: Text(
-                                    site.address ?? 'No address provided',
-                                    style: AppTextStyles.bodySmall
-                                        .copyWith(color: AppColors.textSecondary),
-                                  ),
-                                  trailing: const Icon(Icons.chevron_right,
-                                      color: AppColors.textTertiary),
-                                  onTap: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) => SiteDetailsScreen(site: site),
-                                      ),
-                                    );
-                                  },
-                                ).animate().fadeIn(
-                                      delay: Duration(
-                                          milliseconds: 50 * index),
-                                    );
+          child: NestedScrollView(
+            headerSliverBuilder: (context, innerBoxIsScrolled) => [
+              SliverToBoxAdapter(
+                  child: Column(
+                children: [
+                  // ── Birthday & Corporate Announcement Bar ──
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
+                    child: SkcplAnnouncementBar(margin: EdgeInsets.zero),
+                  ),
+                  // ── In-App SLA Overdue Notification Bar (>36h) ──
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(16, 8, 16, 0),
+                    child: SlaNotificationBar(),
+                  ),
+                  // ── Interactive Site Finance & Live Balance Summary Header ──
+                  SiteFinanceSummaryHeader(
+                    selectedSiteId: _selectedSiteId,
+                    onSiteChanged: (val) {
+                      setState(() => _selectedSiteId = val);
+                      if (val == 'all') {
+                        ref.read(cashProvider.notifier).loadAllTransactions();
+                        ref.read(stockProvider.notifier).loadAllTransactions();
+                      } else {
+                        ref.read(cashProvider.notifier).loadTransactions(val);
+                        ref.read(stockProvider.notifier).loadTransactions(val);
+                      }
+                    },
+                  ),
+                ],
+              )),
+            ],
+            body: TabBarView(
+              children: [
+                // ── Tab 1: Pending Stock ──
+                if (!canApproveStock)
+                  _buildExtractedPowerBanner(
+                    title: 'Stock Approval Extracted by Admin',
+                    message:
+                        'Per Admin policy, stock verification is bypassed for Accounts and flows directly from Project Head to Admin.',
+                  )
+                else
+                  pendingStockAsync.when(
+                    loading: () => const Center(
+                        child: CircularProgressIndicator(
+                            color: AppColors.primary)),
+                    error: (e, _) => Center(child: Text('Error: $e')),
+                    data: (transactions) {
+                      final siteFiltered = _selectedSiteId == 'all'
+                          ? transactions
+                          : transactions
+                              .where((t) => t.siteId == _selectedSiteId)
+                              .toList();
+                      final sortedStock = [...siteFiltered]..sort((a, b) =>
+                          (b.createdAt ?? b.date)
+                              .compareTo(a.createdAt ?? a.date));
+                      return sortedStock.isEmpty
+                          ? _emptyState(
+                              'No Pending Stock', Icons.check_circle_outline)
+                          : RefreshIndicator(
+                              color: AppColors.primary,
+                              onRefresh: () async {
+                                ref.invalidate(pendingStockAccountsProvider);
+                                ref.invalidate(pendingCashAccountsProvider);
                               },
-                            ),
+                              child: ListView.separated(
+                                padding: const EdgeInsets.all(16),
+                                itemCount: sortedStock.length,
+                                separatorBuilder: (_, __) =>
+                                    const SizedBox(height: 10),
+                                itemBuilder: (context, index) {
+                                  final tx = sortedStock[index];
+                                  final batchSiblings = tx.batchId != null
+                                      ? transactions
+                                          .where((t) => t.batchId == tx.batchId)
+                                          .toList()
+                                      : <StockTransactionModel>[];
+                                  final batchCount = batchSiblings.length;
+
+                                  final effectiveStockAmount =
+                                      (tx.finalAmount != null &&
+                                              tx.finalAmount! > 0)
+                                          ? tx.finalAmount!
+                                          : tx.calculatedFinalAmount;
+
+                                  return _ReviewableTile(
+                                    title:
+                                        '${tx.type.displayName}: ${tx.displayProductName} (${tx.quantity} ${tx.displayMetricUnitName})',
+                                    subtitle:
+                                        'Date: ${DateFormat('dd MMM yyyy').format(tx.date)}${tx.displayVendorName != 'None' ? ' • ${tx.displayVendorName}' : ''}${tx.billNo != null ? ' • Bill: #${tx.billNo}' : ''}${tx.cleanRemarks != null ? ' • ${tx.cleanRemarks}' : ''}',
+                                    amount: effectiveStockAmount > 0
+                                        ? effectiveStockAmount
+                                        : null,
+                                    submitter: tx.submitterName,
+                                    supervisorNote: tx.supervisorReviewNote,
+                                    status: tx.status,
+                                    batchId: tx.batchId,
+                                    batchCount: batchCount,
+                                    onApproveBatch: batchCount > 1
+                                        ? () async {
+                                            final userId = ref
+                                                    .read(authProvider)
+                                                    .user
+                                                    ?.id ??
+                                                ref
+                                                    .read(
+                                                        supabaseClientProvider)
+                                                    .auth
+                                                    .currentUser
+                                                    ?.id ??
+                                                '';
+                                            int approved = 0;
+                                            for (final sTx in batchSiblings) {
+                                              final success = await ref
+                                                  .read(stockProvider.notifier)
+                                                  .approveByAccounts(
+                                                      sTx.id!, userId);
+                                              if (success) approved++;
+                                            }
+                                            ref.invalidate(
+                                                pendingStockAccountsProvider);
+                                            ref.invalidate(
+                                                pendingCashAccountsProvider);
+                                            if (context.mounted) {
+                                              ScaffoldMessenger.of(context)
+                                                  .showSnackBar(
+                                                SnackBar(
+                                                  content: Text(
+                                                      'Approved batch ($approved items)!'),
+                                                  backgroundColor:
+                                                      AppColors.approved,
+                                                ),
+                                              );
+                                            }
+                                          }
+                                        : null,
+                                    onTap: () async {
+                                      await Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) =>
+                                              TransactionReviewScreen(
+                                            stockTransaction: tx,
+                                          ),
+                                        ),
+                                      );
+                                      ref.invalidate(
+                                          pendingStockAccountsProvider);
+                                      ref.invalidate(
+                                          pendingCashAccountsProvider);
+                                    },
+                                    onEdit: () async {
+                                      bool? didUpdate = false;
+                                      if (tx.type == TransactionType.inbound) {
+                                        didUpdate = await Navigator.push<bool>(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (_) => AddProductScreen(
+                                                  existingTransaction: tx),
+                                            ));
+                                      } else {
+                                        didUpdate = await Navigator.push<bool>(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (_) => UseProductScreen(
+                                                  existingTransaction: tx),
+                                            ));
+                                      }
+                                      if (didUpdate == true) {
+                                        ref.invalidate(
+                                            pendingStockAccountsProvider);
+                                        ref.invalidate(
+                                            pendingCashAccountsProvider);
+                                      }
+                                    },
+                                    onApprove: () async {
+                                      final userId =
+                                          ref.read(authProvider).user?.id ??
+                                              ref
+                                                  .read(supabaseClientProvider)
+                                                  .auth
+                                                  .currentUser
+                                                  ?.id ??
+                                              '';
+                                      final success = await ref
+                                          .read(stockProvider.notifier)
+                                          .approveByAccounts(tx.id!, userId);
+                                      ref.invalidate(
+                                          pendingStockAccountsProvider);
+                                      ref.invalidate(
+                                          pendingCashAccountsProvider);
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          SnackBar(
+                                            content: Text(success
+                                                ? 'Approved & forwarded to Admin!'
+                                                : 'Approval failed. Please try again.'),
+                                            backgroundColor: success
+                                                ? AppColors.approved
+                                                : AppColors.rejected,
+                                          ),
+                                        );
+                                      }
+                                    },
+                                    onReject: () async {
+                                      final note =
+                                          await _showRejectionDialog(context);
+                                      if (note != null && note.isNotEmpty) {
+                                        final userId = ref
+                                                .read(authProvider)
+                                                .user
+                                                ?.id ??
+                                            ref
+                                                .read(supabaseClientProvider)
+                                                .auth
+                                                .currentUser
+                                                ?.id ??
+                                            '';
+                                        final success = await ref
+                                            .read(stockProvider.notifier)
+                                            .rejectTransaction(
+                                                tx.id!, userId, note);
+                                        ref.invalidate(
+                                            pendingStockAccountsProvider);
+                                        ref.invalidate(
+                                            pendingCashAccountsProvider);
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                            SnackBar(
+                                              content: Text(success
+                                                  ? 'Transaction rejected'
+                                                  : 'Rejection failed. Please try again.'),
+                                              backgroundColor:
+                                                  AppColors.rejected,
+                                            ),
+                                          );
+                                        }
+                                      }
+                                    },
+                                  ).animate().fadeIn(
+                                        delay:
+                                            Duration(milliseconds: 50 * index),
+                                      );
+                                },
+                              ),
+                            );
+                    },
+                  ),
+
+                // ── Tab 2: Pending Cash ──
+                if (!canApproveCash)
+                  _buildExtractedPowerBanner(
+                    title: 'Cashbook Approval Extracted by Admin',
+                    message:
+                        'Per Admin policy, cash expense verification is bypassed for Accounts and flows directly from Project Head to Admin.',
+                  )
+                else
+                  pendingCashAsync.when(
+                    loading: () => const Center(
+                        child: CircularProgressIndicator(
+                            color: AppColors.primary)),
+                    error: (e, _) => Center(child: Text('Error: $e')),
+                    data: (transactions) {
+                      final siteFiltered = _selectedSiteId == 'all'
+                          ? transactions
+                          : transactions
+                              .where((t) => t.siteId == _selectedSiteId)
+                              .toList();
+                      final sortedCash = [...siteFiltered]..sort((a, b) =>
+                          (b.createdAt ?? b.date)
+                              .compareTo(a.createdAt ?? a.date));
+                      return sortedCash.isEmpty
+                          ? _emptyState(
+                              'No Pending Cash', Icons.check_circle_outline)
+                          : RefreshIndicator(
+                              color: AppColors.primary,
+                              onRefresh: () async {
+                                ref.invalidate(pendingCashAccountsProvider);
+                                ref.invalidate(pendingStockAccountsProvider);
+                              },
+                              child: ListView.separated(
+                                padding: const EdgeInsets.all(16),
+                                itemCount: sortedCash.length,
+                                separatorBuilder: (_, __) =>
+                                    const SizedBox(height: 10),
+                                itemBuilder: (context, index) {
+                                  final tx = sortedCash[index];
+                                  final isCashReceived =
+                                      tx.amountReceived > 0 &&
+                                          tx.expenseAmount == 0;
+                                  final batchSiblings = tx.batchId != null
+                                      ? transactions
+                                          .where((t) => t.batchId == tx.batchId)
+                                          .toList()
+                                      : <CashTransactionModel>[];
+                                  final batchCount = batchSiblings.length;
+
+                                  return _ReviewableTile(
+                                    title: isCashReceived
+                                        ? 'CASH RECEIVED (Top-up): ₹${NumberFormat('#,##,###').format(tx.amountReceived)}'
+                                        : '${tx.displayExpenseTypeName} — ₹${NumberFormat('#,##,###').format(tx.expenseAmount)}',
+                                    subtitle: isCashReceived
+                                        ? 'From: ${tx.customExpenseType ?? (tx.partyName ?? "Office")} • Date: ${DateFormat('dd MMM yyyy').format(tx.date)}${tx.billNo != null ? ' • Ref: #${tx.billNo}' : ''}${tx.cleanRemarks != null ? ' • ${tx.cleanRemarks}' : ''}'
+                                        : 'Date: ${DateFormat('dd MMM yyyy').format(tx.date)}${tx.partyName != null ? ' • ${tx.partyName}' : ''}${tx.billNo != null ? ' • Bill: #${tx.billNo}' : ''}${tx.cleanRemarks != null ? ' • ${tx.cleanRemarks}' : ''}',
+                                    amount: isCashReceived
+                                        ? tx.amountReceived
+                                        : tx.expenseAmount,
+                                    submitter: tx.submitterName,
+                                    supervisorNote: tx.supervisorReviewNote,
+                                    status: tx.status,
+                                    batchId: tx.batchId,
+                                    batchCount: batchCount,
+                                    onApproveBatch: batchCount > 1
+                                        ? () async {
+                                            final userId = ref
+                                                    .read(authProvider)
+                                                    .user
+                                                    ?.id ??
+                                                ref
+                                                    .read(
+                                                        supabaseClientProvider)
+                                                    .auth
+                                                    .currentUser
+                                                    ?.id ??
+                                                '';
+                                            int approved = 0;
+                                            for (final cTx in batchSiblings) {
+                                              final success = await ref
+                                                  .read(cashProvider.notifier)
+                                                  .approveByAccounts(
+                                                      cTx.id!, userId);
+                                              if (success) approved++;
+                                            }
+                                            ref.invalidate(
+                                                pendingCashAccountsProvider);
+                                            ref.invalidate(
+                                                pendingStockAccountsProvider);
+                                            ref.invalidate(
+                                                siteCashSummaryProvider(
+                                                    tx.siteId));
+                                            if (context.mounted) {
+                                              ScaffoldMessenger.of(context)
+                                                  .showSnackBar(
+                                                SnackBar(
+                                                  content: Text(
+                                                      'Approved batch ($approved cash entries)!'),
+                                                  backgroundColor:
+                                                      AppColors.approved,
+                                                ),
+                                              );
+                                            }
+                                          }
+                                        : null,
+                                    onTap: () async {
+                                      await Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) =>
+                                              TransactionReviewScreen(
+                                            cashTransaction: tx,
+                                          ),
+                                        ),
+                                      );
+                                      ref.invalidate(
+                                          pendingCashAccountsProvider);
+                                      ref.invalidate(
+                                          pendingStockAccountsProvider);
+                                      ref.invalidate(
+                                          siteCashSummaryProvider(tx.siteId));
+                                    },
+                                    onEdit: () async {
+                                      final didUpdate =
+                                          await Navigator.push<bool>(
+                                              context,
+                                              MaterialPageRoute(
+                                                builder: (_) =>
+                                                    ExpenseFormScreen(
+                                                        existingTransaction:
+                                                            tx),
+                                              ));
+                                      if (didUpdate == true) {
+                                        ref.invalidate(
+                                            pendingCashAccountsProvider);
+                                        ref.invalidate(
+                                            pendingStockAccountsProvider);
+                                        ref.invalidate(
+                                            siteCashSummaryProvider(tx.siteId));
+                                      }
+                                    },
+                                    onApprove: () async {
+                                      final userId =
+                                          ref.read(authProvider).user?.id ??
+                                              ref
+                                                  .read(supabaseClientProvider)
+                                                  .auth
+                                                  .currentUser
+                                                  ?.id ??
+                                              '';
+                                      final success = await ref
+                                          .read(cashProvider.notifier)
+                                          .approveByAccounts(tx.id!, userId);
+                                      ref.invalidate(
+                                          pendingCashAccountsProvider);
+                                      ref.invalidate(
+                                          pendingStockAccountsProvider);
+                                      ref.invalidate(
+                                          siteCashSummaryProvider(tx.siteId));
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          SnackBar(
+                                            content: Text(success
+                                                ? 'Approved & forwarded to Admin!'
+                                                : 'Approval failed. Please try again.'),
+                                            backgroundColor: success
+                                                ? AppColors.approved
+                                                : AppColors.rejected,
+                                          ),
+                                        );
+                                      }
+                                    },
+                                    onReject: () async {
+                                      final note =
+                                          await _showRejectionDialog(context);
+                                      if (note != null && note.isNotEmpty) {
+                                        final userId = ref
+                                                .read(authProvider)
+                                                .user
+                                                ?.id ??
+                                            ref
+                                                .read(supabaseClientProvider)
+                                                .auth
+                                                .currentUser
+                                                ?.id ??
+                                            '';
+                                        final success = await ref
+                                            .read(cashProvider.notifier)
+                                            .rejectTransaction(
+                                                tx.id!, userId, note);
+                                        ref.invalidate(
+                                            pendingCashAccountsProvider);
+                                        ref.invalidate(
+                                            pendingStockAccountsProvider);
+                                        ref.invalidate(
+                                            siteCashSummaryProvider(tx.siteId));
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                            SnackBar(
+                                              content: Text(success
+                                                  ? 'Transaction rejected'
+                                                  : 'Rejection failed. Please try again.'),
+                                              backgroundColor:
+                                                  AppColors.rejected,
+                                            ),
+                                          );
+                                        }
+                                      }
+                                    },
+                                  ).animate().fadeIn(
+                                        delay:
+                                            Duration(milliseconds: 50 * index),
+                                      );
+                                },
+                              ),
+                            );
+                    },
+                  ),
+
+                // ── Tab 3: Sites Overview ──
+                allSitesAsync.when(
+                  loading: () => const Center(
+                      child:
+                          CircularProgressIndicator(color: AppColors.primary)),
+                  error: (e, _) => Center(child: Text('Error: $e')),
+                  data: (sitesList) => sitesList.isEmpty
+                      ? _emptyState(
+                          'No Sites Found', Icons.location_on_outlined)
+                      : Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Select Site for Details',
+                                style: AppTextStyles.h4
+                                    .copyWith(color: AppColors.textPrimary),
+                              ).animate().fadeIn(),
+                              const SizedBox(height: 16),
+                              Expanded(
+                                child: ListView.separated(
+                                  itemCount: sitesList.length,
+                                  separatorBuilder: (_, __) =>
+                                      const SizedBox(height: 10),
+                                  itemBuilder: (context, index) {
+                                    final site = sitesList[index];
+                                    return ListTile(
+                                      tileColor: AppColors.cardDark,
+                                      shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(14),
+                                          side: const BorderSide(
+                                              color: AppColors.divider,
+                                              width: 0.5)),
+                                      title: Text(
+                                        site.name,
+                                        style: AppTextStyles.labelLarge
+                                            .copyWith(
+                                                color: AppColors.textPrimary),
+                                      ),
+                                      subtitle: Text(
+                                        site.address ?? 'No address provided',
+                                        style: AppTextStyles.bodySmall.copyWith(
+                                            color: AppColors.textSecondary),
+                                      ),
+                                      trailing: const Icon(Icons.chevron_right,
+                                          color: AppColors.textTertiary),
+                                      onTap: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) =>
+                                                SiteDetailsScreen(site: site),
+                                          ),
+                                        );
+                                      },
+                                    ).animate().fadeIn(
+                                          delay: Duration(
+                                              milliseconds: 50 * index),
+                                        );
+                                  },
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                    ),
+                        ),
+                ),
+
+                // ── Tab 4: Master Entry History ──
+                MasterEntryHistoryView(selectedSiteId: _selectedSiteId),
+              ],
             ),
-          ],
+          ),
         ),
-      ),
-    ],
-  ),
-),
       ),
     );
   }
 
   Widget _emptyState(String message, IconData icon) {
     return Center(
-      child: Column(
+      child: SingleChildScrollView(
+          child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(icon, color: AppColors.approved, size: 64),
@@ -505,11 +743,12 @@ class AccountsDashboard extends ConsumerWidget {
               style: AppTextStyles.bodyMedium
                   .copyWith(color: AppColors.textSecondary)),
         ],
-      ),
+      )),
     );
   }
 
-  Widget _buildExtractedPowerBanner({required String title, required String message}) {
+  Widget _buildExtractedPowerBanner(
+      {required String title, required String message}) {
     return Center(
       child: Container(
         margin: const EdgeInsets.all(24),
@@ -517,7 +756,8 @@ class AccountsDashboard extends ConsumerWidget {
         decoration: BoxDecoration(
           color: AppColors.surfaceDark,
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: AppColors.goldAccent.withValues(alpha: 0.4)),
+          border:
+              Border.all(color: AppColors.goldAccent.withValues(alpha: 0.4)),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.3),
@@ -535,7 +775,8 @@ class AccountsDashboard extends ConsumerWidget {
                 color: AppColors.goldAccent.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.shield_rounded, color: AppColors.goldAccent, size: 36),
+              child: const Icon(Icons.shield_rounded,
+                  color: AppColors.goldAccent, size: 36),
             ),
             const SizedBox(height: 16),
             Text(
@@ -563,12 +804,14 @@ class AccountsDashboard extends ConsumerWidget {
               decoration: BoxDecoration(
                 color: AppColors.approved.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: AppColors.approved.withValues(alpha: 0.3)),
+                border: Border.all(
+                    color: AppColors.approved.withValues(alpha: 0.3)),
               ),
               child: const Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.alt_route_rounded, color: AppColors.approved, size: 16),
+                  Icon(Icons.alt_route_rounded,
+                      color: AppColors.approved, size: 16),
                   SizedBox(width: 6),
                   Text(
                     'Active Policy: Project Head ➔ Admin Direct',
@@ -604,7 +847,8 @@ class AccountsDashboard extends ConsumerWidget {
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.rejected),
+            style:
+                ElevatedButton.styleFrom(backgroundColor: AppColors.rejected),
             onPressed: () async {
               Navigator.pop(ctx);
               await ref.read(authProvider.notifier).signOut();
@@ -675,18 +919,21 @@ class _ReviewableTile extends StatelessWidget {
                 if (batchId != null && (batchCount ?? 0) > 1) ...[
                   Container(
                     margin: const EdgeInsets.only(bottom: 10),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
                       color: AppColors.primary.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                      border: Border.all(
+                          color: AppColors.primary.withValues(alpha: 0.3)),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Row(
                           children: [
-                            const Icon(Icons.layers_rounded, size: 14, color: AppColors.primary),
+                            const Icon(Icons.layers_rounded,
+                                size: 14, color: AppColors.primary),
                             const SizedBox(width: 6),
                             Text(
                               'Part of Batch ($batchCount items)',
@@ -702,7 +949,8 @@ class _ReviewableTile extends StatelessWidget {
                           InkWell(
                             onTap: onApproveBatch,
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 3),
                               decoration: BoxDecoration(
                                 color: AppColors.approved,
                                 borderRadius: BorderRadius.circular(6),
@@ -748,7 +996,8 @@ class _ReviewableTile extends StatelessWidget {
                                     decoration: BoxDecoration(
                                       color: AppColors.surfaceDark,
                                       borderRadius: BorderRadius.circular(6),
-                                      border: Border.all(color: AppColors.divider),
+                                      border:
+                                          Border.all(color: AppColors.divider),
                                     ),
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
@@ -758,7 +1007,8 @@ class _ReviewableTile extends StatelessWidget {
                                         const SizedBox(width: 4),
                                         Text(
                                           'Entered by: $submitter',
-                                          style: AppTextStyles.bodySmall.copyWith(
+                                          style:
+                                              AppTextStyles.bodySmall.copyWith(
                                             fontSize: 11,
                                             fontWeight: FontWeight.w600,
                                             color: AppColors.textPrimary,
@@ -772,10 +1022,12 @@ class _ReviewableTile extends StatelessWidget {
                                     padding: const EdgeInsets.symmetric(
                                         horizontal: 6, vertical: 2),
                                     decoration: BoxDecoration(
-                                      color: AppColors.primary.withOpacity(0.1),
+                                      color: AppColors.primary
+                                          .withValues(alpha: 0.1),
                                       borderRadius: BorderRadius.circular(6),
                                       border: Border.all(
-                                          color: AppColors.primary.withOpacity(0.3)),
+                                          color: AppColors.primary
+                                              .withValues(alpha: 0.3)),
                                     ),
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
@@ -785,7 +1037,8 @@ class _ReviewableTile extends StatelessWidget {
                                         const SizedBox(width: 4),
                                         Text(
                                           'Supervisor: $supervisorNote',
-                                          style: AppTextStyles.bodySmall.copyWith(
+                                          style:
+                                              AppTextStyles.bodySmall.copyWith(
                                             fontSize: 11,
                                             fontWeight: FontWeight.w600,
                                             color: AppColors.primary,
@@ -821,7 +1074,9 @@ class _ReviewableTile extends StatelessWidget {
                     ),
                   ],
                 ),
-                if (onEdit != null || onApprove != null || onReject != null) ...[
+                if (onEdit != null ||
+                    onApprove != null ||
+                    onReject != null) ...[
                   const SizedBox(height: 14),
                   Row(
                     children: [
@@ -830,11 +1085,13 @@ class _ReviewableTile extends StatelessWidget {
                           height: 38,
                           child: OutlinedButton.icon(
                             onPressed: onTap,
-                            icon: const Icon(Icons.visibility_outlined, size: 16),
+                            icon:
+                                const Icon(Icons.visibility_outlined, size: 16),
                             label: const Text('View'),
                             style: OutlinedButton.styleFrom(
                               foregroundColor: AppColors.textPrimary,
-                              side: const BorderSide(color: AppColors.cardBorder),
+                              side:
+                                  const BorderSide(color: AppColors.cardBorder),
                               padding: EdgeInsets.zero,
                             ),
                           ),
@@ -847,11 +1104,13 @@ class _ReviewableTile extends StatelessWidget {
                             height: 38,
                             child: OutlinedButton.icon(
                               onPressed: onEdit,
-                              icon: const Icon(Icons.edit_note_rounded, size: 18),
+                              icon:
+                                  const Icon(Icons.edit_note_rounded, size: 18),
                               label: const Text('Edit'),
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: AppColors.primary,
-                                side: const BorderSide(color: AppColors.primary),
+                                side:
+                                    const BorderSide(color: AppColors.primary),
                                 padding: EdgeInsets.zero,
                               ),
                             ),
@@ -869,7 +1128,8 @@ class _ReviewableTile extends StatelessWidget {
                               label: const Text('Reject'),
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: AppColors.rejected,
-                                side: const BorderSide(color: AppColors.rejected),
+                                side:
+                                    const BorderSide(color: AppColors.rejected),
                                 padding: EdgeInsets.zero,
                               ),
                             ),
@@ -883,7 +1143,8 @@ class _ReviewableTile extends StatelessWidget {
                             height: 38,
                             child: ElevatedButton.icon(
                               onPressed: onApprove,
-                              icon: const Icon(Icons.check_circle_outline, size: 18),
+                              icon: const Icon(Icons.check_circle_outline,
+                                  size: 18),
                               label: const Text('Approve'),
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: AppColors.approved,

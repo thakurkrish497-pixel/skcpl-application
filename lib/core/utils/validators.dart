@@ -65,7 +65,8 @@ class Validators {
     return null;
   }
 
-  static String? nonNegativeNumber(String? value, [String fieldName = 'Value']) {
+  static String? nonNegativeNumber(String? value,
+      [String fieldName = 'Value']) {
     if (value == null || value.trim().isEmpty) {
       return null; // Optional field
     }
@@ -79,7 +80,8 @@ class Validators {
     return null;
   }
 
-  static String? dropdownRequired(dynamic value, [String fieldName = 'Selection']) {
+  static String? dropdownRequired(dynamic value,
+      [String fieldName = 'Selection']) {
     if (value == null) {
       return 'Please select a $fieldName';
     }

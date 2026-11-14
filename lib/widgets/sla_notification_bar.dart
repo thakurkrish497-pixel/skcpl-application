@@ -48,8 +48,8 @@ class _SlaNotificationBarState extends ConsumerState<SlaNotificationBar> {
         SnackBar(
           content: Text(
             granted
-              ? '🔔 Desktop & Phone Notifications Enabled!'
-              : '⚠️ Notification permission was not granted by your browser/device.',
+                ? '🔔 Desktop & Phone Notifications Enabled!'
+                : '⚠️ Notification permission was not granted by your browser/device.',
           ),
           backgroundColor: granted ? AppColors.approved : AppColors.goldAccent,
         ),
@@ -130,14 +130,18 @@ class _SlaNotificationBarState extends ConsumerState<SlaNotificationBar> {
                 children: [
                   Row(
                     children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      Flexible(
+                          child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
                           color: const Color(0xFFEF4444),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
                           '$totalCount OVERDUE (>36h)',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 10,
@@ -145,7 +149,7 @@ class _SlaNotificationBarState extends ConsumerState<SlaNotificationBar> {
                             letterSpacing: 0.6,
                           ),
                         ),
-                      ),
+                      )),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
@@ -183,10 +187,12 @@ class _SlaNotificationBarState extends ConsumerState<SlaNotificationBar> {
               style: TextButton.styleFrom(
                 backgroundColor: AppColors.waveCyan.withValues(alpha: 0.15),
                 foregroundColor: AppColors.waveCyan,
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
-                  side: BorderSide(color: AppColors.waveCyan.withValues(alpha: 0.4)),
+                  side: BorderSide(
+                      color: AppColors.waveCyan.withValues(alpha: 0.4)),
                 ),
               ),
               onPressed: () {
@@ -194,12 +200,14 @@ class _SlaNotificationBarState extends ConsumerState<SlaNotificationBar> {
                 widget.onAlertTap?.call();
               },
               icon: const Icon(Icons.arrow_forward_rounded, size: 14),
-              label: const Text('View All', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+              label: const Text('View All',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
             ),
 
             // Close / Dismiss Icon
             IconButton(
-              icon: const Icon(Icons.close_rounded, color: AppColors.textTertiary, size: 18),
+              icon: const Icon(Icons.close_rounded,
+                  color: AppColors.textTertiary, size: 18),
               tooltip: 'Dismiss banner',
               onPressed: () => setState(() => _isDismissed = true),
               padding: EdgeInsets.zero,
@@ -222,7 +230,8 @@ class _SlaNotificationBarState extends ConsumerState<SlaNotificationBar> {
         ),
         child: Row(
           children: [
-            const Icon(Icons.notifications_active_outlined, color: AppColors.waveCyan, size: 18),
+            const Icon(Icons.notifications_active_outlined,
+                color: AppColors.waveCyan, size: 18),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
@@ -238,9 +247,11 @@ class _SlaNotificationBarState extends ConsumerState<SlaNotificationBar> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.waveCyan,
                 foregroundColor: Colors.black,
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 minimumSize: Size.zero,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(6)),
               ),
               onPressed: _requestPermission,
               child: const Text(
@@ -249,7 +260,8 @@ class _SlaNotificationBarState extends ConsumerState<SlaNotificationBar> {
               ),
             ),
             IconButton(
-              icon: const Icon(Icons.close_rounded, color: AppColors.textTertiary, size: 16),
+              icon: const Icon(Icons.close_rounded,
+                  color: AppColors.textTertiary, size: 16),
               tooltip: 'Dismiss',
               onPressed: () => setState(() => _isDismissed = true),
               padding: const EdgeInsets.only(left: 6),

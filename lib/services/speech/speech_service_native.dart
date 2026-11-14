@@ -36,7 +36,8 @@ class SpeechRecognitionNative implements SpeechRecognitionBase {
       }
 
       if (!_isInitialized) {
-        onError('Speech recognition not available or microphone permission denied.');
+        onError(
+            'Speech recognition not available or microphone permission denied.');
         return;
       }
 
@@ -48,11 +49,12 @@ class SpeechRecognitionNative implements SpeechRecognitionBase {
         onResult: (result) {
           onResult(result.recognizedWords, result.finalResult);
         },
-        localeId: localeId,
-        listenFor: const Duration(minutes: 5),
-        pauseFor: const Duration(seconds: 4),
-        cancelOnError: false,
-        partialResults: true,
+        listenOptions: stt.SpeechListenOptions(
+            localeId: localeId,
+            listenFor: const Duration(minutes: 5),
+            pauseFor: const Duration(seconds: 4),
+            cancelOnError: false,
+            partialResults: true),
       );
     } catch (e) {
       _isListening = false;
@@ -70,4 +72,3 @@ class SpeechRecognitionNative implements SpeechRecognitionBase {
 }
 
 SpeechRecognitionBase createSpeechRecognition() => SpeechRecognitionNative();
-

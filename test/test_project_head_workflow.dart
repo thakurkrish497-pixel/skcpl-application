@@ -33,7 +33,9 @@ void main() {
       expect(authState.isAdmin, isFalse);
     });
 
-    test('CashTransactionModel Project Head lifecycle: Pending -> Approved -> Accounts', () {
+    test(
+        'CashTransactionModel Project Head lifecycle: Pending -> Approved -> Accounts',
+        () {
       // 1. Worker submits expense entry
       final workerTx = CashTransactionModel(
         id: 'c-1',
@@ -42,7 +44,8 @@ void main() {
         expenseTypeId: 'exp-1',
         expenseAmount: 1850.0,
         cashInHand: 48150.0,
-        remarks: '[By: Ramesh (Worker)] [Party: Sharma Store] [Bill: #104] [Project Head Review: Pending] Site cement bags unloading charges',
+        remarks:
+            '[By: Ramesh (Worker)] [Party: Sharma Store] [Bill: #104] [Project Head Review: Pending] Site cement bags unloading charges',
       );
 
       expect(workerTx.isPendingProjectHeadReview, isTrue);
@@ -58,7 +61,8 @@ void main() {
           .replaceAll('[Project Head Review: Pending]', '')
           .replaceAll('[Supervisor Review: Pending]', '')
           .trim();
-      final approvedRemarks = '$cleanedRemarks [Project Head: Approved by Vikram Singh]'.trim();
+      final approvedRemarks =
+          '$cleanedRemarks [Project Head: Approved by Vikram Singh]'.trim();
 
       final approvedTx = workerTx.copyWith(
         remarks: approvedRemarks,
@@ -84,7 +88,8 @@ void main() {
         metricUnitId: 'unit-ton',
         quantity: 15.0,
         rate: 55000.0,
-        remarks: '[By: Amit (Store Keeper)] [Bill: #CH-9081] [Project Head Review: Pending] TMT Steel Reinforcement Bars',
+        remarks:
+            '[By: Amit (Store Keeper)] [Bill: #CH-9081] [Project Head Review: Pending] TMT Steel Reinforcement Bars',
       );
 
       expect(stockInward.isPendingProjectHeadReview, isTrue);
@@ -93,7 +98,8 @@ void main() {
 
       // Project Head approves
       final approvedStock = stockInward.copyWith(
-        remarks: '${stockInward.cleanRemarks} [Project Head: Approved by Vikram Singh]',
+        remarks:
+            '${stockInward.cleanRemarks} [Project Head: Approved by Vikram Singh]',
         status: TransactionStatus.pendingAccounts,
       );
 
@@ -126,13 +132,16 @@ void main() {
 
       // Rejected
       final rejectedDsr = dsr.copyWith(
-        remarks: '[Project Head: Rejected - Missing compaction test photos by Vikram Singh]',
+        remarks:
+            '[Project Head: Rejected - Missing compaction test photos by Vikram Singh]',
       );
       expect(rejectedDsr.isProjectHeadRejected, isTrue);
-      expect(rejectedDsr.projectHeadRejectionReason, 'Missing compaction test photos');
+      expect(rejectedDsr.projectHeadRejectionReason,
+          'Missing compaction test photos');
     });
 
-    test('Attendance Regularization: Project Head to Admin without Accounts', () {
+    test('Attendance Regularization: Project Head to Admin without Accounts',
+        () {
       // 1. Worker arrives >40m late and requests regularization
       final req = AttendanceRecordModel(
         id: 'att-1',
@@ -157,17 +166,20 @@ void main() {
 
       // 2. Project Head verifies & forwards directly to Admin (No accounts involved)
       final reviewedByProjectHead = req.copyWith(
-        adminDecisionNote: '[Project Head: Verified & Recommended Present by Vikram Singh]',
+        adminDecisionNote:
+            '[Project Head: Verified & Recommended Present by Vikram Singh]',
         reviewedBy: 'Project Head: Vikram Singh',
       );
 
-      expect(reviewedByProjectHead.adminDecisionNote, contains('Project Head: Verified'));
+      expect(reviewedByProjectHead.adminDecisionNote,
+          contains('Project Head: Verified'));
       expect(reviewedByProjectHead.reviewedBy, contains('Project Head'));
 
       // 3. Admin gives final approval (status moves to regularizedPresent)
       final adminApproved = reviewedByProjectHead.copyWith(
         status: AttendanceStatus.regularizedPresent,
-        adminDecisionNote: '${reviewedByProjectHead.adminDecisionNote} • Final Admin Authorization Granted',
+        adminDecisionNote:
+            '${reviewedByProjectHead.adminDecisionNote} • Final Admin Authorization Granted',
       );
 
       expect(adminApproved.status, AttendanceStatus.regularizedPresent);
@@ -202,7 +214,8 @@ void main() {
           createdAt: latestTime,
           updatedAt: latestTime,
         ),
-      ]..sort((a, b) => (b.createdAt ?? b.date).compareTo(a.createdAt ?? a.date));
+      ]..sort(
+          (a, b) => (b.createdAt ?? b.date).compareTo(a.createdAt ?? a.date));
 
       expect(stockList.first.id, equals('s-late'));
 
@@ -228,7 +241,8 @@ void main() {
           createdAt: latestTime,
           updatedAt: latestTime,
         ),
-      ]..sort((a, b) => (b.createdAt ?? b.date).compareTo(a.createdAt ?? a.date));
+      ]..sort(
+          (a, b) => (b.createdAt ?? b.date).compareTo(a.createdAt ?? a.date));
 
       expect(cashList.first.id, equals('c-late'));
 

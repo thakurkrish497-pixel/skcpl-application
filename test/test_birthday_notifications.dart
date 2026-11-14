@@ -4,7 +4,9 @@ import 'package:skcpl_app/providers/birthday_provider.dart';
 
 void main() {
   group('Employee Birthday Detection & Announcement Bar Tests', () {
-    test('getBirthdayBarTitle formats message correctly for 0, 1, 2, and multiple birthdays', () {
+    test(
+        'getBirthdayBarTitle formats message correctly for 0, 1, 2, and multiple birthdays',
+        () {
       // 0 birthdays
       expect(getBirthdayBarTitle([]), equals('SKCPL GROUP'));
 
@@ -51,7 +53,9 @@ void main() {
       );
     });
 
-    test('Identifies birthdays matching today and ignores inactive or non-birthday staff', () {
+    test(
+        'Identifies birthdays matching today and ignores inactive or non-birthday staff',
+        () {
       final now = DateTime.now();
 
       final birthdayToday1 = SiteStaffModel(
@@ -83,7 +87,8 @@ void main() {
         role: SiteStaffRole.worker,
         pin: '3333',
         createdAt: DateTime(2024, 1, 1),
-        dateOfBirth: DateTime(1990, now.month == 12 ? 1 : now.month + 1, now.day == 28 ? 1 : now.day + 1),
+        dateOfBirth: DateTime(1990, now.month == 12 ? 1 : now.month + 1,
+            now.day == 28 ? 1 : now.day + 1),
         isActive: true,
       );
 
@@ -126,7 +131,8 @@ void main() {
       }).toList();
 
       expect(todayBirthdays.length, equals(2));
-      expect(todayBirthdays.map((s) => s.id), containsAll(['bday-1', 'bday-2']));
+      expect(
+          todayBirthdays.map((s) => s.id), containsAll(['bday-1', 'bday-2']));
       expect(todayBirthdays.map((s) => s.id), isNot(contains('bday-3')));
       expect(todayBirthdays.map((s) => s.id), isNot(contains('bday-4')));
       expect(todayBirthdays.map((s) => s.id), isNot(contains('bday-5')));

@@ -60,10 +60,12 @@ class _RoleAccessManagementScreenState
     _populateControllers(permissions);
 
     // Refresh from Supabase cloud in background to guarantee cross-device sync
-    await ref.read(roleAccessProvider.notifier).loadPermissions(forceRefresh: true);
+    await ref
+        .read(roleAccessProvider.notifier)
+        .loadPermissions(forceRefresh: true);
     if (mounted) {
       final fresh = ref.read(roleAccessProvider);
-      _populateControllers(fresh);
+      setState(() => _populateControllers(fresh));
     }
   }
 
@@ -77,7 +79,8 @@ class _RoleAccessManagementScreenState
     _projectHeadPasswordController.text = permissions.projectHeadPassword;
     _projectHeadCanApproveCash = permissions.projectHeadCanApproveCash;
     _projectHeadCanApproveStock = permissions.projectHeadCanApproveStock;
-    _projectHeadCanApproveAttendance = permissions.projectHeadCanApproveAttendance;
+    _projectHeadCanApproveAttendance =
+        permissions.projectHeadCanApproveAttendance;
     _projectHeadCanApproveDSR = permissions.projectHeadCanApproveDSR;
   }
 
@@ -103,7 +106,8 @@ class _RoleAccessManagementScreenState
     }
 
     if (phEmail.isEmpty || phPassword.isEmpty) {
-      _showSnack('Project Head Email & Password cannot be empty', isError: true);
+      _showSnack('Project Head Email & Password cannot be empty',
+          isError: true);
       return;
     }
 
@@ -126,13 +130,14 @@ class _RoleAccessManagementScreenState
         .read(roleAccessProvider.notifier)
         .saveRolePermissions(updatedModel);
 
+    if (!mounted) return;
     setState(() => _isSaving = false);
 
     if (mounted) {
       if (ok) {
         _showSnack('Role access & approval routing updated successfully!');
       } else {
-        _showSnack('Saved locally. (Sync to remote backend pending)', isError: false);
+        _showSnack('Changes were not saved. Please retry.', isError: true);
       }
     }
   }
@@ -157,12 +162,16 @@ class _RoleAccessManagementScreenState
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
+            child: const Text('Cancel',
+                style: TextStyle(color: AppColors.textSecondary)),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.goldAccent),
-            child: const Text('Reset Defaults', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
+            style:
+                ElevatedButton.styleFrom(backgroundColor: AppColors.goldAccent),
+            child: const Text('Reset Defaults',
+                style: TextStyle(
+                    color: Colors.black, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -170,10 +179,16 @@ class _RoleAccessManagementScreenState
 
     if (confirmed == true) {
       setState(() => _isSaving = true);
-      await ref.read(roleAccessProvider.notifier).resetToDefaults();
-      _loadCurrentPermissions();
+      final saved =
+          await ref.read(roleAccessProvider.notifier).resetToDefaults();
+      if (!mounted) return;
+      if (saved) _loadCurrentPermissions();
       setState(() => _isSaving = false);
-      _showSnack('Restored system defaults for all roles');
+      _showSnack(
+          saved
+              ? 'Restored system defaults for all roles'
+              : 'Defaults were not saved. Please retry.',
+          isError: !saved);
     }
   }
 
@@ -198,7 +213,8 @@ class _RoleAccessManagementScreenState
         elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.restore_rounded, color: AppColors.goldAccent),
+            icon:
+                const Icon(Icons.restore_rounded, color: AppColors.goldAccent),
             tooltip: 'Reset to Factory Defaults',
             onPressed: _isSaving ? null : _resetToDefaults,
           ),
@@ -223,7 +239,7 @@ class _RoleAccessManagementScreenState
       bottomNavigationBar: SafeArea(
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          decoration: BoxDecoration(
+          decoration: const BoxDecoration(
             color: AppColors.surfaceDark,
             border: Border(top: BorderSide(color: AppColors.cardBorder)),
           ),
@@ -233,7 +249,8 @@ class _RoleAccessManagementScreenState
                 ? const SizedBox(
                     width: 20,
                     height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.black),
                   )
                 : const Icon(Icons.shield_rounded, color: Colors.black),
             label: Text(
@@ -247,7 +264,8 @@ class _RoleAccessManagementScreenState
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.goldAccent,
               padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
             ),
           ),
         ),
@@ -287,7 +305,8 @@ class _RoleAccessManagementScreenState
                 // Approval Powers Card
                 _buildApprovalPowersCard(
                   title: 'Accounts Verification Powers',
-                  subtitle: 'Enable or extract approval authority from the Accounts role',
+                  subtitle:
+                      'Enable or extract approval authority from the Accounts role',
                   accentColor: AppColors.approved,
                   toggles: [
                     _ApprovalToggleItem(
@@ -297,7 +316,8 @@ class _RoleAccessManagementScreenState
                           : 'BYPASS ACTIVE: Project Head → Admin directly (Accounts bypassed)',
                       value: _accountsCanApproveStock,
                       icon: Icons.inventory_2_rounded,
-                      onChanged: (val) => setState(() => _accountsCanApproveStock = val),
+                      onChanged: (val) =>
+                          setState(() => _accountsCanApproveStock = val),
                     ),
                     _ApprovalToggleItem(
                       title: 'Cash Expense Approval Power',
@@ -306,7 +326,8 @@ class _RoleAccessManagementScreenState
                           : 'BYPASS ACTIVE: Project Head → Admin directly (Accounts bypassed)',
                       value: _accountsCanApproveCash,
                       icon: Icons.currency_rupee_rounded,
-                      onChanged: (val) => setState(() => _accountsCanApproveCash = val),
+                      onChanged: (val) =>
+                          setState(() => _accountsCanApproveCash = val),
                     ),
                   ],
                 ),
@@ -339,7 +360,8 @@ class _RoleAccessManagementScreenState
                   passwordController: _projectHeadPasswordController,
                   obscurePassword: _obscureProjectHeadPassword,
                   onToggleObscure: () => setState(
-                    () => _obscureProjectHeadPassword = !_obscureProjectHeadPassword,
+                    () => _obscureProjectHeadPassword =
+                        !_obscureProjectHeadPassword,
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -347,7 +369,8 @@ class _RoleAccessManagementScreenState
                 // Approval Powers Card
                 _buildApprovalPowersCard(
                   title: 'Project Head Verification Powers',
-                  subtitle: 'Enable or disable Project Head approval in each functional module',
+                  subtitle:
+                      'Enable or disable Project Head approval in each functional module',
                   accentColor: AppColors.waveCyan,
                   toggles: [
                     _ApprovalToggleItem(
@@ -377,8 +400,8 @@ class _RoleAccessManagementScreenState
                           : 'EXTRACTED: Attendance verification bypassed to Admin',
                       value: _projectHeadCanApproveAttendance,
                       icon: Icons.fact_check_rounded,
-                      onChanged: (val) =>
-                          setState(() => _projectHeadCanApproveAttendance = val),
+                      onChanged: (val) => setState(
+                          () => _projectHeadCanApproveAttendance = val),
                     ),
                     _ApprovalToggleItem(
                       title: 'Daily Site Report (DSR) Approval',
@@ -462,111 +485,20 @@ class _RoleAccessManagementScreenState
     required bool obscurePassword,
     required VoidCallback onToggleObscure,
   }) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: AppColors.cardDark,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.cardBorder),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(roleIcon, color: accentColor, size: 20),
-              const SizedBox(width: 8),
-              Text(
-                '$roleName Login Credentials',
-                style: AppTextStyles.bodyMedium.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-              const Spacer(),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(
-                  color: accentColor.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  'Super-Admin Only',
+    return Card(
+        child: Padding(
+            padding: const EdgeInsets.all(16),
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('$roleName sign-in',
                   style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: accentColor,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          // Email / ID
-          TextField(
-            controller: emailController,
-            style: const TextStyle(color: Colors.white),
-            decoration: InputDecoration(
-              labelText: 'Login ID / Email',
-              labelStyle: const TextStyle(color: AppColors.textSecondary),
-              prefixIcon: const Icon(Icons.alternate_email_rounded, size: 20),
-              filled: true,
-              fillColor: AppColors.surfaceDark,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: AppColors.cardBorder),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: AppColors.cardBorder),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: accentColor),
-              ),
-            ),
-          ),
-          const SizedBox(height: 14),
-
-          // Password
-          TextField(
-            controller: passwordController,
-            obscureText: obscurePassword,
-            style: const TextStyle(color: Colors.white),
-            decoration: InputDecoration(
-              labelText: 'Account Password',
-              labelStyle: const TextStyle(color: AppColors.textSecondary),
-              prefixIcon: const Icon(Icons.lock_outline_rounded, size: 20),
-              suffixIcon: IconButton(
-                icon: Icon(
-                  obscurePassword
-                      ? Icons.visibility_outlined
-                      : Icons.visibility_off_outlined,
-                  color: AppColors.textSecondary,
-                  size: 20,
-                ),
-                onPressed: onToggleObscure,
-              ),
-              filled: true,
-              fillColor: AppColors.surfaceDark,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: AppColors.cardBorder),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: AppColors.cardBorder),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: accentColor),
-              ),
-            ),
-          ),
-        ],
-      ),
-    ).animate().fadeIn(delay: 150.ms);
+                      color: accentColor, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              Text(emailController.text),
+              const SizedBox(height: 8),
+              const Text(
+                  'Changing approval permissions does not change login passwords.'),
+            ])));
   }
 
   Widget _buildApprovalPowersCard({
@@ -587,7 +519,8 @@ class _RoleAccessManagementScreenState
         children: [
           Row(
             children: [
-              const Icon(Icons.tune_rounded, color: AppColors.goldAccent, size: 20),
+              const Icon(Icons.tune_rounded,
+                  color: AppColors.goldAccent, size: 20),
               const SizedBox(width: 8),
               Text(
                 title,
@@ -601,12 +534,12 @@ class _RoleAccessManagementScreenState
           const SizedBox(height: 4),
           Text(
             subtitle,
-            style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
+            style: AppTextStyles.bodySmall
+                .copyWith(color: AppColors.textSecondary),
           ),
           const SizedBox(height: 14),
           const Divider(color: AppColors.divider, height: 1),
           const SizedBox(height: 8),
-
           ...toggles.map((item) {
             return Container(
               margin: const EdgeInsets.symmetric(vertical: 6),
@@ -621,46 +554,49 @@ class _RoleAccessManagementScreenState
                       : AppColors.rejected.withValues(alpha: 0.35),
                 ),
               ),
-              child: SwitchListTile(
-                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-                secondary: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: item.value
-                        ? accentColor.withValues(alpha: 0.15)
-                        : AppColors.rejected.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(
-                    item.icon,
-                    color: item.value ? accentColor : AppColors.rejected,
-                    size: 20,
-                  ),
-                ),
-                title: Text(
-                  item.title,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: item.value ? Colors.white : AppColors.rejected,
-                    fontSize: 14,
-                  ),
-                ),
-                subtitle: Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text(
-                    item.description,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: item.value
-                          ? AppColors.textSecondary
-                          : AppColors.rejected.withValues(alpha: 0.9),
+              child: Material(
+                  color: Colors.transparent,
+                  child: SwitchListTile(
+                    contentPadding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                    secondary: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: item.value
+                            ? accentColor.withValues(alpha: 0.15)
+                            : AppColors.rejected.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        item.icon,
+                        color: item.value ? accentColor : AppColors.rejected,
+                        size: 20,
+                      ),
                     ),
-                  ),
-                ),
-                activeColor: accentColor,
-                value: item.value,
-                onChanged: item.onChanged,
-              ),
+                    title: Text(
+                      item.title,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: item.value ? Colors.white : AppColors.rejected,
+                        fontSize: 14,
+                      ),
+                    ),
+                    subtitle: Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        item.description,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: item.value
+                              ? AppColors.textSecondary
+                              : AppColors.rejected.withValues(alpha: 0.9),
+                        ),
+                      ),
+                    ),
+                    activeThumbColor: accentColor,
+                    value: item.value,
+                    onChanged: item.onChanged,
+                  )),
             );
           }),
         ],

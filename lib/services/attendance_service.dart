@@ -1,9 +1,9 @@
+import 'submission_support.dart';
 import 'dart:convert';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 import '../models/attendance_model.dart';
-import '../core/constants/supabase_constants.dart';
 import 'location_service.dart';
 
 /// Service managing attendance, shift policies, and live location tracking
@@ -13,11 +13,7 @@ class AttendanceService {
   static const _uuid = Uuid();
 
   AttendanceService([SupabaseClient? client])
-      : _client = client ??
-            SupabaseClient(
-              SupabaseConstants.supabaseUrl,
-              SupabaseConstants.supabaseServiceRoleKey,
-            );
+      : _client = client ?? Supabase.instance.client;
 
   // ─────────────────────────────────────────────────────────────
   // 1. Shift Policies (Default + Per-Site / Office Overrides)
@@ -99,7 +95,8 @@ class AttendanceService {
   }
 
   /// Save or override shift policy for a site or global company default
-  Future<SiteShiftPolicyModel> saveShiftPolicy(SiteShiftPolicyModel policy) async {
+  Future<SiteShiftPolicyModel> saveShiftPolicy(
+      SiteShiftPolicyModel policy) async {
     try {
       final payload = policy.toJson();
       final res = await _client
@@ -108,7 +105,8 @@ class AttendanceService {
           .select()
           .single();
       return SiteShiftPolicyModel.fromJson(res);
-    } catch (_) {
+    } catch (e) {
+      if (!isSchemaUnavailable(e)) rethrow;
       return _savePolicyFallback(policy);
     }
   }
@@ -134,7 +132,9 @@ class AttendanceService {
       list = (data as List)
           .map((json) => AttendanceRecordModel.fromJson(json))
           .toList();
-    } catch (_) {}
+    } catch (error) {
+      if (!isSchemaUnavailable(error)) rethrow;
+    }
 
     // Combine with tasks table fallback
     final fallbackList = await _getAttendanceFallback(siteId, dateStr);
@@ -224,7 +224,8 @@ class AttendanceService {
     // Calculate late minutes based on policy shiftStartTime (HH:mm)
     final startParts = policy.shiftStartTime.split(':');
     final shiftStartHour = int.tryParse(startParts[0]) ?? 9;
-    final shiftStartMinute = startParts.length > 1 ? (int.tryParse(startParts[1]) ?? 0) : 0;
+    final shiftStartMinute =
+        startParts.length > 1 ? (int.tryParse(startParts[1]) ?? 0) : 0;
 
     final scheduledStartTime = DateTime(
       punchTime.year,
@@ -259,7 +260,8 @@ class AttendanceService {
 
     final double? siteLat = policy.latitude ?? (isOffice ? 22.719600 : null);
     final double? siteLng = policy.longitude ?? (isOffice ? 75.857700 : null);
-    final double allowedRadius = policy.allowedRadiusMeters > 0 ? policy.allowedRadiusMeters : 10000.0;
+    final double allowedRadius =
+        policy.allowedRadiusMeters > 0 ? policy.allowedRadiusMeters : 10000.0;
 
     // 1. Live GPS coordinates of user are strictly required
     if (latitude == null || longitude == null) {
@@ -323,7 +325,8 @@ class AttendanceService {
           .select()
           .single();
       return AttendanceRecordModel.fromJson(res);
-    } catch (_) {
+    } catch (e) {
+      if (!isSchemaUnavailable(e)) rethrow;
       return _saveAttendanceFallback(record);
     }
   }
@@ -395,11 +398,11 @@ class AttendanceService {
             ? AttendanceStatus.regularizedHalfDay
             : AttendanceStatus.regularizedPresent);
 
-    final validReviewerId = (reviewedBy != null &&
-            RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$')
+    final validReviewerId =
+        (RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$')
                 .hasMatch(reviewedBy.trim()))
-        ? reviewedBy.trim()
-        : _defaultAdminUserId;
+            ? reviewedBy.trim()
+            : _defaultAdminUserId;
 
     try {
       final res = await _client
@@ -558,7 +561,8 @@ class AttendanceService {
     } catch (_) {}
 
     // Combine with tasks table fallback
-    final fallbackList = await _getHolidaysFallback(startDate: startDate, endDate: endDate);
+    final fallbackList =
+        await _getHolidaysFallback(startDate: startDate, endDate: endDate);
     final seenIds = list.map((h) => h.id).toSet();
     for (final h in fallbackList) {
       if (!seenIds.contains(h.id)) {
@@ -591,12 +595,13 @@ class AttendanceService {
             onConflict: 'staff_id',
           );
     } catch (_) {
-      _saveLiveLocFallback(ping);
+      await _saveLiveLocFallback(ping);
     }
   }
 
   /// Fetch all active live staff locations
-  Future<List<StaffLiveLocationModel>> getLiveStaffLocations([String? siteId]) async {
+  Future<List<StaffLiveLocationModel>> getLiveStaffLocations(
+      [String? siteId]) async {
     List<StaffLiveLocationModel> list;
     try {
       var query = _client.from('staff_live_locations').select();
@@ -719,23 +724,30 @@ class AttendanceService {
   Future<SiteShiftPolicyModel?> _getPolicyFallback(String siteId) async {
     try {
       final tag = 'SHIFT_POLICY:$siteId';
-      final rows = await _client.from('tasks').select().eq('title', tag).limit(1);
+      final rows =
+          await _client.from('tasks').select().eq('title', tag).limit(1);
       if ((rows as List).isNotEmpty) {
         final desc = rows.first['description'] as String?;
-        if (desc != null) return SiteShiftPolicyModel.fromJson(jsonDecode(desc));
+        if (desc != null) {
+          return SiteShiftPolicyModel.fromJson(jsonDecode(desc));
+        }
       }
     } catch (_) {}
     return null;
   }
 
-  Future<SiteShiftPolicyModel> _savePolicyFallback(SiteShiftPolicyModel policy) async {
+  Future<SiteShiftPolicyModel> _savePolicyFallback(
+      SiteShiftPolicyModel policy) async {
     final tag = 'SHIFT_POLICY:${policy.siteId}';
     final payload = jsonEncode(policy.toJson());
     try {
       final validSiteId = _resolveSiteId(policy.siteId);
-      final existing = await _client.from('tasks').select('id').eq('title', tag).limit(1);
+      final existing =
+          await _client.from('tasks').select('id').eq('title', tag).limit(1);
       if ((existing as List).isNotEmpty) {
-        await _client.from('tasks').update({'description': payload}).eq('id', existing.first['id']);
+        await _client
+            .from('tasks')
+            .update({'description': payload}).eq('id', existing.first['id']);
       } else {
         await _client.from('tasks').insert({
           'site_id': validSiteId,
@@ -750,10 +762,14 @@ class AttendanceService {
     return policy;
   }
 
-  Future<List<AttendanceRecordModel>> _getAttendanceFallback(String siteId, String dateStr) async {
+  Future<List<AttendanceRecordModel>> _getAttendanceFallback(
+      String siteId, String dateStr) async {
     try {
-      final tagPrefix = siteId == 'all' ? 'ATTENDANCE:$dateStr:' : 'ATTENDANCE:$dateStr:$siteId:';
-      final rows = await _client.from('tasks').select().like('title', '$tagPrefix%');
+      final tagPrefix = siteId == 'all'
+          ? 'ATTENDANCE:$dateStr:'
+          : 'ATTENDANCE:$dateStr:$siteId:';
+      final rows =
+          await _client.from('tasks').select().like('title', '$tagPrefix%');
       final list = <AttendanceRecordModel>[];
       for (final r in (rows as List)) {
         final desc = r['description'] as String?;
@@ -764,14 +780,16 @@ class AttendanceService {
         }
       }
       return list;
-    } catch (_) {
+    } catch (error) {
+      if (!isSchemaUnavailable(error)) rethrow;
       return [];
     }
   }
 
   Future<List<AttendanceRecordModel>> _getPendingRequestsFallback() async {
     try {
-      final rows = await _client.from('tasks').select().like('title', 'ATTENDANCE:%');
+      final rows =
+          await _client.from('tasks').select().like('title', 'ATTENDANCE:%');
       final list = <AttendanceRecordModel>[];
       for (final r in (rows as List)) {
         final desc = r['description'] as String?;
@@ -790,15 +808,19 @@ class AttendanceService {
     }
   }
 
-  Future<AttendanceRecordModel> _saveAttendanceFallback(AttendanceRecordModel record) async {
+  Future<AttendanceRecordModel> _saveAttendanceFallback(
+      AttendanceRecordModel record) async {
     final dateStr = DateFormat('yyyy-MM-dd').format(record.date);
     final tag = 'ATTENDANCE:$dateStr:${record.siteId}:${record.staffId}';
     final payload = jsonEncode(record.toJson());
     try {
       final validSiteId = _resolveSiteId(record.siteId);
-      final existing = await _client.from('tasks').select('id').eq('title', tag).limit(1);
+      final existing =
+          await _client.from('tasks').select('id').eq('title', tag).limit(1);
       if ((existing as List).isNotEmpty) {
-        await _client.from('tasks').update({'description': payload}).eq('id', existing.first['id']);
+        await _client
+            .from('tasks')
+            .update({'description': payload}).eq('id', existing.first['id']);
       } else {
         await _client.from('tasks').insert({
           'site_id': validSiteId,
@@ -809,7 +831,9 @@ class AttendanceService {
           'priority': 'low',
         });
       }
-    } catch (_) {}
+    } catch (_) {
+      rethrow;
+    }
     return record;
   }
 
@@ -819,7 +843,8 @@ class AttendanceService {
     double? latitude,
     double? longitude,
   ) async {
-    final rows = await _client.from('tasks').select().like('title', 'ATTENDANCE:%');
+    final rows =
+        await _client.from('tasks').select().like('title', 'ATTENDANCE:%');
     for (final r in (rows as List)) {
       final desc = r['description'] as String?;
       if (desc != null && desc.startsWith('{')) {
@@ -850,7 +875,8 @@ class AttendanceService {
     String? adminNote,
     String? reviewedBy,
   }) async {
-    final rows = await _client.from('tasks').select().like('title', 'ATTENDANCE:%');
+    final rows =
+        await _client.from('tasks').select().like('title', 'ATTENDANCE:%');
     for (final r in (rows as List)) {
       final desc = r['description'] as String?;
       if (desc != null && desc.startsWith('{')) {
@@ -880,9 +906,12 @@ class AttendanceService {
     final payload = jsonEncode(ping.toJson());
     try {
       final validSiteId = _resolveSiteId(ping.siteId);
-      final existing = await _client.from('tasks').select('id').eq('title', tag).limit(1);
+      final existing =
+          await _client.from('tasks').select('id').eq('title', tag).limit(1);
       if ((existing as List).isNotEmpty) {
-        await _client.from('tasks').update({'description': payload}).eq('id', existing.first['id']);
+        await _client
+            .from('tasks')
+            .update({'description': payload}).eq('id', existing.first['id']);
       } else {
         await _client.from('tasks').insert({
           'site_id': validSiteId,
@@ -896,10 +925,13 @@ class AttendanceService {
     } catch (_) {}
   }
 
-  Future<List<StaffLiveLocationModel>> _getLiveLocFallback(String? siteId) async {
+  Future<List<StaffLiveLocationModel>> _getLiveLocFallback(
+      String? siteId) async {
     try {
-      final tagPrefix = siteId != null && siteId != 'all' ? 'LIVELOC:$siteId:' : 'LIVELOC:';
-      final rows = await _client.from('tasks').select().like('title', '$tagPrefix%');
+      final tagPrefix =
+          siteId != null && siteId != 'all' ? 'LIVELOC:$siteId:' : 'LIVELOC:';
+      final rows =
+          await _client.from('tasks').select().like('title', '$tagPrefix%');
       final list = <StaffLiveLocationModel>[];
       for (final r in (rows as List)) {
         final desc = r['description'] as String?;
@@ -921,10 +953,12 @@ class AttendanceService {
     required DateTime endDate,
   }) async {
     try {
-      final rows = await _client.from('tasks').select().like('title', 'ATTENDANCE:%');
+      final rows =
+          await _client.from('tasks').select().like('title', 'ATTENDANCE:%');
       final list = <AttendanceRecordModel>[];
       final start = DateTime(startDate.year, startDate.month, startDate.day);
-      final end = DateTime(endDate.year, endDate.month, endDate.day, 23, 59, 59);
+      final end =
+          DateTime(endDate.year, endDate.month, endDate.day, 23, 59, 59);
 
       for (final r in (rows as List)) {
         final desc = r['description'] as String?;
@@ -970,7 +1004,8 @@ class AttendanceService {
     DateTime? endDate,
   }) async {
     try {
-      final rows = await _client.from('tasks').select().like('title', 'HOLIDAY:%');
+      final rows =
+          await _client.from('tasks').select().like('title', 'HOLIDAY:%');
       final list = <HolidayModel>[];
       for (final r in (rows as List)) {
         final desc = r['description'] as String?;
@@ -978,11 +1013,13 @@ class AttendanceService {
           try {
             final h = HolidayModel.fromJson(jsonDecode(desc));
             if (startDate != null &&
-                h.date.isBefore(DateTime(startDate.year, startDate.month, startDate.day))) {
+                h.date.isBefore(
+                    DateTime(startDate.year, startDate.month, startDate.day))) {
               continue;
             }
             if (endDate != null &&
-                h.date.isAfter(DateTime(endDate.year, endDate.month, endDate.day, 23, 59, 59))) {
+                h.date.isAfter(DateTime(
+                    endDate.year, endDate.month, endDate.day, 23, 59, 59))) {
               continue;
             }
             list.add(h);
@@ -997,7 +1034,10 @@ class AttendanceService {
 
   Future<void> _deleteHolidayFallback(String holidayId) async {
     try {
-      final rows = await _client.from('tasks').select('id, description').like('title', 'HOLIDAY:%');
+      final rows = await _client
+          .from('tasks')
+          .select('id, description')
+          .like('title', 'HOLIDAY:%');
       for (final r in (rows as List)) {
         final desc = r['description'] as String?;
         if (desc != null && desc.contains(holidayId)) {

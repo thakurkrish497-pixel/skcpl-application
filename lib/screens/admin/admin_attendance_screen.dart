@@ -35,8 +35,10 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
   late TabController _tabController;
   String _selectedSiteFilter = 'all';
   String _selectedLiveSiteFilter = 'all';
-  DateTime _selectedDate = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
-  DateTime _calendarMonth = DateTime(DateTime.now().year, DateTime.now().month, 1);
+  DateTime _selectedDate =
+      DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+  DateTime _calendarMonth =
+      DateTime(DateTime.now().year, DateTime.now().month, 1);
   bool _isMonthCalendarExpanded = false;
   String _rosterStatusFilter = 'all'; // 'all', 'present', 'absent', 'pending'
 
@@ -80,10 +82,12 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
           backgroundColor: AppColors.surfaceDark,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: Row(
             children: [
-              const Icon(Icons.access_time_filled_rounded, color: AppColors.primary),
+              const Icon(Icons.access_time_filled_rounded,
+                  color: AppColors.primary),
               const SizedBox(width: 8),
               Expanded(child: Text(title, style: AppTextStyles.h4)),
             ],
@@ -154,7 +158,8 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                   decoration: const InputDecoration(
                     labelText: 'Allowed Radius (meters)',
                     hintText: '500',
-                    helperText: 'Radius circle within which staff is considered On-Site',
+                    helperText:
+                        'Radius circle within which staff is considered On-Site',
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -167,23 +172,31 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                   children: [
                     Text(
                       'Site / Office GPS Pin',
-                      style: AppTextStyles.bodyMedium
-                          .copyWith(fontWeight: FontWeight.bold, color: AppColors.primary),
+                      style: AppTextStyles.bodyMedium.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.primary),
                     ),
-                    if (latController.text.isNotEmpty && lngController.text.isNotEmpty)
+                    if (latController.text.isNotEmpty &&
+                        lngController.text.isNotEmpty)
                       TextButton.icon(
                         style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
                           visualDensity: VisualDensity.compact,
                         ),
-                        icon: const Icon(Icons.open_in_new_rounded, size: 14, color: AppColors.primary),
-                        label: const Text('View Pin on Map', style: TextStyle(fontSize: 12)),
+                        icon: const Icon(Icons.open_in_new_rounded,
+                            size: 14, color: AppColors.primary),
+                        label: const Text('View Pin on Map',
+                            style: TextStyle(fontSize: 12)),
                         onPressed: () {
-                          final lat = double.tryParse(latController.text.trim());
-                          final lng = double.tryParse(lngController.text.trim());
+                          final lat =
+                              double.tryParse(latController.text.trim());
+                          final lng =
+                              double.tryParse(lngController.text.trim());
                           if (lat != null && lng != null) {
                             launchUrl(
-                              Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng'),
+                              Uri.parse(
+                                  'https://www.google.com/maps/search/?api=1&query=$lat,$lng'),
                               mode: LaunchMode.externalApplication,
                             );
                           }
@@ -194,7 +207,8 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                 const SizedBox(height: 4),
                 Text(
                   'How it works: Punch-in & live tracking use this GPS pin to calculate exact distance. Staff within radius are marked "On-Site".',
-                  style: AppTextStyles.caption.copyWith(color: AppColors.textTertiary),
+                  style: AppTextStyles.caption
+                      .copyWith(color: AppColors.textTertiary),
                 ),
                 const SizedBox(height: 10),
 
@@ -203,24 +217,28 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                   width: double.infinity,
                   child: ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary.withOpacity(0.15),
+                      backgroundColor:
+                          AppColors.primary.withValues(alpha: 0.15),
                       foregroundColor: AppColors.primary,
                       side: const BorderSide(color: AppColors.primary),
                       padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
                     ),
                     icon: isCapturingGps
                         ? const SizedBox(
                             width: 16,
                             height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2, color: AppColors.primary),
                           )
                         : const Icon(Icons.my_location_rounded, size: 18),
                     label: Text(
                       isCapturingGps
                           ? 'Detecting GPS from Device...'
                           : '📍 Capture My Current Location as Pin',
-                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w600, fontSize: 13),
                     ),
                     onPressed: isCapturingGps
                         ? null
@@ -230,7 +248,8 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                               gpsCaptureStatus = null;
                             });
 
-                            final res = await LocationService.getCurrentLocationDetailed();
+                            final res = await LocationService
+                                .getCurrentLocationDetailed();
 
                             setDialogState(() {
                               isCapturingGps = false;
@@ -270,8 +289,8 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                     Expanded(
                       child: TextField(
                         controller: latController,
-                        keyboardType:
-                            const TextInputType.numberWithOptions(decimal: true),
+                        keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true),
                         style: const TextStyle(color: AppColors.textPrimary),
                         decoration: const InputDecoration(
                           labelText: 'Latitude',
@@ -284,8 +303,8 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                     Expanded(
                       child: TextField(
                         controller: lngController,
-                        keyboardType:
-                            const TextInputType.numberWithOptions(decimal: true),
+                        keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true),
                         style: const TextStyle(color: AppColors.textPrimary),
                         decoration: const InputDecoration(
                           labelText: 'Longitude',
@@ -305,14 +324,14 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
               child: const Text('Cancel'),
             ),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+              style:
+                  ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
               onPressed: () async {
                 Navigator.pop(ctx);
                 final updated = policy.copyWith(
                   shiftStartTime: startTimeController.text.trim(),
                   shiftEndTime: endTimeController.text.trim(),
-                  graceMinutes:
-                      int.tryParse(graceController.text.trim()) ?? 15,
+                  graceMinutes: int.tryParse(graceController.text.trim()) ?? 15,
                   lateCutoffMinutes:
                       int.tryParse(lateCutoffController.text.trim()) ?? 40,
                   allowedRadiusMeters:
@@ -321,13 +340,16 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                   longitude: double.tryParse(lngController.text.trim()),
                 );
 
-                await ref.read(attendanceServiceProvider).saveShiftPolicy(updated);
+                await ref
+                    .read(attendanceServiceProvider)
+                    .saveShiftPolicy(updated);
                 ref.invalidate(shiftPolicyForSiteProvider(updated.siteId));
 
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('Shift timing & GPS pin saved for ${updated.siteName}!'),
+                      content: Text(
+                          'Shift timing & GPS pin saved for ${updated.siteName}!'),
                       backgroundColor: AppColors.approved,
                     ),
                   );
@@ -392,7 +414,8 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: approve ? AppColors.approved : AppColors.rejected,
+              backgroundColor:
+                  approve ? AppColors.approved : AppColors.rejected,
             ),
             onPressed: () => Navigator.pop(ctx, true),
             child: Text(approve ? 'Confirm Approval' : 'Confirm Rejection'),
@@ -432,7 +455,8 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
   void _showExportExcelDialog() async {
     final sites = ref.read(activeSitesProvider).valueOrNull ?? [];
     String selectedSiteId = _selectedSiteFilter;
-    DateTime selectedMonth = DateTime(DateTime.now().year, DateTime.now().month, 1);
+    DateTime selectedMonth =
+        DateTime(DateTime.now().year, DateTime.now().month, 1);
     bool isExporting = false;
 
     await showDialog(
@@ -440,7 +464,8 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           backgroundColor: AppColors.surfaceDark,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Row(
             children: [
               Icon(Icons.file_download_rounded, color: AppColors.primary),
@@ -457,17 +482,21 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
             children: [
               Text(
                 'Select month and site to download a clean, payroll-ready Excel spreadsheet.',
-                style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
+                style: AppTextStyles.bodySmall
+                    .copyWith(color: AppColors.textSecondary),
               ),
               const SizedBox(height: 16),
               // Month selector
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.calendar_month_rounded, color: AppColors.primary),
+                leading: const Icon(Icons.calendar_month_rounded,
+                    color: AppColors.primary),
                 title: Text(DateFormat('MMMM yyyy').format(selectedMonth),
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    style: const TextStyle(
+                        color: Colors.white, fontWeight: FontWeight.bold)),
                 subtitle: const Text('Tap to change month',
-                    style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                    style: TextStyle(
+                        color: AppColors.textSecondary, fontSize: 12)),
                 onTap: () async {
                   final picked = await showDatePicker(
                     context: context,
@@ -486,13 +515,16 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
               const SizedBox(height: 12),
               // Site selector
               DropdownButtonFormField<String>(
-                value: selectedSiteId,
+                initialValue: selectedSiteId,
                 dropdownColor: AppColors.cardDark,
                 style: const TextStyle(color: AppColors.textPrimary),
-                decoration: const InputDecoration(labelText: 'Site / Office Filter'),
+                decoration:
+                    const InputDecoration(labelText: 'Site / Office Filter'),
                 items: [
-                  const DropdownMenuItem(value: 'all', child: Text('All Sites & Indore Office')),
-                  ...sites.map((s) => DropdownMenuItem(value: s.id, child: Text(s.name))),
+                  const DropdownMenuItem(
+                      value: 'all', child: Text('All Sites & Indore Office')),
+                  ...sites.map((s) =>
+                      DropdownMenuItem(value: s.id, child: Text(s.name))),
                 ],
                 onChanged: (val) {
                   if (val != null) setDialogState(() => selectedSiteId = val);
@@ -500,7 +532,8 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
               ),
               if (isExporting) ...[
                 const SizedBox(height: 20),
-                const Center(child: CircularProgressIndicator(color: AppColors.primary)),
+                const Center(
+                    child: CircularProgressIndicator(color: AppColors.primary)),
               ],
             ],
           ),
@@ -510,7 +543,8 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
               child: const Text('Cancel'),
             ),
             ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+              style:
+                  ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
               icon: const Icon(Icons.download_rounded, size: 18),
               label: const Text('Download Excel'),
               onPressed: isExporting
@@ -519,8 +553,11 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                       setDialogState(() => isExporting = true);
                       try {
                         final startDate = selectedMonth;
-                        final daysInMonth = DateTime(selectedMonth.year, selectedMonth.month + 1, 0).day;
-                        final endDate = DateTime(selectedMonth.year, selectedMonth.month, daysInMonth, 23, 59, 59);
+                        final daysInMonth = DateTime(
+                                selectedMonth.year, selectedMonth.month + 1, 0)
+                            .day;
+                        final endDate = DateTime(selectedMonth.year,
+                            selectedMonth.month, daysInMonth, 23, 59, 59);
 
                         final records = await ref
                             .read(attendanceServiceProvider)
@@ -532,10 +569,14 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
 
                         String? siteName;
                         if (selectedSiteId != 'all') {
-                          siteName = sites.where((s) => s.id == selectedSiteId).firstOrNull?.name;
+                          siteName = sites
+                              .where((s) => s.id == selectedSiteId)
+                              .firstOrNull
+                              ?.name;
                         }
 
-                        await AttendanceExcelService.exportMonthlyAttendanceExcel(
+                        await AttendanceExcelService
+                            .exportMonthlyAttendanceExcel(
                           title: 'Staff Attendance Register',
                           month: selectedMonth,
                           records: records,
@@ -572,17 +613,23 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) {
-          final declaredHolidays = ref.watch(holidaysProvider).valueOrNull ?? [];
+          final declaredHolidays =
+              ref.watch(holidaysProvider).valueOrNull ?? [];
 
           return AlertDialog(
             backgroundColor: AppColors.surfaceDark,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             title: const Row(
               children: [
                 Icon(Icons.beach_access_rounded, color: AppColors.primary),
                 SizedBox(width: 8),
                 Expanded(
-                  child: Text('Holiday Management', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                  child: Text('Holiday Management',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold)),
                 ),
               ],
             ),
@@ -595,19 +642,26 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                   children: [
                     Text(
                       'Declare a paid holiday for Head Office, specific sites, or company-wide. Default rule: Head Office has Sundays off; construction sites work all 7 days.',
-                      style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
+                      style: AppTextStyles.bodySmall
+                          .copyWith(color: AppColors.textSecondary),
                     ),
                     const SizedBox(height: 14),
 
                     // Date selector
                     ListTile(
                       contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.calendar_today_rounded, color: AppColors.primary),
+                      leading: const Icon(Icons.calendar_today_rounded,
+                          color: AppColors.primary),
                       title: Text(
                         DateFormat('EEEE, dd MMMM yyyy').format(selectedDate),
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14),
                       ),
-                      subtitle: const Text('Tap to change holiday date', style: TextStyle(color: AppColors.textSecondary, fontSize: 11)),
+                      subtitle: const Text('Tap to change holiday date',
+                          style: TextStyle(
+                              color: AppColors.textSecondary, fontSize: 11)),
                       onTap: () async {
                         final picked = await showDatePicker(
                           context: context,
@@ -628,19 +682,27 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                       style: const TextStyle(color: AppColors.textPrimary),
                       decoration: const InputDecoration(
                         labelText: 'Holiday Title / Occasion',
-                        hintText: 'e.g. Diwali, Eid, Republic Day, Site Shutdown',
+                        hintText:
+                            'e.g. Diwali, Eid, Republic Day, Site Shutdown',
                       ),
                     ),
                     const SizedBox(height: 14),
 
                     // Scope Checkboxes
-                    const Text('Applies To:', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                    const Text('Applies To:',
+                        style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13)),
                     const SizedBox(height: 6),
                     CheckboxListTile(
                       contentPadding: EdgeInsets.zero,
                       dense: true,
                       activeColor: AppColors.primary,
-                      title: const Text('All Locations (Company-Wide)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      title: const Text('All Locations (Company-Wide)',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold)),
                       value: isAllLocations,
                       onChanged: (val) {
                         setDialogState(() {
@@ -659,21 +721,29 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                         contentPadding: EdgeInsets.zero,
                         dense: true,
                         activeColor: AppColors.primary,
-                        title: const Text('Indore Head Office', style: TextStyle(color: Colors.white)),
+                        title: const Text('Indore Head Office',
+                            style: TextStyle(color: Colors.white)),
                         value: isHeadOfficeSelected,
                         onChanged: (val) {
-                          setDialogState(() => isHeadOfficeSelected = val ?? false);
+                          setDialogState(
+                              () => isHeadOfficeSelected = val ?? false);
                         },
                       ),
                       const SizedBox(height: 4),
-                      const Text('Construction Sites:', style: TextStyle(color: AppColors.textSecondary, fontSize: 12, fontWeight: FontWeight.bold)),
+                      const Text('Construction Sites:',
+                          style: TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold)),
                       ...sites.where((s) => !s.isHeadOffice).map((s) {
                         final isChecked = selectedSiteIds.contains(s.id);
                         return CheckboxListTile(
                           contentPadding: EdgeInsets.zero,
                           dense: true,
                           activeColor: AppColors.primary,
-                          title: Text(s.name, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                          title: Text(s.name,
+                              style: const TextStyle(
+                                  color: Colors.white70, fontSize: 13)),
                           value: isChecked,
                           onChanged: (val) {
                             setDialogState(() {
@@ -695,9 +765,15 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                       const SizedBox(height: 8),
                       Row(
                         children: [
-                          const Icon(Icons.event_note_rounded, size: 16, color: AppColors.primary),
+                          const Icon(Icons.event_note_rounded,
+                              size: 16, color: AppColors.primary),
                           const SizedBox(width: 6),
-                          Text('Active Declared Holidays (${declaredHolidays.length})', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                          Text(
+                              'Active Declared Holidays (${declaredHolidays.length})',
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13)),
                         ],
                       ),
                       const SizedBox(height: 8),
@@ -711,7 +787,8 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                         child: ListView.separated(
                           shrinkWrap: true,
                           itemCount: declaredHolidays.length,
-                          separatorBuilder: (_, __) => const Divider(color: AppColors.divider, height: 1),
+                          separatorBuilder: (_, __) => const Divider(
+                              color: AppColors.divider, height: 1),
                           itemBuilder: (ctx, i) {
                             final h = declaredHolidays[i];
                             final scopeStr = h.siteIds.contains('all')
@@ -719,17 +796,30 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                                 : '${h.siteIds.length} site(s)';
                             return ListTile(
                               dense: true,
-                              title: Text(h.title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
-                              subtitle: Text('${DateFormat('dd MMM yyyy').format(h.date)} • $scopeStr', style: const TextStyle(color: AppColors.textSecondary, fontSize: 11)),
+                              title: Text(h.title,
+                                  style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13)),
+                              subtitle: Text(
+                                  '${DateFormat('dd MMM yyyy').format(h.date)} • $scopeStr',
+                                  style: const TextStyle(
+                                      color: AppColors.textSecondary,
+                                      fontSize: 11)),
                               trailing: IconButton(
-                                icon: const Icon(Icons.delete_outline_rounded, color: AppColors.rejected, size: 18),
+                                icon: const Icon(Icons.delete_outline_rounded,
+                                    color: AppColors.rejected, size: 18),
                                 tooltip: 'Revoke Holiday',
                                 onPressed: () async {
-                                  await ref.read(attendanceServiceProvider).deleteHoliday(h.id);
+                                  await ref
+                                      .read(attendanceServiceProvider)
+                                      .deleteHoliday(h.id);
                                   ref.invalidate(holidaysProvider);
                                   ref.invalidate(monthlyAttendanceProvider);
-                                  ref.invalidate(todayAttendanceForSiteProvider);
-                                  ref.invalidate(attendanceForDateAndSiteProvider);
+                                  ref.invalidate(
+                                      todayAttendanceForSiteProvider);
+                                  ref.invalidate(
+                                      attendanceForDateAndSiteProvider);
                                   setDialogState(() {});
                                 },
                               ),
@@ -748,14 +838,17 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                 child: const Text('Close'),
               ),
               ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary),
                 icon: const Icon(Icons.check_rounded, size: 18),
                 label: const Text('Declare Holiday'),
                 onPressed: () async {
                   final title = titleController.text.trim();
                   if (title.isEmpty) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Please enter a holiday title'), backgroundColor: AppColors.rejected),
+                      const SnackBar(
+                          content: Text('Please enter a holiday title'),
+                          backgroundColor: AppColors.rejected),
                     );
                     return;
                   }
@@ -768,19 +861,23 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                     targetSiteIds.addAll(selectedSiteIds);
                     if (targetSiteIds.isEmpty) {
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Please select at least one site or head office'), backgroundColor: AppColors.rejected),
+                        const SnackBar(
+                            content: Text(
+                                'Please select at least one site or head office'),
+                            backgroundColor: AppColors.rejected),
                       );
                       return;
                     }
                   }
 
-                  final adminName = ref.read(authProvider).user?.fullName ?? 'Admin';
+                  final adminName =
+                      ref.read(authProvider).user?.fullName ?? 'Admin';
                   await ref.read(attendanceServiceProvider).declareHoliday(
-                    title: title,
-                    date: selectedDate,
-                    siteIds: targetSiteIds,
-                    createdBy: adminName,
-                  );
+                        title: title,
+                        date: selectedDate,
+                        siteIds: targetSiteIds,
+                        createdBy: adminName,
+                      );
 
                   ref.invalidate(holidaysProvider);
                   ref.invalidate(monthlyAttendanceProvider);
@@ -789,9 +886,11 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
 
                   if (context.mounted) {
                     Navigator.pop(ctx);
+                    if (!mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text('Holiday "$title" declared for ${DateFormat('dd MMM yyyy').format(selectedDate)}!'),
+                        content: Text(
+                            'Holiday "$title" declared for ${DateFormat('dd MMM yyyy').format(selectedDate)}!'),
                         backgroundColor: AppColors.approved,
                       ),
                     );
@@ -817,7 +916,9 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
 
     SiteStaffModel? selectedStaff = preselectedStaff ??
         (existingRecord != null
-            ? activeStaff.where((s) => s.id == existingRecord.staffId).firstOrNull
+            ? activeStaff
+                .where((s) => s.id == existingRecord.staffId)
+                .firstOrNull
             : null) ??
         (activeStaff.isNotEmpty ? activeStaff.first : null);
 
@@ -825,7 +926,8 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
     TimeOfDay punchInTime = const TimeOfDay(hour: 9, minute: 0);
     TimeOfDay punchOutTime = const TimeOfDay(hour: 18, minute: 0);
     String selectedReason = 'Site Visit';
-    final noteController = TextEditingController(text: 'Site Visit / Official Duty');
+    final noteController =
+        TextEditingController(text: 'Site Visit / Official Duty');
 
     final reasonPresets = [
       'Site Visit',
@@ -842,13 +944,18 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
           backgroundColor: AppColors.surfaceDark,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Row(
             children: [
               Icon(Icons.how_to_reg_rounded, color: AppColors.approved),
               SizedBox(width: 8),
               Expanded(
-                child: Text('Give Attendance (Mark Present)', style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold)),
+                child: Text('Give Attendance (Mark Present)',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold)),
               ),
             ],
           ),
@@ -861,26 +968,33 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                 children: [
                   Text(
                     'Grant official attendance to employee who was on a site visit, client visit, or outside designated area.',
-                    style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
+                    style: AppTextStyles.bodySmall
+                        .copyWith(color: AppColors.textSecondary),
                   ),
                   const SizedBox(height: 14),
 
                   // Staff Selector
                   if (preselectedStaff == null && existingRecord == null) ...[
                     DropdownButtonFormField<SiteStaffModel>(
-                      value: selectedStaff,
+                      initialValue: selectedStaff,
                       dropdownColor: AppColors.cardDark,
-                      style: const TextStyle(color: AppColors.textPrimary, fontSize: 13),
-                      decoration: const InputDecoration(labelText: 'Select Staff Member'),
+                      style: const TextStyle(
+                          color: AppColors.textPrimary, fontSize: 13),
+                      decoration: const InputDecoration(
+                          labelText: 'Select Staff Member'),
                       items: activeStaff.map((s) {
                         final sName = _getSiteName(allSites, s.siteId);
                         return DropdownMenuItem(
                           value: s,
-                          child: Text('${s.name} (${s.role.displayName} • $sName)', overflow: TextOverflow.ellipsis),
+                          child: Text(
+                              '${s.name} (${s.role.displayName} • $sName)',
+                              overflow: TextOverflow.ellipsis),
                         );
                       }).toList(),
                       onChanged: (val) {
-                        if (val != null) setDialogState(() => selectedStaff = val);
+                        if (val != null) {
+                          setDialogState(() => selectedStaff = val);
+                        }
                       },
                     ),
                     const SizedBox(height: 12),
@@ -897,7 +1011,8 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                           const CircleAvatar(
                             radius: 18,
                             backgroundColor: AppColors.primary,
-                            child: Icon(Icons.person_rounded, size: 20, color: Colors.white),
+                            child: Icon(Icons.person_rounded,
+                                size: 20, color: Colors.white),
                           ),
                           const SizedBox(width: 10),
                           Expanded(
@@ -905,12 +1020,19 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  selectedStaff?.name ?? existingRecord?.staffName ?? 'Staff Member',
-                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                                  selectedStaff?.name ??
+                                      existingRecord?.staffName ??
+                                      'Staff Member',
+                                  style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14),
                                 ),
                                 Text(
                                   '${selectedStaff?.role.displayName ?? existingRecord?.staffRole ?? ""} • ${_getSiteName(allSites, selectedStaff?.siteId ?? existingRecord?.siteId ?? "")}',
-                                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
+                                  style: const TextStyle(
+                                      color: AppColors.textSecondary,
+                                      fontSize: 11),
                                 ),
                               ],
                             ),
@@ -925,12 +1047,18 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                   ListTile(
                     contentPadding: EdgeInsets.zero,
                     dense: true,
-                    leading: const Icon(Icons.calendar_today_rounded, color: AppColors.primary, size: 20),
+                    leading: const Icon(Icons.calendar_today_rounded,
+                        color: AppColors.primary, size: 20),
                     title: Text(
                       DateFormat('EEEE, dd MMMM yyyy').format(selectedDate),
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13),
                     ),
-                    subtitle: const Text('Tap to change date', style: TextStyle(color: AppColors.textSecondary, fontSize: 10)),
+                    subtitle: const Text('Tap to change date',
+                        style: TextStyle(
+                            color: AppColors.textSecondary, fontSize: 10)),
                     onTap: () async {
                       final picked = await showDatePicker(
                         context: context,
@@ -938,7 +1066,9 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                         firstDate: DateTime(2024),
                         lastDate: DateTime.now(),
                       );
-                      if (picked != null) setDialogState(() => selectedDate = picked);
+                      if (picked != null) {
+                        setDialogState(() => selectedDate = picked);
+                      }
                     },
                   ),
                   const SizedBox(height: 10),
@@ -949,12 +1079,22 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                       Expanded(
                         child: InkWell(
                           onTap: () async {
-                            final picked = await showTimePicker(context: context, initialTime: punchInTime);
-                            if (picked != null) setDialogState(() => punchInTime = picked);
+                            final picked = await showTimePicker(
+                                context: context, initialTime: punchInTime);
+                            if (picked != null) {
+                              setDialogState(() => punchInTime = picked);
+                            }
                           },
                           child: InputDecorator(
-                            decoration: const InputDecoration(labelText: 'Punch In Time', prefixIcon: Icon(Icons.login_rounded, size: 18, color: AppColors.approved)),
-                            child: Text(punchInTime.format(context), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                            decoration: const InputDecoration(
+                                labelText: 'Punch In Time',
+                                prefixIcon: Icon(Icons.login_rounded,
+                                    size: 18, color: AppColors.approved)),
+                            child: Text(punchInTime.format(context),
+                                style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13)),
                           ),
                         ),
                       ),
@@ -962,12 +1102,22 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                       Expanded(
                         child: InkWell(
                           onTap: () async {
-                            final picked = await showTimePicker(context: context, initialTime: punchOutTime);
-                            if (picked != null) setDialogState(() => punchOutTime = picked);
+                            final picked = await showTimePicker(
+                                context: context, initialTime: punchOutTime);
+                            if (picked != null) {
+                              setDialogState(() => punchOutTime = picked);
+                            }
                           },
                           child: InputDecorator(
-                            decoration: const InputDecoration(labelText: 'Punch Out Time', prefixIcon: Icon(Icons.logout_rounded, size: 18, color: AppColors.secondary)),
-                            child: Text(punchOutTime.format(context), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                            decoration: const InputDecoration(
+                                labelText: 'Punch Out Time',
+                                prefixIcon: Icon(Icons.logout_rounded,
+                                    size: 18, color: AppColors.secondary)),
+                            child: Text(punchOutTime.format(context),
+                                style: const TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13)),
                           ),
                         ),
                       ),
@@ -976,7 +1126,11 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                   const SizedBox(height: 14),
 
                   // Reason Chips
-                  const Text('Reason / Purpose:', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                  const Text('Reason / Purpose:',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12)),
                   const SizedBox(height: 6),
                   Wrap(
                     spacing: 6,
@@ -984,7 +1138,12 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                     children: reasonPresets.map((r) {
                       final isSelected = selectedReason == r;
                       return ChoiceChip(
-                        label: Text(r, style: TextStyle(fontSize: 11, color: isSelected ? Colors.white : AppColors.textSecondary)),
+                        label: Text(r,
+                            style: TextStyle(
+                                fontSize: 11,
+                                color: isSelected
+                                    ? Colors.white
+                                    : AppColors.textSecondary)),
                         selected: isSelected,
                         selectedColor: AppColors.primary,
                         backgroundColor: AppColors.cardDark,
@@ -1006,7 +1165,8 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                   // Note text field
                   TextField(
                     controller: noteController,
-                    style: const TextStyle(color: AppColors.textPrimary, fontSize: 13),
+                    style: const TextStyle(
+                        color: AppColors.textPrimary, fontSize: 13),
                     decoration: const InputDecoration(
                       labelText: 'Admin Note / Description',
                       hintText: 'e.g. Site visit to Indore plant with client',
@@ -1022,21 +1182,25 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
               child: const Text('Cancel'),
             ),
             ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.approved),
+              style:
+                  ElevatedButton.styleFrom(backgroundColor: AppColors.approved),
               icon: const Icon(Icons.check_circle_rounded, size: 18),
               label: const Text('Mark Present'),
               onPressed: () async {
                 final staff = selectedStaff;
                 if (staff == null && existingRecord == null) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Please select an employee'), backgroundColor: AppColors.rejected),
+                    const SnackBar(
+                        content: Text('Please select an employee'),
+                        backgroundColor: AppColors.rejected),
                   );
                   return;
                 }
 
                 final staffId = staff?.id ?? existingRecord!.staffId;
                 final staffName = staff?.name ?? existingRecord!.staffName;
-                final staffRole = staff?.role.displayName ?? existingRecord!.staffRole;
+                final staffRole =
+                    staff?.role.displayName ?? existingRecord!.staffRole;
                 final staffSiteId = staff?.siteId ?? existingRecord!.siteId;
                 final staffSiteName = _getSiteName(allSites, staffSiteId);
 
@@ -1059,41 +1223,49 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                     ? noteController.text.trim()
                     : selectedReason;
 
-                final currentAdmin = ref.read(authProvider).user?.fullName ?? 'Admin';
+                final currentAdmin =
+                    ref.read(authProvider).user?.fullName ?? 'Admin';
 
                 Navigator.pop(ctx);
 
                 try {
-                  await ref.read(attendanceServiceProvider).markManualAttendance(
-                    siteId: staffSiteId,
-                    siteName: staffSiteName,
-                    staffId: staffId,
-                    staffName: staffName,
-                    staffRole: staffRole,
-                    date: selectedDate,
-                    punchInTime: inDateTime,
-                    punchOutTime: outDateTime,
-                    reason: reasonNote,
-                    adminName: currentAdmin,
-                    existingAttendanceId: existingRecord?.id,
-                  );
+                  await ref
+                      .read(attendanceServiceProvider)
+                      .markManualAttendance(
+                        siteId: staffSiteId,
+                        siteName: staffSiteName,
+                        staffId: staffId,
+                        staffName: staffName,
+                        staffRole: staffRole,
+                        date: selectedDate,
+                        punchInTime: inDateTime,
+                        punchOutTime: outDateTime,
+                        reason: reasonNote,
+                        adminName: currentAdmin,
+                        existingAttendanceId: existingRecord?.id,
+                      );
 
                   ref.invalidate(todayAttendanceForSiteProvider);
                   ref.invalidate(attendanceForDateAndSiteProvider);
                   ref.invalidate(monthlyAttendanceProvider);
 
                   if (context.mounted) {
+                    if (!mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text('Attendance marked Present for $staffName!'),
+                        content:
+                            Text('Attendance marked Present for $staffName!'),
                         backgroundColor: AppColors.approved,
                       ),
                     );
                   }
                 } catch (e) {
                   if (context.mounted) {
+                    if (!mounted) return;
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Error marking attendance: $e'), backgroundColor: AppColors.rejected),
+                      SnackBar(
+                          content: Text('Error marking attendance: $e'),
+                          backgroundColor: AppColors.rejected),
                     );
                   }
                 }
@@ -1147,8 +1319,12 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
           unselectedLabelColor: AppColors.textSecondary,
           isScrollable: true,
           tabs: [
-            const Tab(icon: Icon(Icons.calendar_month_rounded), text: 'Calendar & Roster'),
-            Tab(icon: const Icon(Icons.share_location_rounded), text: context.tr('live_location')),
+            const Tab(
+                icon: Icon(Icons.calendar_month_rounded),
+                text: 'Calendar & Roster'),
+            Tab(
+                icon: const Icon(Icons.share_location_rounded),
+                text: context.tr('live_location')),
             Tab(
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -1202,14 +1378,16 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
   }
 
   String _getSiteName(List<SiteModel> sites, String siteId) {
-    if (siteId == 'office' || siteId == 'bdb1478e-4fa9-4873-9804-864b0952fa4d') {
+    if (siteId == 'office' ||
+        siteId == 'bdb1478e-4fa9-4873-9804-864b0952fa4d') {
       return 'Indore Head Office';
     }
     final s = sites.where((item) => item.id == siteId).firstOrNull;
     return s?.name ?? 'Site';
   }
 
-  bool _matchesSite(String itemSiteId, String filterSiteId, List<SiteModel> sites) {
+  bool _matchesSite(
+      String itemSiteId, String filterSiteId, List<SiteModel> sites) {
     if (filterSiteId == 'all') return true;
     if (itemSiteId == filterSiteId) return true;
 
@@ -1248,21 +1426,25 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
     final sitesAsync = ref.watch(activeSitesProvider);
 
     return sitesAsync.when(
-      loading: () =>
-          const Center(child: CircularProgressIndicator(color: AppColors.primary)),
+      loading: () => const Center(
+          child: CircularProgressIndicator(color: AppColors.primary)),
       error: (e, _) => Center(child: Text('Error loading sites: $e')),
       data: (sites) {
         final filterOptions = [
           (id: 'all', name: 'All Locations'),
-          ...sites.map((s) => (id: s.id, name: s.isHeadOffice ? 'Indore Head Office' : s.name)),
+          ...sites.map((s) =>
+              (id: s.id, name: s.isHeadOffice ? 'Indore Head Office' : s.name)),
         ];
 
         final currentSiteId = _selectedSiteFilter;
         final staffAsync = ref.watch(allStaffProvider);
         final attendanceAsync = ref.watch(attendanceForDateAndSiteProvider(
             (siteId: currentSiteId, date: _selectedDate)));
-        final monthlyAsync = ref.watch(monthlyAttendanceProvider(
-            (siteId: currentSiteId, year: _calendarMonth.year, month: _calendarMonth.month)));
+        final monthlyAsync = ref.watch(monthlyAttendanceProvider((
+          siteId: currentSiteId,
+          year: _calendarMonth.year,
+          month: _calendarMonth.month
+        )));
         final holidaysAsync = ref.watch(holidaysProvider);
 
         final monthlyRecords = monthlyAsync.valueOrNull ?? [];
@@ -1300,15 +1482,22 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
           final isAlreadyMarked = recordedStaffIds.contains(staff.id) ||
               recordedStaffNames.contains(staff.name.trim().toLowerCase());
           if (!isAlreadyMarked) {
-            final staffSite = sites.where((s) => s.id == staff.siteId).firstOrNull;
+            final staffSite =
+                sites.where((s) => s.id == staff.siteId).firstOrNull;
             final isOfficeSite = staffSite?.isHeadOffice == true ||
                 staff.siteId == 'office' ||
                 staff.siteId == 'bdb1478e-4fa9-4873-9804-864b0952fa4d' ||
-                _getSiteName(sites, staff.siteId).toLowerCase().contains('head office') ||
-                _getSiteName(sites, staff.siteId).toLowerCase().contains('indore office') ||
-                _getSiteName(sites, staff.siteId).toLowerCase().trim() == 'indore';
+                _getSiteName(sites, staff.siteId)
+                    .toLowerCase()
+                    .contains('head office') ||
+                _getSiteName(sites, staff.siteId)
+                    .toLowerCase()
+                    .contains('indore office') ||
+                _getSiteName(sites, staff.siteId).toLowerCase().trim() ==
+                    'indore';
 
-            final isSundayOfficeOff = _selectedDate.weekday == DateTime.sunday && isOfficeSite;
+            final isSundayOfficeOff =
+                _selectedDate.weekday == DateTime.sunday && isOfficeSite;
 
             HolidayModel? matchingHoliday;
             for (final h in declaredHolidays) {
@@ -1320,7 +1509,8 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
               }
             }
 
-            final isHolidayForStaff = isSundayOfficeOff || matchingHoliday != null;
+            final isHolidayForStaff =
+                isSundayOfficeOff || matchingHoliday != null;
             final holidayTitle = isSundayOfficeOff
                 ? 'Sunday Off (Head Office)'
                 : (matchingHoliday?.title ?? 'Holiday');
@@ -1412,7 +1602,8 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.place_rounded, size: 18, color: AppColors.primary),
+                      const Icon(Icons.place_rounded,
+                          size: 18, color: AppColors.primary),
                       const SizedBox(width: 8),
                       const Text(
                         'Site:',
@@ -1433,7 +1624,8 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                           ),
                           child: DropdownButtonHideUnderline(
                             child: DropdownButton<String>(
-                              value: filterOptions.any((f) => f.id == currentSiteId)
+                              value: filterOptions
+                                      .any((f) => f.id == currentSiteId)
                                   ? currentSiteId
                                   : 'all',
                               isExpanded: true,
@@ -1443,12 +1635,17 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                                 fontWeight: FontWeight.bold,
                                 fontSize: 13,
                               ),
-                              items: filterOptions.map((f) => DropdownMenuItem(
-                                value: f.id,
-                                child: Text(f.name, overflow: TextOverflow.ellipsis),
-                              )).toList(),
+                              items: filterOptions
+                                  .map((f) => DropdownMenuItem(
+                                        value: f.id,
+                                        child: Text(f.name,
+                                            overflow: TextOverflow.ellipsis),
+                                      ))
+                                  .toList(),
                               onChanged: (val) {
-                                if (val != null) setState(() => _selectedSiteFilter = val);
+                                if (val != null) {
+                                  setState(() => _selectedSiteFilter = val);
+                                }
                               },
                             ),
                           ),
@@ -1464,11 +1661,16 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                           style: OutlinedButton.styleFrom(
                             foregroundColor: const Color(0xFF38BDF8),
                             side: const BorderSide(color: Color(0xFF0284C7)),
-                            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            padding: const EdgeInsets.symmetric(
+                                vertical: 6, horizontal: 8),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8)),
                           ),
-                          icon: const Icon(Icons.beach_access_rounded, size: 16),
-                          label: const Text('Declare Holiday', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                          icon:
+                              const Icon(Icons.beach_access_rounded, size: 16),
+                          label: const Text('Declare Holiday',
+                              style: TextStyle(
+                                  fontSize: 11, fontWeight: FontWeight.bold)),
                           onPressed: () => _showDeclareHolidayDialog(sites),
                         ),
                       ),
@@ -1478,12 +1680,17 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.approved,
                             foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            padding: const EdgeInsets.symmetric(
+                                vertical: 6, horizontal: 8),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8)),
                           ),
                           icon: const Icon(Icons.how_to_reg_rounded, size: 16),
-                          label: const Text('Give Attendance', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                          onPressed: () => _showMarkAttendanceDialog(staffList: activeStaffList, sites: sites),
+                          label: const Text('Give Attendance',
+                              style: TextStyle(
+                                  fontSize: 11, fontWeight: FontWeight.bold)),
+                          onPressed: () => _showMarkAttendanceDialog(
+                              staffList: activeStaffList, sites: sites),
                         ),
                       ),
                     ],
@@ -1494,7 +1701,8 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
 
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                 children: [
                   // ── Clean Compact Calendar Header & Week Bar ──
                   Container(
@@ -1523,18 +1731,23 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                   // ── Unified Interactive Stat Bar ──
                   Row(
                     children: [
-                      _buildStatFilterTab('all', 'All Staff', totalStaff, Colors.white),
+                      _buildStatFilterTab(
+                          'all', 'All Staff', totalStaff, Colors.white),
                       const SizedBox(width: 6),
-                      _buildStatFilterTab('present', 'Present', presentCount, AppColors.approved),
+                      _buildStatFilterTab('present', 'Present', presentCount,
+                          AppColors.approved),
                       const SizedBox(width: 6),
-                      _buildStatFilterTab('absent', 'Absent', absentCount, AppColors.rejected),
+                      _buildStatFilterTab(
+                          'absent', 'Absent', absentCount, AppColors.rejected),
                       if (holidayCount > 0) ...[
                         const SizedBox(width: 6),
-                        _buildStatFilterTab('holiday', 'Holiday', holidayCount, const Color(0xFF0284C7)),
+                        _buildStatFilterTab('holiday', 'Holiday', holidayCount,
+                            const Color(0xFF0284C7)),
                       ],
                       if (pendingCount > 0) ...[
                         const SizedBox(width: 6),
-                        _buildStatFilterTab('pending', 'Requests', pendingCount, AppColors.pending),
+                        _buildStatFilterTab('pending', 'Requests', pendingCount,
+                            AppColors.pending),
                       ],
                     ],
                   ),
@@ -1551,8 +1764,10 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                                 : 'No staff found for selected site.')))
                   else
                     ...filteredRoster.map((r) {
-                      final staffInfo = staffList.where((s) => s.id == r.staffId).firstOrNull;
-                      return _buildAttendanceRecordCard(r, staffInfo: staffInfo);
+                      final staffInfo =
+                          staffList.where((s) => s.id == r.staffId).firstOrNull;
+                      return _buildAttendanceRecordCard(r,
+                          staffInfo: staffInfo);
                     }),
                 ],
               ),
@@ -1569,18 +1784,21 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
 
   Widget _buildCalendarHeader(BuildContext context) {
     final now = DateTime.now();
-    final isCurrentMonth = _calendarMonth.year == now.year && _calendarMonth.month == now.month;
+    final isCurrentMonth =
+        _calendarMonth.year == now.year && _calendarMonth.month == now.month;
 
     return Row(
       children: [
         IconButton(
-          icon: const Icon(Icons.chevron_left_rounded, color: Colors.white, size: 22),
+          icon: const Icon(Icons.chevron_left_rounded,
+              color: Colors.white, size: 22),
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(),
           tooltip: 'Previous Month',
           onPressed: () {
             setState(() {
-              _calendarMonth = DateTime(_calendarMonth.year, _calendarMonth.month - 1, 1);
+              _calendarMonth =
+                  DateTime(_calendarMonth.year, _calendarMonth.month - 1, 1);
             });
           },
         ),
@@ -1601,19 +1819,22 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                   ),
                 ),
                 const SizedBox(width: 2),
-                const Icon(Icons.arrow_drop_down_rounded, color: AppColors.primary, size: 20),
+                const Icon(Icons.arrow_drop_down_rounded,
+                    color: AppColors.primary, size: 20),
               ],
             ),
           ),
         ),
         IconButton(
-          icon: const Icon(Icons.chevron_right_rounded, color: Colors.white, size: 22),
+          icon: const Icon(Icons.chevron_right_rounded,
+              color: Colors.white, size: 22),
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(),
           tooltip: 'Next Month',
           onPressed: () {
             setState(() {
-              _calendarMonth = DateTime(_calendarMonth.year, _calendarMonth.month + 1, 1);
+              _calendarMonth =
+                  DateTime(_calendarMonth.year, _calendarMonth.month + 1, 1);
             });
           },
         ),
@@ -1626,9 +1847,10 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
             minimumSize: Size.zero,
             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             backgroundColor: isCurrentMonth && _isSameDay(_selectedDate, now)
-                ? AppColors.primary.withOpacity(0.15)
+                ? AppColors.primary.withValues(alpha: 0.15)
                 : AppColors.surfaceDark,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
           ),
           onPressed: () {
             setState(() {
@@ -1638,7 +1860,10 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
           },
           child: const Text(
             'Today',
-            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary),
+            style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: AppColors.primary),
           ),
         ),
         const SizedBox(width: 8),
@@ -1647,17 +1872,20 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
         InkWell(
           borderRadius: BorderRadius.circular(6),
           onTap: () {
-            setState(() => _isMonthCalendarExpanded = !_isMonthCalendarExpanded);
+            setState(
+                () => _isMonthCalendarExpanded = !_isMonthCalendarExpanded);
           },
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
               color: _isMonthCalendarExpanded
-                  ? AppColors.primary.withOpacity(0.2)
+                  ? AppColors.primary.withValues(alpha: 0.2)
                   : AppColors.surfaceDark,
               borderRadius: BorderRadius.circular(6),
               border: Border.all(
-                color: _isMonthCalendarExpanded ? AppColors.primary : AppColors.divider,
+                color: _isMonthCalendarExpanded
+                    ? AppColors.primary
+                    : AppColors.divider,
               ),
             ),
             child: Row(
@@ -1668,7 +1896,9 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                       ? Icons.view_week_rounded
                       : Icons.calendar_month_rounded,
                   size: 13,
-                  color: _isMonthCalendarExpanded ? AppColors.primary : AppColors.textSecondary,
+                  color: _isMonthCalendarExpanded
+                      ? AppColors.primary
+                      : AppColors.textSecondary,
                 ),
                 const SizedBox(width: 4),
                 Text(
@@ -1676,7 +1906,9 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
-                    color: _isMonthCalendarExpanded ? AppColors.primary : AppColors.textSecondary,
+                    color: _isMonthCalendarExpanded
+                        ? AppColors.primary
+                        : AppColors.textSecondary,
                   ),
                 ),
               ],
@@ -1694,7 +1926,8 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
   Widget _buildMonthCalendarGrid(List<AttendanceRecordModel> monthlyRecords) {
     const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     final firstDay = DateTime(_calendarMonth.year, _calendarMonth.month, 1);
-    final daysInMonth = DateTime(_calendarMonth.year, _calendarMonth.month + 1, 0).day;
+    final daysInMonth =
+        DateTime(_calendarMonth.year, _calendarMonth.month + 1, 0).day;
     final startOffset = (firstDay.weekday - 1);
     final totalCells = startOffset + daysInMonth;
     final rowCount = (totalCells / 7).ceil();
@@ -1718,7 +1951,6 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
           }).toList(),
         ),
         const SizedBox(height: 4),
-
         ...List.generate(rowCount, (rowIndex) {
           return Padding(
             padding: const EdgeInsets.symmetric(vertical: 1.5),
@@ -1730,7 +1962,8 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                 }
 
                 final dayNum = cellIndex - startOffset + 1;
-                final cellDate = DateTime(_calendarMonth.year, _calendarMonth.month, dayNum);
+                final cellDate =
+                    DateTime(_calendarMonth.year, _calendarMonth.month, dayNum);
                 final isSelected = _isSameDay(cellDate, _selectedDate);
                 final isToday = _isSameDay(cellDate, DateTime.now());
 
@@ -1751,11 +1984,15 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                       decoration: BoxDecoration(
                         color: isSelected
                             ? AppColors.primary
-                            : (isToday ? AppColors.primary.withOpacity(0.15) : Colors.transparent),
+                            : (isToday
+                                ? AppColors.primary.withValues(alpha: 0.15)
+                                : Colors.transparent),
                         borderRadius: BorderRadius.circular(8),
                         border: isSelected
                             ? Border.all(color: AppColors.waveCyan, width: 1.5)
-                            : (isToday ? Border.all(color: AppColors.primary) : null),
+                            : (isToday
+                                ? Border.all(color: AppColors.primary)
+                                : null),
                       ),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -1764,10 +2001,14 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                             '$dayNum',
                             style: TextStyle(
                               fontSize: 11,
-                              fontWeight: isSelected || isToday ? FontWeight.bold : FontWeight.normal,
+                              fontWeight: isSelected || isToday
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
                               color: isSelected
                                   ? Colors.white
-                                  : (isToday ? AppColors.primary : AppColors.textPrimary),
+                                  : (isToday
+                                      ? AppColors.primary
+                                      : AppColors.textPrimary),
                             ),
                           ),
                           if (hasPresents || hasAbsents) ...[
@@ -1779,7 +2020,8 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                                   Container(
                                     width: 3.5,
                                     height: 3.5,
-                                    margin: const EdgeInsets.symmetric(horizontal: 0.5),
+                                    margin: const EdgeInsets.symmetric(
+                                        horizontal: 0.5),
                                     decoration: const BoxDecoration(
                                       color: AppColors.approved,
                                       shape: BoxShape.circle,
@@ -1789,7 +2031,8 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                                   Container(
                                     width: 3.5,
                                     height: 3.5,
-                                    margin: const EdgeInsets.symmetric(horizontal: 0.5),
+                                    margin: const EdgeInsets.symmetric(
+                                        horizontal: 0.5),
                                     decoration: const BoxDecoration(
                                       color: AppColors.rejected,
                                       shape: BoxShape.circle,
@@ -1817,7 +2060,8 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
 
   Widget _buildWeekStrip(List<AttendanceRecordModel> monthlyRecords) {
     const weekdayLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-    final startOfWeek = _selectedDate.subtract(Duration(days: _selectedDate.weekday - 1));
+    final startOfWeek =
+        _selectedDate.subtract(Duration(days: _selectedDate.weekday - 1));
 
     return Row(
       children: List.generate(7, (i) {
@@ -1847,12 +2091,16 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
               decoration: BoxDecoration(
                 color: isSelected
                     ? AppColors.primary
-                    : (isToday ? AppColors.primary.withOpacity(0.12) : AppColors.surfaceDark),
+                    : (isToday
+                        ? AppColors.primary.withValues(alpha: 0.12)
+                        : AppColors.surfaceDark),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
                   color: isSelected
                       ? AppColors.waveCyan
-                      : (isToday ? AppColors.primary.withOpacity(0.5) : AppColors.divider),
+                      : (isToday
+                          ? AppColors.primary.withValues(alpha: 0.5)
+                          : AppColors.divider),
                 ),
               ),
               child: Column(
@@ -1862,7 +2110,8 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                     style: TextStyle(
                       fontSize: 9,
                       fontWeight: FontWeight.bold,
-                      color: isSelected ? Colors.white70 : AppColors.textSecondary,
+                      color:
+                          isSelected ? Colors.white70 : AppColors.textSecondary,
                     ),
                   ),
                   const SizedBox(height: 1),
@@ -1913,7 +2162,8 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
   // Unified Interactive Stat Filter Tab
   // ─────────────────────────────────────────────────────────────
 
-  Widget _buildStatFilterTab(String filterId, String label, int count, Color color) {
+  Widget _buildStatFilterTab(
+      String filterId, String label, int count, Color color) {
     final isSelected = _rosterStatusFilter == filterId;
 
     return Expanded(
@@ -1925,7 +2175,8 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
           decoration: BoxDecoration(
-            color: isSelected ? color.withOpacity(0.18) : AppColors.cardDark,
+            color:
+                isSelected ? color.withValues(alpha: 0.18) : AppColors.cardDark,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
               color: isSelected ? color : AppColors.divider,
@@ -1963,7 +2214,8 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
   // Simple, Clean Attendance Card
   // ─────────────────────────────────────────────────────────────
 
-  Widget _buildAttendanceRecordCard(AttendanceRecordModel r, {SiteStaffModel? staffInfo}) {
+  Widget _buildAttendanceRecordCard(AttendanceRecordModel r,
+      {SiteStaffModel? staffInfo}) {
     final isUnmarked = r.isUnmarkedAbsent;
     final isHoliday = r.isHoliday;
     final inStr = r.punchInTime != null
@@ -1980,18 +2232,18 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
       decoration: BoxDecoration(
         color: isHoliday
-            ? const Color(0xFF0284C7).withOpacity(0.06)
+            ? const Color(0xFF0284C7).withValues(alpha: 0.06)
             : (isUnmarked
-                ? AppColors.rejected.withOpacity(0.05)
+                ? AppColors.rejected.withValues(alpha: 0.05)
                 : AppColors.cardDark),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isHoliday
-              ? const Color(0xFF0284C7).withOpacity(0.35)
+              ? const Color(0xFF0284C7).withValues(alpha: 0.35)
               : (isUnmarked
-                  ? AppColors.rejected.withOpacity(0.3)
+                  ? AppColors.rejected.withValues(alpha: 0.3)
                   : (r.isPendingAdminReview
-                      ? AppColors.pending.withOpacity(0.4)
+                      ? AppColors.pending.withValues(alpha: 0.4)
                       : AppColors.divider)),
         ),
       ),
@@ -2004,24 +2256,28 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
               CircleAvatar(
                 radius: 16,
                 backgroundColor: isHoliday
-                    ? const Color(0xFF0284C7).withOpacity(0.18)
+                    ? const Color(0xFF0284C7).withValues(alpha: 0.18)
                     : (isUnmarked
-                        ? AppColors.rejected.withOpacity(0.18)
+                        ? AppColors.rejected.withValues(alpha: 0.18)
                         : (r.isPresent
-                            ? AppColors.approved.withOpacity(0.18)
-                            : AppColors.pending.withOpacity(0.18))),
+                            ? AppColors.approved.withValues(alpha: 0.18)
+                            : AppColors.pending.withValues(alpha: 0.18))),
                 child: Icon(
                   isHoliday
                       ? Icons.beach_access_rounded
                       : (isUnmarked
                           ? Icons.close_rounded
-                          : (r.isPresent ? Icons.check_rounded : Icons.pending_rounded)),
+                          : (r.isPresent
+                              ? Icons.check_rounded
+                              : Icons.pending_rounded)),
                   size: 16,
                   color: isHoliday
                       ? const Color(0xFF38BDF8)
                       : (isUnmarked
                           ? AppColors.rejected
-                          : (r.isPresent ? AppColors.approved : AppColors.pending)),
+                          : (r.isPresent
+                              ? AppColors.approved
+                              : AppColors.pending)),
                 ),
               ),
               const SizedBox(width: 10),
@@ -2041,7 +2297,8 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                     const SizedBox(height: 1),
                     Text(
                       '${r.staffRole} • ${r.siteName}',
-                      style: AppTextStyles.caption.copyWith(color: AppColors.textTertiary),
+                      style: AppTextStyles.caption
+                          .copyWith(color: AppColors.textTertiary),
                     ),
                   ],
                 ),
@@ -2052,12 +2309,12 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: isHoliday
-                      ? const Color(0xFF0284C7).withOpacity(0.18)
+                      ? const Color(0xFF0284C7).withValues(alpha: 0.18)
                       : (isUnmarked
-                          ? AppColors.rejected.withOpacity(0.15)
+                          ? AppColors.rejected.withValues(alpha: 0.15)
                           : (r.isPresent
-                              ? AppColors.approved.withOpacity(0.15)
-                              : AppColors.pending.withOpacity(0.15))),
+                              ? AppColors.approved.withValues(alpha: 0.15)
+                              : AppColors.pending.withValues(alpha: 0.15))),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
@@ -2067,7 +2324,9 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                           ? 'Absent'
                           : (r.isPendingAdminReview
                               ? 'Review'
-                              : (r.lateMinutes > 0 ? '+${r.lateMinutes}m Late' : 'Present'))),
+                              : (r.lateMinutes > 0
+                                  ? '+${r.lateMinutes}m Late'
+                                  : 'Present'))),
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
@@ -2075,7 +2334,9 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                         ? const Color(0xFF38BDF8)
                         : (isUnmarked
                             ? AppColors.rejected
-                            : (r.isPresent ? AppColors.approved : AppColors.pending)),
+                            : (r.isPresent
+                                ? AppColors.approved
+                                : AppColors.pending)),
                   ),
                 ),
               ),
@@ -2087,12 +2348,16 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
           Row(
             children: [
               if (isHoliday) ...[
-                const Icon(Icons.event_available_rounded, size: 13, color: Color(0xFF38BDF8)),
+                const Icon(Icons.event_available_rounded,
+                    size: 13, color: Color(0xFF38BDF8)),
                 const SizedBox(width: 4),
                 Expanded(
                   child: Text(
                     r.adminDecisionNote ?? 'Scheduled Holiday',
-                    style: const TextStyle(fontSize: 11, color: Color(0xFF38BDF8), fontWeight: FontWeight.w500),
+                    style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF38BDF8),
+                        fontWeight: FontWeight.w500),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -2104,24 +2369,32 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                     existingRecord: r,
                   ),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
-                      color: AppColors.approved.withOpacity(0.15),
+                      color: AppColors.approved.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: AppColors.approved.withOpacity(0.5)),
+                      border: Border.all(
+                          color: AppColors.approved.withValues(alpha: 0.5)),
                     ),
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.how_to_reg_rounded, size: 12, color: AppColors.approved),
+                        Icon(Icons.how_to_reg_rounded,
+                            size: 12, color: AppColors.approved),
                         SizedBox(width: 4),
-                        Text('Mark Present', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.approved)),
+                        Text('Mark Present',
+                            style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.approved)),
                       ],
                     ),
                   ),
                 ),
               ] else if (isUnmarked || r.isAbsent) ...[
-                const Icon(Icons.info_outline_rounded, size: 12, color: AppColors.rejected),
+                const Icon(Icons.info_outline_rounded,
+                    size: 12, color: AppColors.rejected),
                 const SizedBox(width: 4),
                 const Text(
                   'Did not mark attendance',
@@ -2135,18 +2408,25 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                     existingRecord: r,
                   ),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
-                      color: AppColors.approved.withOpacity(0.15),
+                      color: AppColors.approved.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: AppColors.approved.withOpacity(0.5)),
+                      border: Border.all(
+                          color: AppColors.approved.withValues(alpha: 0.5)),
                     ),
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.how_to_reg_rounded, size: 12, color: AppColors.approved),
+                        Icon(Icons.how_to_reg_rounded,
+                            size: 12, color: AppColors.approved),
                         SizedBox(width: 4),
-                        Text('Mark Present', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.approved)),
+                        Text('Mark Present',
+                            style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.approved)),
                       ],
                     ),
                   ),
@@ -2157,25 +2437,37 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                     borderRadius: BorderRadius.circular(6),
                     onTap: () => launchUrl(Uri.parse('tel:$phone')),
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 4, vertical: 2),
                       child: Row(
                         children: [
-                          const Icon(Icons.call_rounded, size: 12, color: AppColors.approved),
+                          const Icon(Icons.call_rounded,
+                              size: 12, color: AppColors.approved),
                           const SizedBox(width: 4),
-                          Text(phone, style: const TextStyle(fontSize: 11, color: AppColors.approved, fontWeight: FontWeight.bold)),
+                          Text(phone,
+                              style: const TextStyle(
+                                  fontSize: 11,
+                                  color: AppColors.approved,
+                                  fontWeight: FontWeight.bold)),
                         ],
                       ),
                     ),
                   ),
                 ],
               ] else ...[
-                const Icon(Icons.login_rounded, size: 12, color: AppColors.approved),
+                const Icon(Icons.login_rounded,
+                    size: 12, color: AppColors.approved),
                 const SizedBox(width: 4),
-                Text('In: ${inStr ?? "--"}', style: const TextStyle(fontSize: 11, color: Colors.white70)),
+                Text('In: ${inStr ?? "--"}',
+                    style:
+                        const TextStyle(fontSize: 11, color: Colors.white70)),
                 const SizedBox(width: 12),
-                const Icon(Icons.logout_rounded, size: 12, color: AppColors.secondary),
+                const Icon(Icons.logout_rounded,
+                    size: 12, color: AppColors.secondary),
                 const SizedBox(width: 4),
-                Text('Out: ${outStr ?? "--"}', style: const TextStyle(fontSize: 11, color: Colors.white70)),
+                Text('Out: ${outStr ?? "--"}',
+                    style:
+                        const TextStyle(fontSize: 11, color: Colors.white70)),
                 const Spacer(),
                 InkWell(
                   borderRadius: BorderRadius.circular(6),
@@ -2184,12 +2476,18 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                     existingRecord: r,
                   ),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                     child: Row(
                       children: [
-                        const Icon(Icons.edit_note_rounded, size: 14, color: AppColors.primary),
+                        const Icon(Icons.edit_note_rounded,
+                            size: 14, color: AppColors.primary),
                         const SizedBox(width: 2),
-                        Text('Edit', style: TextStyle(fontSize: 11, color: AppColors.primary.withOpacity(0.9), fontWeight: FontWeight.bold)),
+                        Text('Edit',
+                            style: TextStyle(
+                                fontSize: 11,
+                                color: AppColors.primary.withValues(alpha: 0.9),
+                                fontWeight: FontWeight.bold)),
                       ],
                     ),
                   ),
@@ -2206,12 +2504,14 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
             const SizedBox(height: 4),
             Row(
               children: [
-                const Icon(Icons.admin_panel_settings_rounded, size: 11, color: AppColors.primary),
+                const Icon(Icons.admin_panel_settings_rounded,
+                    size: 11, color: AppColors.primary),
                 const SizedBox(width: 4),
                 Expanded(
                   child: Text(
                     r.adminDecisionNote!,
-                    style: const TextStyle(fontSize: 10, color: AppColors.textSecondary),
+                    style: const TextStyle(
+                        fontSize: 10, color: AppColors.textSecondary),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -2227,13 +2527,15 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                 Expanded(
                   child: Text(
                     'Reason: ${r.regularizationReason ?? "Late arrival"}',
-                    style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                    style: const TextStyle(
+                        fontSize: 11, color: AppColors.textSecondary),
                   ),
                 ),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.approved,
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     minimumSize: const Size(54, 26),
                   ),
                   onPressed: () => _handleReviewRequest(r, approve: true),
@@ -2244,7 +2546,8 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.rejected,
                     side: const BorderSide(color: AppColors.rejected),
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     minimumSize: const Size(50, 26),
                   ),
                   onPressed: () => _handleReviewRequest(r, approve: false),
@@ -2267,14 +2570,16 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
     final sitesAsync = ref.watch(activeSitesProvider);
 
     return liveLocsAsync.when(
-      loading: () =>
-          const Center(child: CircularProgressIndicator(color: AppColors.primary)),
+      loading: () => const Center(
+          child: CircularProgressIndicator(color: AppColors.primary)),
       error: (e, _) => Center(child: Text('Error: $e')),
       data: (allPings) {
         // Filter by selected site if specified
         final pings = _selectedLiveSiteFilter == 'all'
             ? allPings
-            : allPings.where((p) => p.siteId == _selectedLiveSiteFilter).toList();
+            : allPings
+                .where((p) => p.siteId == _selectedLiveSiteFilter)
+                .toList();
 
         return RefreshIndicator(
           onRefresh: () async {
@@ -2329,7 +2634,8 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                   ),
                   const SizedBox(width: 10),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                     decoration: BoxDecoration(
                       color: AppColors.cardDark,
                       borderRadius: BorderRadius.circular(10),
@@ -2360,7 +2666,8 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                   ),
                   const SizedBox(width: 8),
                   IconButton(
-                    icon: const Icon(Icons.refresh_rounded, color: AppColors.primary),
+                    icon: const Icon(Icons.refresh_rounded,
+                        color: AppColors.primary),
                     tooltip: 'Refresh Live Locations',
                     onPressed: () {
                       ref.invalidate(liveStaffLocationsProvider);
@@ -2371,7 +2678,8 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
               const SizedBox(height: 14),
 
               if (pings.isEmpty)
-                _buildEmptyCard('No active live location pings reported today for selected filter.')
+                _buildEmptyCard(
+                    'No active live location pings reported today for selected filter.')
               else
                 ...pings.map((ping) {
                   final isInside = ping.isWithinSite;
@@ -2382,7 +2690,8 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                       : (timeDiff.inMinutes < 60
                           ? '${timeDiff.inMinutes}m ago'
                           : '${timeDiff.inHours}h ago');
-                  final clockTime = DateFormat('hh:mm a').format(ping.timestamp);
+                  final clockTime =
+                      DateFormat('hh:mm a').format(ping.timestamp);
 
                   return Container(
                     margin: const EdgeInsets.only(bottom: 14),
@@ -2391,14 +2700,16 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(
                         color: isInside
-                            ? const Color(0xFF25D366).withOpacity(0.4)
-                            : AppColors.pending.withOpacity(0.4),
+                            ? const Color(0xFF25D366).withValues(alpha: 0.4)
+                            : AppColors.pending.withValues(alpha: 0.4),
                         width: 1.2,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: (isInside ? const Color(0xFF25D366) : AppColors.pending)
-                              .withOpacity(0.06),
+                          color: (isInside
+                                  ? const Color(0xFF25D366)
+                                  : AppColors.pending)
+                              .withValues(alpha: 0.06),
                           blurRadius: 10,
                           offset: const Offset(0, 3),
                         ),
@@ -2418,8 +2729,10 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                                   CircleAvatar(
                                     radius: 22,
                                     backgroundColor: isInside
-                                        ? const Color(0xFF25D366).withOpacity(0.18)
-                                        : AppColors.pending.withOpacity(0.18),
+                                        ? const Color(0xFF25D366)
+                                            .withValues(alpha: 0.18)
+                                        : AppColors.pending
+                                            .withValues(alpha: 0.18),
                                     child: Text(
                                       ping.staffName.isNotEmpty
                                           ? ping.staffName[0].toUpperCase()
@@ -2445,7 +2758,8 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                                             : AppColors.textTertiary,
                                         shape: BoxShape.circle,
                                         border: Border.all(
-                                            color: AppColors.cardDark, width: 2),
+                                            color: AppColors.cardDark,
+                                            width: 2),
                                       ),
                                     ),
                                   ),
@@ -2462,7 +2776,8 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                                       children: [
                                         Text(
                                           ping.staffName,
-                                          style: AppTextStyles.bodyMedium.copyWith(
+                                          style:
+                                              AppTextStyles.bodyMedium.copyWith(
                                             fontWeight: FontWeight.bold,
                                             fontSize: 15,
                                             color: Colors.white,
@@ -2474,8 +2789,9 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                                           decoration: BoxDecoration(
                                             color: isLiveNow
                                                 ? const Color(0xFF25D366)
-                                                    .withOpacity(0.15)
-                                                : Colors.grey.withOpacity(0.15),
+                                                    .withValues(alpha: 0.15)
+                                                : Colors.grey
+                                                    .withValues(alpha: 0.15),
                                             borderRadius:
                                                 BorderRadius.circular(6),
                                           ),
@@ -2516,7 +2832,7 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                             color: const Color(0xFF131C24),
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                              color: Colors.white.withOpacity(0.06),
+                              color: Colors.white.withValues(alpha: 0.06),
                             ),
                           ),
                           child: Column(
@@ -2548,7 +2864,8 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                                       Clipboard.setData(ClipboardData(
                                           text:
                                               '${ping.latitude},${ping.longitude}'));
-                                      ScaffoldMessenger.of(context).showSnackBar(
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
                                         const SnackBar(
                                           content: Text(
                                               'GPS coordinates copied to clipboard!'),
@@ -2613,8 +2930,7 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                               Row(
                                 children: [
                                   const Icon(Icons.gps_fixed_rounded,
-                                      size: 13,
-                                      color: AppColors.textTertiary),
+                                      size: 13, color: AppColors.textTertiary),
                                   const SizedBox(width: 6),
                                   Text(
                                     'GPS Accuracy: ±${ping.accuracyMeters != null ? ping.accuracyMeters!.toStringAsFixed(0) : '5'} meters',
@@ -2660,8 +2976,8 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: const Color(0xFF25D366),
                                     foregroundColor: Colors.black,
-                                    padding:
-                                        const EdgeInsets.symmetric(vertical: 10),
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 10),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(10),
                                     ),
@@ -2692,9 +3008,10 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                                   style: OutlinedButton.styleFrom(
                                     foregroundColor: Colors.white,
                                     side: BorderSide(
-                                        color: Colors.white.withOpacity(0.3)),
-                                    padding:
-                                        const EdgeInsets.symmetric(vertical: 10),
+                                        color: Colors.white
+                                            .withValues(alpha: 0.3)),
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 10),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(10),
                                     ),
@@ -2736,8 +3053,8 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
   Widget _buildLateRequestsTab(
       AsyncValue<List<AttendanceRecordModel>> requestsAsync) {
     return requestsAsync.when(
-      loading: () =>
-          const Center(child: CircularProgressIndicator(color: AppColors.primary)),
+      loading: () => const Center(
+          child: CircularProgressIndicator(color: AppColors.primary)),
       error: (e, _) => Center(child: Text('Error: $e')),
       data: (requests) {
         final sorted = [...requests]
@@ -2759,7 +3076,8 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
               decoration: BoxDecoration(
                 color: AppColors.cardDark,
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.pending.withOpacity(0.4)),
+                border:
+                    Border.all(color: AppColors.pending.withValues(alpha: 0.4)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -2773,7 +3091,7 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                         padding: const EdgeInsets.symmetric(
                             horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
-                          color: AppColors.rejected.withOpacity(0.18),
+                          color: AppColors.rejected.withValues(alpha: 0.18),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
@@ -2815,23 +3133,31 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                       ],
                     ),
                   ),
-                  if (req.adminDecisionNote != null && req.adminDecisionNote!.isNotEmpty) ...[
+                  if (req.adminDecisionNote != null &&
+                      req.adminDecisionNote!.isNotEmpty) ...[
                     const SizedBox(height: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF14B8A6).withOpacity(0.12),
+                        color: const Color(0xFF14B8A6).withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: const Color(0xFF14B8A6).withOpacity(0.3)),
+                        border: Border.all(
+                            color:
+                                const Color(0xFF14B8A6).withValues(alpha: 0.3)),
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.verified_rounded, size: 14, color: Color(0xFF14B8A6)),
+                          const Icon(Icons.verified_rounded,
+                              size: 14, color: Color(0xFF14B8A6)),
                           const SizedBox(width: 6),
                           Expanded(
                             child: Text(
                               req.adminDecisionNote!,
-                              style: const TextStyle(color: Color(0xFF14B8A6), fontSize: 11, fontWeight: FontWeight.w600),
+                              style: const TextStyle(
+                                  color: Color(0xFF14B8A6),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600),
                             ),
                           ),
                         ],
@@ -2906,14 +3232,15 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  AppColors.primary.withOpacity(0.18),
+                  AppColors.primary.withValues(alpha: 0.18),
                   AppColors.cardDark,
                 ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.primary.withOpacity(0.4)),
+              border:
+                  Border.all(color: AppColors.primary.withValues(alpha: 0.4)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -2923,7 +3250,8 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.business_rounded, color: AppColors.primary),
+                        const Icon(Icons.business_rounded,
+                            color: AppColors.primary),
                         const SizedBox(width: 8),
                         Text('Company Default Shift', style: AppTextStyles.h4),
                       ],
@@ -3003,8 +3331,8 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                       CircleAvatar(
                         radius: 20,
                         backgroundColor: site.id == 'office'
-                            ? AppColors.primary.withOpacity(0.15)
-                            : AppColors.secondary.withOpacity(0.15),
+                            ? AppColors.primary.withValues(alpha: 0.15)
+                            : AppColors.secondary.withValues(alpha: 0.15),
                         child: Icon(
                           site.id == 'office'
                               ? Icons.apartment_rounded
@@ -3031,10 +3359,12 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                                   .copyWith(color: AppColors.textSecondary),
                             ),
                             const SizedBox(height: 3),
-                            if (policy?.latitude != null && policy?.longitude != null)
+                            if (policy?.latitude != null &&
+                                policy?.longitude != null)
                               Row(
                                 children: [
-                                  const Icon(Icons.location_on_rounded, size: 12, color: AppColors.approved),
+                                  const Icon(Icons.location_on_rounded,
+                                      size: 12, color: AppColors.approved),
                                   const SizedBox(width: 4),
                                   Text(
                                     'GPS: ${policy!.latitude!.toStringAsFixed(4)}, ${policy.longitude!.toStringAsFixed(4)} (Radius: ${policy.allowedRadiusMeters.toStringAsFixed(0)}m)',
@@ -3049,7 +3379,8 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                             else
                               const Row(
                                 children: [
-                                  Icon(Icons.location_off_rounded, size: 12, color: AppColors.pending),
+                                  Icon(Icons.location_off_rounded,
+                                      size: 12, color: AppColors.pending),
                                   SizedBox(width: 4),
                                   Text(
                                     'No GPS Pin Set (Tap Edit to pin location)',

@@ -66,7 +66,9 @@ void main() {
       updatedAt: now.subtract(const Duration(days: 30)),
     );
 
-    test('Project Head receives alerts for pending stock approvals older than 36h', () {
+    test(
+        'Project Head receives alerts for pending stock approvals older than 36h',
+        () {
       final projectHeadUser = UserModel(
         id: 'user-ph-1',
         email: 'ph@skcpl.com',
@@ -79,21 +81,24 @@ void main() {
       final container = ProviderContainer(
         overrides: [
           authProvider.overrideWith((ref) => AuthNotifierMock(projectHeadUser)),
-          stockProvider.overrideWith((ref) => StockNotifierMock([overdueStockTx, freshStockTx])),
+          stockProvider.overrideWith(
+              (ref) => StockNotifierMock([overdueStockTx, freshStockTx])),
           cashProvider.overrideWith((ref) => CashNotifierMock([])),
           activeSitesProvider.overrideWith((ref) => [site]),
         ],
       );
 
       final alerts = container.read(slaAlertsProvider);
-      final stockAlerts = alerts.where((a) => a.type == SlaAlertType.pendingStock).toList();
+      final stockAlerts =
+          alerts.where((a) => a.type == SlaAlertType.pendingStock).toList();
       expect(stockAlerts.length, 1);
       expect(stockAlerts.first.siteName, 'Hatpipliya');
       expect(stockAlerts.first.hoursElapsed, greaterThanOrEqualTo(36));
       expect(stockAlerts.first.message, contains('Cement UltraTech'));
     });
 
-    test('Site Worker NEVER receives approval SLA alerts (not worker task)', () {
+    test('Site Worker NEVER receives approval SLA alerts (not worker task)',
+        () {
       final workerUser = UserModel(
         id: 'user-worker-1',
         email: 'daksh@skcpl.com',
@@ -106,17 +111,21 @@ void main() {
       final container = ProviderContainer(
         overrides: [
           authProvider.overrideWith((ref) => AuthNotifierMock(workerUser)),
-          stockProvider.overrideWith((ref) => StockNotifierMock([overdueStockTx])),
+          stockProvider
+              .overrideWith((ref) => StockNotifierMock([overdueStockTx])),
           cashProvider.overrideWith((ref) => CashNotifierMock([])),
           activeSitesProvider.overrideWith((ref) => [site]),
         ],
       );
 
       final alerts = container.read(slaAlertsProvider);
-      expect(alerts, isEmpty); // Strict guarantee: workers get 0 approval alerts
+      expect(
+          alerts, isEmpty); // Strict guarantee: workers get 0 approval alerts
     });
 
-    test('Accounts and Admin receive alerts for pending approvals older than 36h', () {
+    test(
+        'Accounts and Admin receive alerts for pending approvals older than 36h',
+        () {
       final accountsUser = UserModel(
         id: 'user-acc-1',
         email: 'accounts@skcpl.com',
@@ -129,14 +138,16 @@ void main() {
       final container = ProviderContainer(
         overrides: [
           authProvider.overrideWith((ref) => AuthNotifierMock(accountsUser)),
-          stockProvider.overrideWith((ref) => StockNotifierMock([overdueStockTx])),
+          stockProvider
+              .overrideWith((ref) => StockNotifierMock([overdueStockTx])),
           cashProvider.overrideWith((ref) => CashNotifierMock([])),
           activeSitesProvider.overrideWith((ref) => [site]),
         ],
       );
 
       final alerts = container.read(slaAlertsProvider);
-      final stockAlerts = alerts.where((a) => a.type == SlaAlertType.pendingStock).toList();
+      final stockAlerts =
+          alerts.where((a) => a.type == SlaAlertType.pendingStock).toList();
       expect(stockAlerts.length, 1);
     });
 
@@ -160,21 +171,25 @@ void main() {
       );
 
       final alerts = container.read(slaAlertsProvider);
-      final missedCashAlerts = alerts.where((a) => a.type == SlaAlertType.missedCashbook).toList();
+      final missedCashAlerts =
+          alerts.where((a) => a.type == SlaAlertType.missedCashbook).toList();
       expect(missedCashAlerts.isNotEmpty, isTrue);
       expect(missedCashAlerts.first.siteName, 'Hatpipliya');
     });
   });
 }
 
-class AuthNotifierMock extends StateNotifier<AuthState> implements AuthNotifier {
-  AuthNotifierMock(UserModel user) : super(AuthState(user: user, isLoading: false));
+class AuthNotifierMock extends StateNotifier<AuthState>
+    implements AuthNotifier {
+  AuthNotifierMock(UserModel user)
+      : super(AuthState(user: user, isLoading: false));
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-class StockNotifierMock extends StateNotifier<StockState> implements StockNotifier {
+class StockNotifierMock extends StateNotifier<StockState>
+    implements StockNotifier {
   StockNotifierMock(List<StockTransactionModel> initial)
       : super(StockState(transactions: initial));
 
@@ -182,7 +197,8 @@ class StockNotifierMock extends StateNotifier<StockState> implements StockNotifi
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-class CashNotifierMock extends StateNotifier<CashState> implements CashNotifier {
+class CashNotifierMock extends StateNotifier<CashState>
+    implements CashNotifier {
   CashNotifierMock(List<CashTransactionModel> initial)
       : super(CashState(transactions: initial));
 

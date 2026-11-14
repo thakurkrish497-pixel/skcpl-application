@@ -1,3 +1,6 @@
+import '../../services/inventory_math.dart';
+import '../../services/draft_store.dart';
+import '../../services/submission_support.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -53,6 +56,37 @@ class StockInwardDraft {
     this.finalAmount,
     this.remarks,
   });
+  Map<String, dynamic> toLocalJson() => {
+        'id': id,
+        'productId': productId,
+        'customProduct': customProduct,
+        'productName': productName,
+        'metricUnitId': metricUnitId,
+        'customMetricUnit': customMetricUnit,
+        'metricUnitName': metricUnitName,
+        'quantity': quantity,
+        'rate': rate,
+        'sgst': sgst,
+        'igst': igst,
+        'finalAmount': finalAmount,
+        'remarks': remarks,
+      };
+  factory StockInwardDraft.fromLocalJson(Map<String, dynamic> json) =>
+      StockInwardDraft(
+        id: json['id'] as String,
+        productId: json['productId'] as String,
+        customProduct: json['customProduct'] as String?,
+        productName: json['productName'] as String,
+        metricUnitId: json['metricUnitId'] as String,
+        customMetricUnit: json['customMetricUnit'] as String?,
+        metricUnitName: json['metricUnitName'] as String,
+        quantity: (json['quantity'] as num).toDouble(),
+        rate: (json['rate'] as num?)?.toDouble(),
+        sgst: (json['sgst'] as num).toDouble(),
+        igst: (json['igst'] as num).toDouble(),
+        finalAmount: (json['finalAmount'] as num?)?.toDouble(),
+        remarks: json['remarks'] as String?,
+      );
 }
 
 /// Add Product (Inbound) form with real-time tax calculation
@@ -104,10 +138,15 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
   bool get isLocked {
     final user = ref.read(authProvider);
     // Admin ALWAYS has full edit privileges on ANY transaction, including approved historical entries
+    if (widget.existingTransaction?.status == TransactionStatus.approved) {
+      return true;
+    }
     if (user.isAdmin) return false;
 
     // For non-admin users, approved records are permanently locked
-    if (widget.existingTransaction?.status == TransactionStatus.approved) return true;
+    if (widget.existingTransaction?.status == TransactionStatus.approved) {
+      return true;
+    }
 
     // Accounts has edit privileges for pending and rejected records
     if (user.isAccounts) return false;
@@ -115,25 +154,84 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
     // Project Head can edit transactions pending supervisor review or rejected
     if (user.isProjectHead &&
         (widget.existingTransaction == null ||
-         widget.existingTransaction!.isPendingSupervisorReview ||
-         widget.existingTransaction!.status == TransactionStatus.pendingAccounts ||
-         widget.existingTransaction!.status == TransactionStatus.rejected)) {
+            widget.existingTransaction!.isPendingSupervisorReview ||
+            widget.existingTransaction!.status ==
+                TransactionStatus.pendingAccounts ||
+            widget.existingTransaction!.status == TransactionStatus.rejected)) {
       return false;
     }
 
     // Only apply staff module restrictions if the user is a worker/site staff
     final activeStaff = ref.read(activeStaffProvider);
-    if (activeStaff != null && !activeStaff.hasModule(StaffModule.stock)) return true;
+    if (activeStaff != null && !activeStaff.hasModule(StaffModule.stock)) {
+      return true;
+    }
 
     if (widget.existingTransaction == null) return false;
     return !widget.existingTransaction!.isEditable;
+  }
+
+  String get _draftKey {
+    final site = ref.read(authProvider).activeSite?.id ?? 'none';
+    final owner = ref.read(authProvider).user?.id ??
+        ref.read(activeStaffProvider)?.id ??
+        'site-session';
+    return 'staged_StockInwardDraft_v1_${site}_$owner';
+  }
+
+  Future<void> _saveDrafts(List<StockInwardDraft> drafts) =>
+      DraftStore.save(_draftKey, {
+        'entries': drafts.map((d) => d.toLocalJson()).toList(),
+        'photos': _selectedPhotos
+            .map((p) => PendingPhoto(bytes: p.bytes, name: p.name).toJson())
+            .toList(),
+        'bill': _billNoController.text,
+        'date': _selectedDate.toIso8601String(),
+        'vendor': _selectedVendorId,
+        'unregisteredVendor': _unregisteredVendorController.text,
+      });
+  Future<void> _restoreDrafts() async {
+    if (widget.existingTransaction != null) return;
+    setState(() => _isSubmitting = true);
+    try {
+      final saved = await DraftStore.load(_draftKey);
+      if (saved == null || !mounted) return;
+      final drafts = (saved['entries'] as List)
+          .map((d) =>
+              StockInwardDraft.fromLocalJson(Map<String, dynamic>.from(d)))
+          .toList();
+      setState(() {
+        _stagedMaterials.clear();
+        _stagedMaterials.addAll(drafts);
+        _selectedPhotos = (saved['photos'] as List? ?? []).map((p) {
+          final photo = PendingPhoto.fromJson(Map<String, dynamic>.from(p));
+          return PickedPhoto(bytes: photo.bytes, name: photo.name);
+        }).toList();
+        _photoPickerKey = UniqueKey();
+        _billNoController.text = saved['bill'] as String? ?? '';
+        _selectedDate =
+            DateTime.tryParse(saved['date'] as String? ?? '') ?? _selectedDate;
+        _selectedVendorId = saved['vendor'] as String?;
+        _unregisteredVendorController.text =
+            saved['unregisteredVendor'] as String? ?? '';
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Staged entries could not be restored: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
   }
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final siteId = widget.existingTransaction?.siteId ?? ref.read(authProvider).activeSite?.id;
+      _restoreDrafts();
+      final siteId = widget.existingTransaction?.siteId ??
+          ref.read(authProvider).activeSite?.id;
       if (siteId != null) {
         ref.read(stockProvider.notifier).loadCurrentStock(siteId);
       }
@@ -148,6 +246,9 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
     // Pre-fill values if editing an existing transaction
     final tx = widget.existingTransaction;
     if (tx != null) {
+      _selectedPhotos = tx.pendingPhotos
+          .map((p) => PickedPhoto(bytes: p.bytes, name: p.name))
+          .toList();
       _selectedVendorId = tx.vendorId;
       _selectedProductId = tx.productId;
       _selectedMetricUnitId = tx.metricUnitId;
@@ -163,11 +264,13 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
         _selectedVendorId = 'OTHER';
         _unregisteredVendorController.text = tx.unregisteredVendor!;
       }
-      if (tx.customProduct != null || tx.productId == DropdownService.otherProductPlaceholderId) {
+      if (tx.customProduct != null ||
+          tx.productId == DropdownService.otherProductPlaceholderId) {
         _selectedProductId = 'OTHER';
         _customProductController.text = tx.customProduct ?? '';
       }
-      if (tx.customMetricUnit != null || tx.metricUnitId == DropdownService.otherUnitPlaceholderId) {
+      if (tx.customMetricUnit != null ||
+          tx.metricUnitId == DropdownService.otherUnitPlaceholderId) {
         _selectedMetricUnitId = 'OTHER';
         _customUnitController.text = tx.customMetricUnit ?? '';
       }
@@ -176,10 +279,10 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
   }
 
   void _calculateFinalAmount() {
-    final qty = double.tryParse(_quantityController.text) ?? 0;
-    final rate = double.tryParse(_rateController.text) ?? 0;
-    final sgst = double.tryParse(_sgstController.text) ?? 0;
-    final igst = double.tryParse(_igstController.text) ?? 0;
+    final qty = parseFiniteNumber(_quantityController.text) ?? 0;
+    final rate = parseFiniteNumber(_rateController.text) ?? 0;
+    final sgst = parseFiniteNumber(_sgstController.text) ?? 0;
+    final igst = parseFiniteNumber(_igstController.text) ?? 0;
 
     final baseAmount = qty * rate;
     final taxAmount = baseAmount * ((sgst + igst) / 100);
@@ -214,7 +317,7 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
   }
 
   bool get _hasCurrentMaterialData {
-    final qty = double.tryParse(_quantityController.text) ?? 0;
+    final qty = parseFiniteNumber(_quantityController.text) ?? 0;
     return qty > 0;
   }
 
@@ -238,13 +341,14 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
     return match?.value ?? 'units';
   }
 
-  bool _stageCurrentMaterial({
+  Future<bool> _stageCurrentMaterial({
     bool silent = false,
     List<DropdownItemModel> products = const [],
     List<DropdownItemModel> units = const [],
-  }) {
-    final qty = double.tryParse(_quantityController.text) ?? 0;
-    if (qty <= 0) {
+  }) async {
+    if (_isSubmitting || isLocked) return false;
+    final qty = parseFiniteNumber(_quantityController.text) ?? 0;
+    if (!qty.isFinite || qty <= 0) {
       if (!silent) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -268,7 +372,8 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
       return false;
     }
 
-    if (_selectedProductId == 'OTHER' && _customProductController.text.trim().isEmpty) {
+    if (_selectedProductId == 'OTHER' &&
+        _customProductController.text.trim().isEmpty) {
       if (!silent) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -292,7 +397,8 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
       return false;
     }
 
-    if (_selectedMetricUnitId == 'OTHER' && _customUnitController.text.trim().isEmpty) {
+    if (_selectedMetricUnitId == 'OTHER' &&
+        _customUnitController.text.trim().isEmpty) {
       if (!silent) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -307,23 +413,57 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
     final pName = _getProductName(_selectedProductId, products);
     final uName = _getUnitName(_selectedMetricUnitId, units);
 
+    for (final controller in [
+      _rateController,
+      _sgstController,
+      _igstController
+    ]) {
+      final text = controller.text.trim();
+      final number = parseFiniteNumber(text);
+      if (text.isNotEmpty && (number == null || number < 0)) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text(
+                'Rates and tax percentages must be finite non-negative numbers.')));
+        return false;
+      }
+    }
+    if (!_finalAmount.isFinite) return false;
     final draft = StockInwardDraft(
-      id: 'DRAFT-IN-${DateTime.now().microsecondsSinceEpoch}',
+      id: submissionId(null),
       productId: _selectedProductId!,
-      customProduct: _customProductController.text.trim().isNotEmpty ? _customProductController.text.trim() : null,
+      customProduct: _customProductController.text.trim().isNotEmpty
+          ? _customProductController.text.trim()
+          : null,
       productName: pName,
       metricUnitId: _selectedMetricUnitId!,
-      customMetricUnit: _customUnitController.text.trim().isNotEmpty ? _customUnitController.text.trim() : null,
+      customMetricUnit: _customUnitController.text.trim().isNotEmpty
+          ? _customUnitController.text.trim()
+          : null,
       metricUnitName: uName,
       quantity: qty,
-      rate: double.tryParse(_rateController.text),
-      sgst: double.tryParse(_sgstController.text) ?? 0,
-      igst: double.tryParse(_igstController.text) ?? 0,
+      rate: parseFiniteNumber(_rateController.text),
+      sgst: parseFiniteNumber(_sgstController.text) ?? 0,
+      igst: parseFiniteNumber(_igstController.text) ?? 0,
       finalAmount: _finalAmount > 0 ? _finalAmount : null,
-      remarks: _remarksController.text.trim().isNotEmpty ? _remarksController.text.trim() : null,
+      remarks: _remarksController.text.trim().isNotEmpty
+          ? _remarksController.text.trim()
+          : null,
     );
 
+    setState(() => _isSubmitting = true);
+    try {
+      await _saveDrafts([..._stagedMaterials, draft]);
+    } catch (e) {
+      if (mounted) setState(() => _isSubmitting = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('$e')));
+      }
+      return false;
+    }
+    if (!mounted) return false;
     setState(() {
+      _isSubmitting = false;
       _stagedMaterials.add(draft);
       _quantityController.clear();
       _rateController.clear();
@@ -340,7 +480,8 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
     if (!silent) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Added to Challan! (${_stagedMaterials.length} materials staged)'),
+          content: Text(
+              'Added to Challan! (${_stagedMaterials.length} materials staged)'),
           backgroundColor: AppColors.approved,
           duration: const Duration(seconds: 2),
         ),
@@ -349,121 +490,33 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
     return true;
   }
 
-  void _showBatchSuccessDialog(int count, double totalValue) {
-    final currencyFmt = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 2);
-    showModalBottomSheet(
-      context: context,
-      isDismissible: false,
-      enableDrag: false,
-      backgroundColor: AppColors.surfaceDark,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 60,
-                height: 60,
-                decoration: BoxDecoration(
-                  color: AppColors.approved.withOpacity(0.15),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.check_circle_rounded, color: AppColors.approved, size: 36),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Inward Batch Recorded!',
-                style: AppTextStyles.h4.copyWith(color: AppColors.textPrimary),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                '$count ${count == 1 ? "material" : "materials"} inwarded'
-                '${totalValue > 0 ? " • Total: ${currencyFmt.format(totalValue)}" : ""}',
-                style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary),
-              ),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      icon: const Icon(Icons.history_rounded, size: 18),
-                      label: const Text('View History'),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        side: const BorderSide(color: AppColors.divider),
-                      ),
-                      onPressed: () {
-                        Navigator.pop(ctx);
-                        Navigator.pushNamed(context, '/stock-history');
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      icon: const Icon(Icons.add_rounded, size: 18),
-                      label: const Text('+ Receive More'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      onPressed: () {
-                        Navigator.pop(ctx);
-                        // Clears bill/vendor inputs ready for next challan without re-login!
-                        setState(() {
-                          _billNoController.clear();
-                          _unregisteredVendorController.clear();
-                          _selectedVendorId = null;
-                          _selectedPhotos = [];
-                          _photoPickerKey = UniqueKey();
-                        });
-                      },
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  if (Navigator.canPop(context)) {
-                    Navigator.pop(context, true);
-                  }
-                },
-                child: const Text('Done & Return to Menu', style: TextStyle(color: AppColors.textTertiary)),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   Future<void> _handleSubmit({
     List<DropdownItemModel> products = const [],
     List<DropdownItemModel> units = const [],
   }) async {
+    if (_isSubmitting || isLocked) return;
     final authState = ref.read(authProvider);
-    final siteId = widget.existingTransaction?.siteId ?? authState.activeSite?.id;
+    final siteId =
+        widget.existingTransaction?.siteId ?? authState.activeSite?.id;
     final userId = authState.user?.id;
 
     if (siteId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Error: No site associated with this transaction')),
+        const SnackBar(
+            content: Text('Error: No site associated with this transaction')),
       );
       return;
     }
 
     final isPrivileged = authState.isAdmin || authState.isAccounts;
     final activeStaff = ref.read(activeStaffProvider);
-    if (!isPrivileged && activeStaff != null && !activeStaff.hasModule(StaffModule.stock)) {
+    if (!isPrivileged &&
+        activeStaff != null &&
+        !activeStaff.hasModule(StaffModule.stock)) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Access Denied: Stock management is turned off for ${activeStaff.name}.'),
+          content: Text(
+              'Access Denied: Stock management is turned off for ${activeStaff.name}.'),
           backgroundColor: AppColors.rejected,
         ),
       );
@@ -484,31 +537,41 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
       if (!_formKey.currentState!.validate()) return;
       if (_selectedProductId == null || _selectedMetricUnitId == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Please select material and metric unit')),
+          const SnackBar(
+              content: Text('Please select material and metric unit')),
         );
         return;
       }
 
       setState(() => _isSubmitting = true);
       try {
-        String? encodedRemarks = _remarksController.text.trim().isEmpty ? null : _remarksController.text.trim();
-        if (_selectedProductId == 'OTHER' && _customProductController.text.trim().isNotEmpty) {
+        String? encodedRemarks = _remarksController.text.trim().isEmpty
+            ? null
+            : _remarksController.text.trim();
+        if (_selectedProductId == 'OTHER' &&
+            _customProductController.text.trim().isNotEmpty) {
           final tag = '[Material: ${_customProductController.text.trim()}]';
-          encodedRemarks = encodedRemarks == null ? tag : '$tag $encodedRemarks';
+          encodedRemarks =
+              encodedRemarks == null ? tag : '$tag $encodedRemarks';
         }
-        if (_selectedMetricUnitId == 'OTHER' && _customUnitController.text.trim().isNotEmpty) {
+        if (_selectedMetricUnitId == 'OTHER' &&
+            _customUnitController.text.trim().isNotEmpty) {
           final tag = '[Unit: ${_customUnitController.text.trim()}]';
-          encodedRemarks = encodedRemarks == null ? tag : '$tag $encodedRemarks';
+          encodedRemarks =
+              encodedRemarks == null ? tag : '$tag $encodedRemarks';
         }
 
         final bill = _billNoController.text.trim();
         if (activeStaff != null) {
-          final staffTag = '[By: ${activeStaff.name} (${activeStaff.designation ?? activeStaff.role.displayName})]';
-          encodedRemarks = encodedRemarks == null ? staffTag : '$staffTag $encodedRemarks';
+          final staffTag =
+              '[By: ${activeStaff.name} (${activeStaff.designation ?? activeStaff.role.displayName})]';
+          encodedRemarks =
+              encodedRemarks == null ? staffTag : '$staffTag $encodedRemarks';
         }
         if (bill.isNotEmpty) {
           final tag = '[Bill: $bill]';
-          encodedRemarks = encodedRemarks == null ? tag : '$tag $encodedRemarks';
+          encodedRemarks =
+              encodedRemarks == null ? tag : '$tag $encodedRemarks';
         }
 
         final effectiveProductId = _selectedProductId == 'OTHER'
@@ -517,8 +580,11 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
         final effectiveMetricUnitId = _selectedMetricUnitId == 'OTHER'
             ? DropdownService.otherUnitPlaceholderId
             : _selectedMetricUnitId!;
-        final effectiveVendorId = _selectedVendorId == 'OTHER' ? null : _selectedVendorId;
-        final effectiveUnregisteredVendor = _selectedVendorId == 'OTHER' ? _unregisteredVendorController.text.trim() : null;
+        final effectiveVendorId =
+            _selectedVendorId == 'OTHER' ? null : _selectedVendorId;
+        final effectiveUnregisteredVendor = _selectedVendorId == 'OTHER'
+            ? _unregisteredVendorController.text.trim()
+            : null;
 
         var submission = StockTransactionModel(
           id: _transaction!.id,
@@ -530,40 +596,64 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
           productId: effectiveProductId,
           metricUnitId: effectiveMetricUnitId,
           quantity: double.parse(_quantityController.text),
-          rate: double.tryParse(_rateController.text),
-          sgst: double.tryParse(_sgstController.text) ?? 0,
-          igst: double.tryParse(_igstController.text) ?? 0,
+          rate: parseFiniteNumber(_rateController.text),
+          sgst: parseFiniteNumber(_sgstController.text) ?? 0,
+          igst: parseFiniteNumber(_igstController.text) ?? 0,
           finalAmount: _finalAmount,
           remarks: encodedRemarks,
           unregisteredVendor: effectiveUnregisteredVendor,
           status: _transaction!.status,
           photoUrls: _transaction!.photoUrls,
+          pendingPhotos: _transaction!.pendingPhotos,
         );
 
         List<String> uploadedUrls = List.from(submission.photoUrls);
-        if (_selectedPhotos.isNotEmpty) {
+        if (submission.id?.startsWith('offline_') == true) {
+          submission = submission.copyWith(
+              pendingPhotos: _selectedPhotos.isNotEmpty
+                  ? _selectedPhotos
+                      .map((p) => PendingPhoto(bytes: p.bytes, name: p.name))
+                      .toList()
+                  : submission.pendingPhotos);
+        }
+        if (_selectedPhotos.isNotEmpty &&
+            submission.id?.startsWith('offline_') != true) {
           final storageService = ref.read(storageServiceProvider);
           for (var photo in _selectedPhotos) {
             try {
-              final url = await storageService.uploadPhotoBytes(photo.bytes, fileName: photo.name);
+              final url = await storageService.uploadPhotoBytes(photo.bytes,
+                  fileName: photo.name);
               uploadedUrls.add(url);
             } catch (uploadError) {
-              debugPrint('Photo upload failed: $uploadError');
+              rethrow;
             }
           }
           submission = submission.copyWith(photoUrls: uploadedUrls);
         }
 
-        final success = await ref.read(stockProvider.notifier).updateTransaction(submission);
+        final success = await ref
+            .read(stockProvider.notifier)
+            .updateTransaction(submission);
         if (success && mounted) {
           ref.invalidate(stockOverviewProvider(_transaction!.siteId));
           ref.invalidate(allSitesStockProvider);
-          ref.read(stockProvider.notifier).loadCurrentStock(_transaction!.siteId);
-          ref.read(stockProvider.notifier).loadTransactions(_transaction!.siteId);
+          ref
+              .read(stockProvider.notifier)
+              .loadCurrentStock(_transaction!.siteId);
+          ref
+              .read(stockProvider.notifier)
+              .loadTransactions(_transaction!.siteId);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Changes saved successfully!'), backgroundColor: AppColors.approved),
+            const SnackBar(
+                content: Text('Changes saved successfully!'),
+                backgroundColor: AppColors.approved),
           );
           Navigator.pop(context, true);
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Changes were not saved: $e')));
         }
       } finally {
         if (mounted) setState(() => _isSubmitting = false);
@@ -574,18 +664,22 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
     // ── Multi-Material Batch Mode ──
     if (_selectedVendorId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select or specify a Vendor for this challan.')),
+        const SnackBar(
+            content:
+                Text('Please select or specify a Vendor for this challan.')),
       );
       return;
     }
 
     // If current inputs have material info, auto-stage it
     if (_hasCurrentMaterialData) {
-      final staged = _stageCurrentMaterial(silent: true, products: products, units: units);
+      final staged = await _stageCurrentMaterial(
+          silent: true, products: products, units: units);
       if (!staged) return; // Validation error
     }
 
     if (_stagedMaterials.isEmpty) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please enter at least one material with quantity.'),
@@ -599,27 +693,18 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
 
     try {
       final batchId = 'BATCH-${DateTime.now().millisecondsSinceEpoch}';
-      final storageService = ref.read(storageServiceProvider);
 
       // Upload shared challan photos
-      List<String> uploadedUrls = [];
-      if (_selectedPhotos.isNotEmpty) {
-        for (var photo in _selectedPhotos) {
-          try {
-            final url = await storageService.uploadPhotoBytes(photo.bytes, fileName: photo.name);
-            uploadedUrls.add(url);
-          } catch (uploadError) {
-            debugPrint('Challan photo upload failed: $uploadError');
-          }
-        }
-      }
-
       final bill = _billNoController.text.trim();
-      final effectiveVendorId = _selectedVendorId == 'OTHER' ? null : _selectedVendorId;
-      final effectiveUnregisteredVendor = _selectedVendorId == 'OTHER' ? _unregisteredVendorController.text.trim() : null;
+      final effectiveVendorId =
+          _selectedVendorId == 'OTHER' ? null : _selectedVendorId;
+      final effectiveUnregisteredVendor = _selectedVendorId == 'OTHER'
+          ? _unregisteredVendorController.text.trim()
+          : null;
 
+      final acceptedIds = <String>{};
       int successCount = 0;
-      double totalBatchValue = 0.0;
+      int queuedCount = 0;
 
       for (final draft in _stagedMaterials) {
         String? encodedRemarks = draft.remarks;
@@ -634,11 +719,13 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
           encodedRemarks = '$tag $encodedRemarks';
         }
         if (activeStaff != null) {
-          final staffTag = '[By: ${activeStaff.name} (${activeStaff.designation ?? activeStaff.role.displayName})]';
+          final staffTag =
+              '[By: ${activeStaff.name} (${activeStaff.designation ?? activeStaff.role.displayName})]';
           encodedRemarks = '$staffTag $encodedRemarks';
         }
         if (phCanApproveStock) {
-          const supTag = '[Project Head Review: Pending] [Supervisor Review: Pending]';
+          const supTag =
+              '[Project Head Review: Pending] [Supervisor Review: Pending]';
           encodedRemarks = '$encodedRemarks $supTag';
         } else {
           const supTag = '[Project Head Review: Bypassed by Admin Policy]';
@@ -657,6 +744,10 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
             : draft.metricUnitId;
 
         final submission = StockTransactionModel(
+          id: draft.id,
+          pendingPhotos: _selectedPhotos
+              .map((p) => PendingPhoto(bytes: p.bytes, name: p.name))
+              .toList(),
           siteId: siteId,
           submittedBy: userId,
           type: TransactionType.inbound,
@@ -672,26 +763,35 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
           remarks: encodedRemarks.trim(),
           unregisteredVendor: effectiveUnregisteredVendor,
           status: initialStatus,
-          photoUrls: uploadedUrls,
+          photoUrls: const [],
         );
 
-        final success = await ref.read(stockProvider.notifier).submitTransaction(submission);
+        final success = await ref
+            .read(stockProvider.notifier)
+            .submitTransaction(submission);
         if (success) {
+          acceptedIds.add(draft.id);
+          if (ref.read(stockProvider).error == 'OFFLINE_SAVED') queuedCount++;
           successCount++;
-          totalBatchValue += (draft.finalAmount ?? 0);
         }
       }
 
       if (mounted) {
         if (successCount > 0) {
           setState(() {
-            _stagedMaterials.clear();
+            _stagedMaterials.removeWhere((d) => acceptedIds.contains(d.id));
           });
-          _showBatchSuccessDialog(successCount, totalBatchValue);
+          await _saveDrafts(_stagedMaterials);
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(
+                '${successCount - queuedCount} uploaded; $queuedCount saved on this device for retry; ${_stagedMaterials.length} need correction.'),
+          ));
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(ref.read(stockProvider).error ?? 'Submission failed'),
+              content:
+                  Text(ref.read(stockProvider).error ?? 'Submission failed'),
               backgroundColor: AppColors.rejected,
             ),
           );
@@ -700,7 +800,8 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.rejected),
+          SnackBar(
+              content: Text('Error: $e'), backgroundColor: AppColors.rejected),
         );
       }
     } finally {
@@ -724,19 +825,27 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final siteId = widget.existingTransaction?.siteId ?? ref.watch(authProvider).activeSite?.id;
-    final vendorsAsync = ref.watch(dropdownProvider((category: DropdownCategory.vendor, siteId: siteId)));
-    final productsAsync = ref.watch(dropdownProvider((category: DropdownCategory.product, siteId: siteId)));
-    final unitsAsync = ref.watch(dropdownProvider((category: DropdownCategory.metricUnit, siteId: siteId)));
+    final siteId = widget.existingTransaction?.siteId ??
+        ref.watch(authProvider).activeSite?.id;
+    final vendorsAsync = ref.watch(
+        dropdownProvider((category: DropdownCategory.vendor, siteId: siteId)));
+    final productsAsync = ref.watch(
+        dropdownProvider((category: DropdownCategory.product, siteId: siteId)));
+    final unitsAsync = ref.watch(dropdownProvider(
+        (category: DropdownCategory.metricUnit, siteId: siteId)));
     final stockState = ref.watch(stockProvider);
     final isLight = AppColors.isLight;
 
-    final stockItem = (_selectedProductId != null && _selectedProductId != 'OTHER')
-        ? stockState.currentStock.where((s) => s['product_id'] == _selectedProductId).firstOrNull
-        : null;
-    final currentInHand = (stockItem?['current_stock'] as num?)?.toDouble() ?? 0.0;
+    final stockItem =
+        (_selectedProductId != null && _selectedProductId != 'OTHER')
+            ? stockState.currentStock
+                .where((s) => s['product_id'] == _selectedProductId)
+                .firstOrNull
+            : null;
+    final currentInHand =
+        (stockItem?['current_stock'] as num?)?.toDouble() ?? 0.0;
     final unitName = stockItem?['metric_unit'] ?? '';
-    final enteredQty = double.tryParse(_quantityController.text) ?? 0.0;
+    final enteredQty = parseFiniteNumber(_quantityController.text) ?? 0.0;
 
     return Scaffold(
       backgroundColor: AppColors.scaffoldDark,
@@ -747,7 +856,8 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
           if (isLocked)
             const Padding(
               padding: EdgeInsets.all(16),
-              child: Icon(Icons.lock_rounded, color: AppColors.pending, size: 20),
+              child:
+                  Icon(Icons.lock_rounded, color: AppColors.pending, size: 20),
             ),
           if (widget.existingTransaction != null)
             Padding(
@@ -765,570 +875,642 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
           key: _formKey,
           child: ListView(
             padding: const EdgeInsets.all(20),
-          children: [
-            // Locked banner
-            if (isLocked)
-              const LockedFormBanner()
-                  .animate()
-                  .fadeIn()
-                  .slideY(begin: -0.1),
+            children: [
+              // Locked banner
+              if (isLocked)
+                const LockedFormBanner().animate().fadeIn().slideY(begin: -0.1),
 
-            // ── Date Picker ──
-            GestureDetector(
-              onTap: _pickDate,
-              child: AbsorbPointer(
-                child: TextFormField(
-                  readOnly: true,
-                  controller: TextEditingController(
-                    text: DateFormat('dd MMM yyyy (EEEE)').format(_selectedDate),
-                  ),
-                  style: AppTextStyles.bodyMedium.copyWith(
-                    color: AppColors.textPrimary,
-                  ),
-                  decoration: InputDecoration(
-                    labelText: 'Date (Optional / Defaults to today)',
-                    prefixIcon: const Icon(Icons.calendar_today_rounded,
-                        color: AppColors.primary, size: 20),
-                    suffixIcon: isLocked
-                        ? null
-                        : const Icon(Icons.arrow_drop_down,
-                            color: AppColors.textTertiary),
+              // ── Date Picker ──
+              GestureDetector(
+                onTap: _pickDate,
+                child: AbsorbPointer(
+                  child: TextFormField(
+                    readOnly: true,
+                    controller: TextEditingController(
+                      text: DateFormat('dd MMM yyyy (EEEE)')
+                          .format(_selectedDate),
+                    ),
+                    style: AppTextStyles.bodyMedium.copyWith(
+                      color: AppColors.textPrimary,
+                    ),
+                    decoration: InputDecoration(
+                      labelText: 'Date (Optional / Defaults to today)',
+                      prefixIcon: const Icon(Icons.calendar_today_rounded,
+                          color: AppColors.primary, size: 20),
+                      suffixIcon: isLocked
+                          ? null
+                          : const Icon(Icons.arrow_drop_down,
+                              color: AppColors.textTertiary),
+                    ),
                   ),
                 ),
-              ),
-            ).animate().fadeIn(delay: 100.ms),
+              ).animate().fadeIn(delay: 100.ms),
 
-            const SizedBox(height: 18),
+              const SizedBox(height: 18),
 
-            // ── Vendor / Party Dropdown ──
-            vendorsAsync.when(
-              loading: () => _shimmerField('Loading vendors...'),
-              error: (_, __) => _errorField('Failed to load vendors'),
-              data: (vendors) => Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  DropdownButtonFormField<String>(
-                    value: (vendors.any((v) => v.id == _selectedVendorId) || _selectedVendorId == 'OTHER')
-                        ? _selectedVendorId
-                        : null,
-                    decoration: const InputDecoration(
-                      labelText: 'Vendor / Party Name',
-                      prefixIcon: Icon(Icons.store_rounded,
-                          color: AppColors.textTertiary, size: 20),
-                    ),
-                    dropdownColor: AppColors.cardDark,
-                    style: AppTextStyles.bodyMedium.copyWith(
-                      color: AppColors.textPrimary,
-                    ),
-                    items: [
-                      ...vendors.map((v) => DropdownMenuItem(
-                            value: v.id,
-                            child: Text(v.value),
-                          )),
-                      const DropdownMenuItem(
-                        value: 'OTHER',
-                        child: Text('Other (Unregistered Party / Vendor)', style: TextStyle(fontStyle: FontStyle.italic)),
-                      ),
-                    ],
-                    onChanged: isLocked ? null : (val) => setState(() => _selectedVendorId = val),
-                    validator: (v) => Validators.dropdownRequired(v, 'Vendor / Party'),
-                  ),
-                  if (_selectedVendorId == 'OTHER') ...[
-                    const SizedBox(height: 18),
-                    TextFormField(
-                      controller: _unregisteredVendorController,
-                      readOnly: isLocked,
-                      validator: (v) => v == null || v.trim().isEmpty ? 'Enter vendor / party name' : null,
-                      style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
-                      decoration: InputDecoration(
-                        labelText: 'Enter Vendor / Party Name',
-                        prefixIcon: const Icon(Icons.edit_note, color: AppColors.textTertiary, size: 20),
-                        suffixIcon: isLocked
-                            ? null
-                            : VoiceInputIconButton(
-                                controller: _unregisteredVendorController,
-                                fieldLabel: 'Vendor Name',
-                              ),
-                      ),
-                    ).animate().fadeIn(),
-                  ],
-                ],
-              ),
-            ).animate().fadeIn(delay: 200.ms),
-
-            const SizedBox(height: 18),
-
-            // ── Bill / Challan No. (Optional) ──
-            TextFormField(
-              controller: _billNoController,
-              readOnly: isLocked,
-              style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
-              decoration: const InputDecoration(
-                labelText: 'Bill / Challan No. (Optional)',
-                hintText: 'e.g. INV-2024-89 / Challan #12',
-                prefixIcon: Icon(Icons.receipt_long_rounded, color: AppColors.textTertiary, size: 20),
-              ),
-            ).animate().fadeIn(delay: 220.ms),
-
-            const SizedBox(height: 18),
-
-            // ── Product Dropdown ──
-            productsAsync.when(
-              loading: () => _shimmerField('Loading products...'),
-              error: (_, __) => _errorField('Failed to load products'),
-              data: (products) => Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  DropdownButtonFormField<String>(
-                    value: (products.any((p) => p.id == _selectedProductId) || _selectedProductId == 'OTHER')
-                        ? _selectedProductId
-                        : null,
-                    decoration: const InputDecoration(
-                      labelText: 'Product / Material Name',
-                      prefixIcon: Icon(Icons.category_rounded,
-                          color: AppColors.textTertiary, size: 20),
-                    ),
-                    dropdownColor: AppColors.cardDark,
-                    style: AppTextStyles.bodyMedium.copyWith(
-                      color: AppColors.textPrimary,
-                    ),
-                    items: [
-                      ...products.map((p) => DropdownMenuItem(
-                            value: p.id,
-                            child: Text(p.value),
-                          )),
-                      const DropdownMenuItem(
-                        value: 'OTHER',
-                        child: Text(
-                          '+ Other / Enter Manually',
-                          style: TextStyle(
-                            fontStyle: FontStyle.italic,
-                            color: AppColors.primary,
+              // ── Vendor / Party Dropdown ──
+              vendorsAsync
+                  .when(
+                    loading: () => _shimmerField('Loading vendors...'),
+                    error: (_, __) => _errorField('Failed to load vendors'),
+                    data: (vendors) => Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        DropdownButtonFormField<String>(
+                          initialValue:
+                              (vendors.any((v) => v.id == _selectedVendorId) ||
+                                      _selectedVendorId == 'OTHER')
+                                  ? _selectedVendorId
+                                  : null,
+                          decoration: const InputDecoration(
+                            labelText: 'Vendor / Party Name',
+                            prefixIcon: Icon(Icons.store_rounded,
+                                color: AppColors.textTertiary, size: 20),
                           ),
+                          dropdownColor: AppColors.cardDark,
+                          style: AppTextStyles.bodyMedium.copyWith(
+                            color: AppColors.textPrimary,
+                          ),
+                          items: [
+                            ...vendors.map((v) => DropdownMenuItem(
+                                  value: v.id,
+                                  child: Text(v.value),
+                                )),
+                            const DropdownMenuItem(
+                              value: 'OTHER',
+                              child: Text('Other (Unregistered Party / Vendor)',
+                                  style:
+                                      TextStyle(fontStyle: FontStyle.italic)),
+                            ),
+                          ],
+                          onChanged: isLocked
+                              ? null
+                              : (val) =>
+                                  setState(() => _selectedVendorId = val),
+                          validator: (v) =>
+                              Validators.dropdownRequired(v, 'Vendor / Party'),
                         ),
-                      ),
-                    ],
-                    onChanged: isLocked ? null : (val) => setState(() => _selectedProductId = val),
-                    validator: (v) => Validators.dropdownRequired(v, 'Product'),
-                  ),
-                  if (stockItem != null) ...[
-                    Container(
-                      margin: const EdgeInsets.only(top: 10),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: isLight ? const Color(0xFFF0FDF4) : const Color(0xFF064E3B).withValues(alpha: 0.4),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: const Color(0xFF10B981),
-                          width: 1,
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.inventory_2_rounded, color: Color(0xFF10B981), size: 18),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  'Already in Hand at Site:',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: isLight ? AppColors.textPrimaryLight : AppColors.textPrimaryDark,
-                                  ),
+                        if (_selectedVendorId == 'OTHER') ...[
+                          const SizedBox(height: 18),
+                          TextFormField(
+                            controller: _unregisteredVendorController,
+                            readOnly: isLocked,
+                            validator: (v) => v == null || v.trim().isEmpty
+                                ? 'Enter vendor / party name'
+                                : null,
+                            style: AppTextStyles.bodyMedium
+                                .copyWith(color: AppColors.textPrimary),
+                            decoration: InputDecoration(
+                              labelText: 'Enter Vendor / Party Name',
+                              prefixIcon: const Icon(Icons.edit_note,
+                                  color: AppColors.textTertiary, size: 20),
+                              suffixIcon: isLocked
+                                  ? null
+                                  : VoiceInputIconButton(
+                                      controller: _unregisteredVendorController,
+                                      fieldLabel: 'Vendor Name',
+                                    ),
+                            ),
+                          ).animate().fadeIn(),
+                        ],
+                      ],
+                    ),
+                  )
+                  .animate()
+                  .fadeIn(delay: 200.ms),
+
+              const SizedBox(height: 18),
+
+              // ── Bill / Challan No. (Optional) ──
+              TextFormField(
+                controller: _billNoController,
+                readOnly: isLocked,
+                style: AppTextStyles.bodyMedium
+                    .copyWith(color: AppColors.textPrimary),
+                decoration: const InputDecoration(
+                  labelText: 'Bill / Challan No. (Optional)',
+                  hintText: 'e.g. INV-2024-89 / Challan #12',
+                  prefixIcon: Icon(Icons.receipt_long_rounded,
+                      color: AppColors.textTertiary, size: 20),
+                ),
+              ).animate().fadeIn(delay: 220.ms),
+
+              const SizedBox(height: 18),
+
+              // ── Product Dropdown ──
+              productsAsync
+                  .when(
+                    loading: () => _shimmerField('Loading products...'),
+                    error: (_, __) => _errorField('Failed to load products'),
+                    data: (products) => Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        DropdownButtonFormField<String>(
+                          initialValue: (products
+                                      .any((p) => p.id == _selectedProductId) ||
+                                  _selectedProductId == 'OTHER')
+                              ? _selectedProductId
+                              : null,
+                          decoration: const InputDecoration(
+                            labelText: 'Product / Material Name',
+                            prefixIcon: Icon(Icons.category_rounded,
+                                color: AppColors.textTertiary, size: 20),
+                          ),
+                          dropdownColor: AppColors.cardDark,
+                          style: AppTextStyles.bodyMedium.copyWith(
+                            color: AppColors.textPrimary,
+                          ),
+                          items: [
+                            ...products.map((p) => DropdownMenuItem(
+                                  value: p.id,
+                                  child: Text(p.value),
+                                )),
+                            const DropdownMenuItem(
+                              value: 'OTHER',
+                              child: Text(
+                                '+ Other / Enter Manually',
+                                style: TextStyle(
+                                  fontStyle: FontStyle.italic,
+                                  color: AppColors.primary,
                                 ),
-                                Text(
-                                  '$currentInHand $unitName',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w800,
-                                    color: isLight ? const Color(0xFF047857) : const Color(0xFF34D399),
+                              ),
+                            ),
+                          ],
+                          onChanged: isLocked
+                              ? null
+                              : (val) =>
+                                  setState(() => _selectedProductId = val),
+                          validator: (v) =>
+                              Validators.dropdownRequired(v, 'Product'),
+                        ),
+                        if (stockItem != null) ...[
+                          Container(
+                            margin: const EdgeInsets.only(top: 10),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: isLight
+                                  ? const Color(0xFFF0FDF4)
+                                  : const Color(0xFF064E3B)
+                                      .withValues(alpha: 0.4),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: const Color(0xFF10B981),
+                                width: 1,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.inventory_2_rounded,
+                                    color: Color(0xFF10B981), size: 18),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        'Already in Hand at Site:',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: isLight
+                                              ? AppColors.textPrimaryLight
+                                              : AppColors.textPrimaryDark,
+                                        ),
+                                      ),
+                                      Text(
+                                        '$currentInHand $unitName',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w800,
+                                          color: isLight
+                                              ? const Color(0xFF047857)
+                                              : const Color(0xFF34D399),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],
                             ),
-                          ),
+                          ).animate().fadeIn(),
                         ],
-                      ),
-                    ).animate().fadeIn(),
-                  ],
-                  if (_selectedProductId == 'OTHER') ...[
-                    const SizedBox(height: 14),
-                    TextFormField(
-                      controller: _customProductController,
-                      readOnly: isLocked,
-                      validator: (v) => v == null || v.trim().isEmpty
-                          ? 'Please enter product name'
-                          : null,
-                      style: AppTextStyles.bodyMedium
-                          .copyWith(color: AppColors.textPrimary),
-                      decoration: InputDecoration(
-                        labelText: 'Enter Product / Material Name',
-                        hintText: 'e.g. Birla White Cement, PVC Pipe 4"',
-                        prefixIcon: const Icon(Icons.edit_note_rounded,
-                            color: AppColors.primary, size: 20),
-                        suffixIcon: isLocked
-                            ? null
-                            : VoiceInputIconButton(
-                                controller: _customProductController,
-                                fieldLabel: 'Product Name',
+                        if (_selectedProductId == 'OTHER') ...[
+                          const SizedBox(height: 14),
+                          TextFormField(
+                            controller: _customProductController,
+                            readOnly: isLocked,
+                            validator: (v) => v == null || v.trim().isEmpty
+                                ? 'Please enter product name'
+                                : null,
+                            style: AppTextStyles.bodyMedium
+                                .copyWith(color: AppColors.textPrimary),
+                            decoration: InputDecoration(
+                              labelText: 'Enter Product / Material Name',
+                              hintText: 'e.g. Birla White Cement, PVC Pipe 4"',
+                              prefixIcon: const Icon(Icons.edit_note_rounded,
+                                  color: AppColors.primary, size: 20),
+                              suffixIcon: isLocked
+                                  ? null
+                                  : VoiceInputIconButton(
+                                      controller: _customProductController,
+                                      fieldLabel: 'Product Name',
+                                    ),
+                            ),
+                          ).animate().fadeIn(),
+                        ],
+                      ],
+                    ),
+                  )
+                  .animate()
+                  .fadeIn(delay: 300.ms),
+
+              const SizedBox(height: 18),
+
+              // ── Metric Unit Dropdown ──
+              unitsAsync
+                  .when(
+                    loading: () => _shimmerField('Loading units...'),
+                    error: (_, __) => _errorField('Failed to load units'),
+                    data: (units) => Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        DropdownButtonFormField<String>(
+                          initialValue: (units.any(
+                                      (u) => u.id == _selectedMetricUnitId) ||
+                                  _selectedMetricUnitId == 'OTHER')
+                              ? _selectedMetricUnitId
+                              : null,
+                          decoration: const InputDecoration(
+                            labelText: 'Metric Unit',
+                            prefixIcon: Icon(Icons.straighten_rounded,
+                                color: AppColors.textTertiary, size: 20),
+                          ),
+                          dropdownColor: AppColors.cardDark,
+                          style: AppTextStyles.bodyMedium.copyWith(
+                            color: AppColors.textPrimary,
+                          ),
+                          items: [
+                            ...units.map((u) => DropdownMenuItem(
+                                  value: u.id,
+                                  child: Text(u.value),
+                                )),
+                            const DropdownMenuItem(
+                              value: 'OTHER',
+                              child: Text(
+                                '+ Other / Enter Manually',
+                                style: TextStyle(
+                                  fontStyle: FontStyle.italic,
+                                  color: AppColors.primary,
+                                ),
                               ),
-                      ),
-                    ).animate().fadeIn(),
-                  ],
-                ],
-              ),
-            ).animate().fadeIn(delay: 300.ms),
+                            ),
+                          ],
+                          onChanged: isLocked
+                              ? null
+                              : (val) =>
+                                  setState(() => _selectedMetricUnitId = val),
+                          validator: (v) =>
+                              Validators.dropdownRequired(v, 'Unit'),
+                        ),
+                        if (_selectedMetricUnitId == 'OTHER') ...[
+                          const SizedBox(height: 14),
+                          TextFormField(
+                            controller: _customUnitController,
+                            readOnly: isLocked,
+                            validator: (v) => v == null || v.trim().isEmpty
+                                ? 'Please enter metric unit'
+                                : null,
+                            style: AppTextStyles.bodyMedium
+                                .copyWith(color: AppColors.textPrimary),
+                            decoration: const InputDecoration(
+                              labelText: 'Enter Metric Unit',
+                              hintText: 'e.g. Brass, Bundles, Coil, Sq.ft',
+                              prefixIcon: Icon(Icons.edit_note_rounded,
+                                  color: AppColors.primary, size: 20),
+                            ),
+                          ).animate().fadeIn(),
+                        ],
+                      ],
+                    ),
+                  )
+                  .animate()
+                  .fadeIn(delay: 350.ms),
 
-            const SizedBox(height: 18),
+              const SizedBox(height: 18),
 
-            // ── Metric Unit Dropdown ──
-            unitsAsync.when(
-              loading: () => _shimmerField('Loading units...'),
-              error: (_, __) => _errorField('Failed to load units'),
-              data: (units) => Column(
+              // ── Quantity ──
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  DropdownButtonFormField<String>(
-                    value: (units.any((u) => u.id == _selectedMetricUnitId) || _selectedMetricUnitId == 'OTHER')
-                        ? _selectedMetricUnitId
-                        : null,
-                    decoration: const InputDecoration(
-                      labelText: 'Metric Unit',
-                      prefixIcon: Icon(Icons.straighten_rounded,
-                          color: AppColors.textTertiary, size: 20),
-                    ),
-                    dropdownColor: AppColors.cardDark,
+                  TextFormField(
+                    controller: _quantityController,
+                    readOnly: isLocked,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    validator: (v) => Validators.positiveNumber(v, 'Quantity'),
                     style: AppTextStyles.bodyMedium.copyWith(
                       color: AppColors.textPrimary,
                     ),
-                    items: [
-                      ...units.map((u) => DropdownMenuItem(
-                            value: u.id,
-                            child: Text(u.value),
-                          )),
-                      const DropdownMenuItem(
-                        value: 'OTHER',
-                        child: Text(
-                          '+ Other / Enter Manually',
-                          style: TextStyle(
-                            fontStyle: FontStyle.italic,
-                            color: AppColors.primary,
+                    decoration: InputDecoration(
+                      labelText: 'Quantity',
+                      prefixIcon: const Icon(
+                          Icons.production_quantity_limits_rounded,
+                          color: AppColors.textTertiary,
+                          size: 20),
+                      suffixText: unitName.isNotEmpty ? unitName : null,
+                    ),
+                  ),
+                  if (stockItem != null && enteredQty > 0)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6, left: 4),
+                      child: Text(
+                        'New total stock on site: ${(currentInHand + enteredQty).toStringAsFixed(1)} $unitName (+$enteredQty)',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: isLight
+                              ? const Color(0xFF047857)
+                              : const Color(0xFF34D399),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                ],
+              ).animate().fadeIn(delay: 400.ms),
+
+              const SizedBox(height: 18),
+
+              // ── Rate ──
+              TextFormField(
+                controller: _rateController,
+                readOnly: isLocked,
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
+                validator: (v) => Validators.positiveNumber(v, 'Rate'),
+                style: AppTextStyles.bodyMedium.copyWith(
+                  color: AppColors.textPrimary,
+                ),
+                decoration: const InputDecoration(
+                  labelText: 'Rate (per unit)',
+                  prefixIcon: Icon(Icons.currency_rupee_rounded,
+                      color: AppColors.textTertiary, size: 20),
+                ),
+              ).animate().fadeIn(delay: 450.ms),
+
+              const SizedBox(height: 18),
+
+              // ── SGST & IGST Row ──
+              Row(
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      controller: _sgstController,
+                      readOnly: isLocked,
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
+                      validator: (v) => Validators.nonNegativeNumber(v, 'SGST'),
+                      style: AppTextStyles.bodyMedium.copyWith(
+                        color: AppColors.textPrimary,
+                      ),
+                      decoration: const InputDecoration(
+                        labelText: 'SGST (%)',
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: TextFormField(
+                      controller: _igstController,
+                      readOnly: isLocked,
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
+                      validator: (v) => Validators.nonNegativeNumber(v, 'IGST'),
+                      style: AppTextStyles.bodyMedium.copyWith(
+                        color: AppColors.textPrimary,
+                      ),
+                      decoration: const InputDecoration(
+                        labelText: 'IGST (%)',
+                      ),
+                    ),
+                  ),
+                ],
+              ).animate().fadeIn(delay: 500.ms),
+
+              const SizedBox(height: 24),
+
+              // ── Final Amount Display ──
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      AppColors.primary.withValues(alpha: 0.12),
+                      AppColors.secondary.withValues(alpha: 0.08),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: AppColors.primary.withValues(alpha: 0.2),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Final Amount',
+                      style: AppTextStyles.labelLarge.copyWith(
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    Text(
+                      '₹ ${NumberFormat('#,##,###.##').format(_finalAmount)}',
+                      style: AppTextStyles.h2.copyWith(
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ],
+                ),
+              ).animate().fadeIn(delay: 550.ms),
+
+              const SizedBox(height: 18),
+
+              // ── Remarks ──
+              TextFormField(
+                controller: _remarksController,
+                readOnly: isLocked,
+                maxLines: 3,
+                style: AppTextStyles.bodyMedium.copyWith(
+                  color: AppColors.textPrimary,
+                ),
+                decoration: InputDecoration(
+                  labelText: 'Remarks (Optional)',
+                  alignLabelWithHint: true,
+                  prefixIcon: const Padding(
+                    padding: EdgeInsets.only(bottom: 48),
+                    child: Icon(Icons.notes_rounded,
+                        color: AppColors.textTertiary, size: 20),
+                  ),
+                  suffixIcon: isLocked
+                      ? null
+                      : VoiceInputIconButton(
+                          controller: _remarksController,
+                          fieldLabel: 'Remarks',
+                        ),
+                ),
+              ).animate().fadeIn(delay: 600.ms),
+
+              const SizedBox(height: 18),
+
+              // ── Attachments ──
+              PhotoPickerWidget(
+                key: _photoPickerKey,
+                initialPhotos: _selectedPhotos,
+                initialPhotoUrls: _isEditMode ? _transaction!.photoUrls : [],
+                isReadOnly: isLocked,
+                onPhotosChanged: (photos) {
+                  setState(() {
+                    _selectedPhotos = photos;
+                  });
+                  if (widget.existingTransaction == null) {
+                    _saveDrafts(_stagedMaterials).catchError((Object e) {
+                      if (!mounted) return;
+                      if (mounted) {
+                        ScaffoldMessenger.of(this.context)
+                            .showSnackBar(SnackBar(content: Text('$e')));
+                      }
+                    });
+                  }
+                },
+              ).animate().fadeIn(delay: 650.ms),
+
+              const SizedBox(height: 24),
+
+              // ── Staged Materials Tray (Multi-Material Challan) ──
+              if (!_isEditMode) _buildStagedMaterialsTray(),
+
+              // ── Action Buttons ──
+              if (!isLocked) ...[
+                if (_isEditMode)
+                  SizedBox(
+                    width: double.infinity,
+                    height: 54,
+                    child: ElevatedButton.icon(
+                      onPressed: (_isSubmitting || stockState.isLoading)
+                          ? null
+                          : () => _handleSubmit(
+                                products: productsAsync.valueOrNull ?? [],
+                                units: unitsAsync.valueOrNull ?? [],
+                              ),
+                      icon: (_isSubmitting || stockState.isLoading)
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: Colors.white),
+                            )
+                          : const Icon(Icons.check_circle_rounded),
+                      label: Text(
+                        (_isSubmitting || stockState.isLoading)
+                            ? 'Saving Changes...'
+                            : 'Save Changes',
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 16),
+                      ),
+                    ),
+                  ).animate().fadeIn(delay: 700.ms).slideY(begin: 0.1)
+                else
+                  Row(
+                    children: [
+                      Expanded(
+                        flex: 1,
+                        child: SizedBox(
+                          height: 52,
+                          child: OutlinedButton.icon(
+                            onPressed: (_isSubmitting || isLocked)
+                                ? null
+                                : () => _stageCurrentMaterial(
+                                      products: productsAsync.valueOrNull ?? [],
+                                      units: unitsAsync.valueOrNull ?? [],
+                                    ),
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(
+                                  color: AppColors.primary, width: 1.5),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
+                            ),
+                            icon: const Icon(Icons.add_rounded,
+                                color: AppColors.primary, size: 20),
+                            label: const Text(
+                              '+ Add Item',
+                              style: TextStyle(
+                                color: AppColors.primary,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        flex: 2,
+                        child: SizedBox(
+                          height: 52,
+                          child: ElevatedButton.icon(
+                            onPressed: (_isSubmitting ||
+                                    stockState.isLoading ||
+                                    isLocked)
+                                ? null
+                                : () => _handleSubmit(
+                                      products: productsAsync.valueOrNull ?? [],
+                                      units: unitsAsync.valueOrNull ?? [],
+                                    ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
+                            ),
+                            icon: (_isSubmitting || stockState.isLoading)
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2, color: Colors.white),
+                                  )
+                                : const Icon(Icons.send_rounded, size: 20),
+                            label: Text(
+                              (_isSubmitting || stockState.isLoading)
+                                  ? 'Submitting Challan...'
+                                  : (_stagedMaterials.isNotEmpty
+                                      ? 'Submit Challan (${_stagedMaterials.length + (_hasCurrentMaterialData ? 1 : 0)})'
+                                      : 'Submit Inward'),
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 15),
+                            ),
                           ),
                         ),
                       ),
                     ],
-                    onChanged: isLocked ? null : (val) => setState(() => _selectedMetricUnitId = val),
-                    validator: (v) => Validators.dropdownRequired(v, 'Unit'),
-                  ),
-                  if (_selectedMetricUnitId == 'OTHER') ...[
-                    const SizedBox(height: 14),
-                    TextFormField(
-                      controller: _customUnitController,
-                      readOnly: isLocked,
-                      validator: (v) => v == null || v.trim().isEmpty
-                          ? 'Please enter metric unit'
-                          : null,
-                      style: AppTextStyles.bodyMedium
-                          .copyWith(color: AppColors.textPrimary),
-                      decoration: const InputDecoration(
-                        labelText: 'Enter Metric Unit',
-                        hintText: 'e.g. Brass, Bundles, Coil, Sq.ft',
-                        prefixIcon: Icon(Icons.edit_note_rounded,
-                            color: AppColors.primary, size: 20),
-                      ),
-                    ).animate().fadeIn(),
-                  ],
-                ],
-              ),
-            ).animate().fadeIn(delay: 350.ms),
-
-            const SizedBox(height: 18),
-
-            // ── Quantity ──
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                TextFormField(
-                  controller: _quantityController,
-                  readOnly: isLocked,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  validator: (v) => Validators.positiveNumber(v, 'Quantity'),
-                  style: AppTextStyles.bodyMedium.copyWith(
-                    color: AppColors.textPrimary,
-                  ),
-                  decoration: InputDecoration(
-                    labelText: 'Quantity',
-                    prefixIcon: const Icon(Icons.production_quantity_limits_rounded,
-                        color: AppColors.textTertiary, size: 20),
-                    suffixText: unitName.isNotEmpty ? unitName : null,
-                  ),
-                ),
-                if (stockItem != null && enteredQty > 0)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 6, left: 4),
-                    child: Text(
-                      'New total stock on site: ${(currentInHand + enteredQty).toStringAsFixed(1)} $unitName (+${enteredQty})',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: isLight ? const Color(0xFF047857) : const Color(0xFF34D399),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
+                  ).animate().fadeIn(delay: 700.ms).slideY(begin: 0.1),
               ],
-            ).animate().fadeIn(delay: 400.ms),
 
-            const SizedBox(height: 18),
-
-            // ── Rate ──
-            TextFormField(
-              controller: _rateController,
-              readOnly: isLocked,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              validator: (v) => Validators.positiveNumber(v, 'Rate'),
-              style: AppTextStyles.bodyMedium.copyWith(
-                color: AppColors.textPrimary,
-              ),
-              decoration: const InputDecoration(
-                labelText: 'Rate (per unit)',
-                prefixIcon: Icon(Icons.currency_rupee_rounded,
-                    color: AppColors.textTertiary, size: 20),
-              ),
-            ).animate().fadeIn(delay: 450.ms),
-
-            const SizedBox(height: 18),
-
-            // ── SGST & IGST Row ──
-            Row(
-              children: [
-                Expanded(
-                  child: TextFormField(
-                    controller: _sgstController,
-                    readOnly: isLocked,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    validator: (v) => Validators.nonNegativeNumber(v, 'SGST'),
-                    style: AppTextStyles.bodyMedium.copyWith(
-                      color: AppColors.textPrimary,
-                    ),
-                    decoration: const InputDecoration(
-                      labelText: 'SGST (%)',
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: TextFormField(
-                    controller: _igstController,
-                    readOnly: isLocked,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    validator: (v) => Validators.nonNegativeNumber(v, 'IGST'),
-                    style: AppTextStyles.bodyMedium.copyWith(
-                      color: AppColors.textPrimary,
-                    ),
-                    decoration: const InputDecoration(
-                      labelText: 'IGST (%)',
-                    ),
-                  ),
-                ),
-              ],
-            ).animate().fadeIn(delay: 500.ms),
-
-            const SizedBox(height: 24),
-
-            // ── Final Amount Display ──
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    AppColors.primary.withOpacity(0.12),
-                    AppColors.secondary.withOpacity(0.08),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: AppColors.primary.withOpacity(0.2),
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Final Amount',
-                    style: AppTextStyles.labelLarge.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                  Text(
-                    '₹ ${NumberFormat('#,##,###.##').format(_finalAmount)}',
-                    style: AppTextStyles.h2.copyWith(
-                      color: AppColors.primary,
-                    ),
-                  ),
-                ],
-              ),
-            ).animate().fadeIn(delay: 550.ms),
-
-            const SizedBox(height: 18),
-
-            // ── Remarks ──
-            TextFormField(
-              controller: _remarksController,
-              readOnly: isLocked,
-              maxLines: 3,
-              style: AppTextStyles.bodyMedium.copyWith(
-                color: AppColors.textPrimary,
-              ),
-              decoration: InputDecoration(
-                labelText: 'Remarks (Optional)',
-                alignLabelWithHint: true,
-                prefixIcon: const Padding(
-                  padding: EdgeInsets.only(bottom: 48),
-                  child: Icon(Icons.notes_rounded,
-                      color: AppColors.textTertiary, size: 20),
-                ),
-                suffixIcon: isLocked
-                    ? null
-                    : VoiceInputIconButton(
-                        controller: _remarksController,
-                        fieldLabel: 'Remarks',
-                      ),
-              ),
-            ).animate().fadeIn(delay: 600.ms),
-
-            const SizedBox(height: 18),
-
-            // ── Attachments ──
-            PhotoPickerWidget(
-              key: _photoPickerKey,
-              initialPhotoUrls: _isEditMode ? _transaction!.photoUrls : [],
-              isReadOnly: isLocked,
-              onPhotosChanged: (photos) {
-                setState(() {
-                  _selectedPhotos = photos;
-                });
-              },
-            ).animate().fadeIn(delay: 650.ms),
-
-            const SizedBox(height: 24),
-
-            // ── Staged Materials Tray (Multi-Material Challan) ──
-            if (!_isEditMode)
-              _buildStagedMaterialsTray(),
-
-            // ── Action Buttons ──
-            if (!isLocked) ...[
-              if (_isEditMode)
-                SizedBox(
-                  width: double.infinity,
-                  height: 54,
-                  child: ElevatedButton.icon(
-                    onPressed: (_isSubmitting || stockState.isLoading)
-                        ? null
-                        : () => _handleSubmit(
-                              products: productsAsync.valueOrNull ?? [],
-                              units: unitsAsync.valueOrNull ?? [],
-                            ),
-                    icon: (_isSubmitting || stockState.isLoading)
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                          )
-                        : const Icon(Icons.check_circle_rounded),
-                    label: Text(
-                      (_isSubmitting || stockState.isLoading) ? 'Saving Changes...' : 'Save Changes',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                    ),
-                  ),
-                ).animate().fadeIn(delay: 700.ms).slideY(begin: 0.1)
-              else
-                Row(
-                  children: [
-                    Expanded(
-                      flex: 1,
-                      child: SizedBox(
-                        height: 52,
-                        child: OutlinedButton.icon(
-                          onPressed: (_isSubmitting || isLocked)
-                              ? null
-                              : () => _stageCurrentMaterial(
-                                    products: productsAsync.valueOrNull ?? [],
-                                    units: unitsAsync.valueOrNull ?? [],
-                                  ),
-                          style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: AppColors.primary, width: 1.5),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          ),
-                          icon: const Icon(Icons.add_rounded, color: AppColors.primary, size: 20),
-                          label: const Text(
-                            '+ Add Item',
-                            style: TextStyle(
-                              color: AppColors.primary,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      flex: 2,
-                      child: SizedBox(
-                        height: 52,
-                        child: ElevatedButton.icon(
-                          onPressed: (_isSubmitting || stockState.isLoading || isLocked)
-                              ? null
-                              : () => _handleSubmit(
-                                    products: productsAsync.valueOrNull ?? [],
-                                    units: unitsAsync.valueOrNull ?? [],
-                                  ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          ),
-                          icon: (_isSubmitting || stockState.isLoading)
-                              ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                                )
-                              : const Icon(Icons.send_rounded, size: 20),
-                          label: Text(
-                            (_isSubmitting || stockState.isLoading)
-                                ? 'Submitting Challan...'
-                                : (_stagedMaterials.isNotEmpty
-                                    ? 'Submit Challan (${_stagedMaterials.length + (_hasCurrentMaterialData ? 1 : 0)})'
-                                    : 'Submit Inward'),
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ).animate().fadeIn(delay: 700.ms).slideY(begin: 0.1),
+              const SizedBox(height: 24),
             ],
-
-            const SizedBox(height: 24),
-          ],
+          ),
         ),
       ),
-    ),
     );
   }
 
   Widget _buildStagedMaterialsTray() {
     if (_stagedMaterials.isEmpty) return const SizedBox.shrink();
 
-    final currencyFmt = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 2);
-    final totalValue = _stagedMaterials.fold<double>(0.0, (sum, m) => sum + (m.finalAmount ?? 0.0));
+    final currencyFmt =
+        NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 2);
+    final totalValue = _stagedMaterials.fold<double>(
+        0.0, (sum, m) => sum + (m.finalAmount ?? 0.0));
 
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
@@ -1336,7 +1518,8 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
       decoration: BoxDecoration(
         color: AppColors.cardDark,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.primary.withOpacity(0.5), width: 1.5),
+        border: Border.all(
+            color: AppColors.primary.withValues(alpha: 0.5), width: 1.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1346,24 +1529,30 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
             children: [
               Row(
                 children: [
-                  const Icon(Icons.inventory_2_rounded, color: AppColors.primary, size: 20),
+                  const Icon(Icons.inventory_2_rounded,
+                      color: AppColors.primary, size: 20),
                   const SizedBox(width: 8),
                   Text(
                     'Materials in this Challan (${_stagedMaterials.length})',
-                    style: AppTextStyles.h4.copyWith(fontSize: 15, color: AppColors.textPrimary),
+                    style: AppTextStyles.h4
+                        .copyWith(fontSize: 15, color: AppColors.textPrimary),
                   ),
                 ],
               ),
               if (totalValue > 0)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.15),
+                    color: AppColors.primary.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
                     currencyFmt.format(totalValue),
-                    style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 13),
+                    style: const TextStyle(
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13),
                   ),
                 ),
             ],
@@ -1383,14 +1572,16 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
                 decoration: BoxDecoration(
                   color: AppColors.surfaceDark,
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: AppColors.divider.withOpacity(0.5)),
+                  border: Border.all(
+                      color: AppColors.divider.withValues(alpha: 0.5)),
                 ),
                 child: Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.15),
+                        color: AppColors.primary.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
@@ -1409,7 +1600,9 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
                         children: [
                           Text(
                             item.productName,
-                            style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+                            style: AppTextStyles.bodyMedium.copyWith(
+                                color: AppColors.textPrimary,
+                                fontWeight: FontWeight.w600),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -1417,7 +1610,8 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
                             '${item.quantity} ${item.metricUnitName}'
                             '${item.rate != null ? " @ ₹${item.rate}" : ""}'
                             '${item.finalAmount != null ? " • Total: ${currencyFmt.format(item.finalAmount)}" : ""}',
-                            style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
+                            style: AppTextStyles.bodySmall
+                                .copyWith(color: AppColors.textSecondary),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -1425,11 +1619,19 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(Icons.delete_outline_rounded, color: AppColors.rejected, size: 20),
+                      icon: const Icon(Icons.delete_outline_rounded,
+                          color: AppColors.rejected, size: 20),
                       visualDensity: VisualDensity.compact,
                       onPressed: () {
                         setState(() {
                           _stagedMaterials.removeAt(idx);
+                          _saveDrafts(_stagedMaterials).catchError((Object e) {
+                            if (mounted) {
+                              if (!mounted) return;
+                              ScaffoldMessenger.of(this.context)
+                                  .showSnackBar(SnackBar(content: Text("$e")));
+                            }
+                          });
                         });
                       },
                     ),
@@ -1453,7 +1655,8 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
       alignment: Alignment.centerLeft,
       padding: const EdgeInsets.only(left: 16),
       child: Text(label,
-          style: AppTextStyles.bodySmall.copyWith(color: AppColors.textTertiary)),
+          style:
+              AppTextStyles.bodySmall.copyWith(color: AppColors.textTertiary)),
     );
   }
 

@@ -1,5 +1,5 @@
 import 'speech_service_stub.dart'
-    if (dart.library.html) 'speech_service_web.dart'
+    if (dart.library.js_interop) 'speech_service_web.dart'
     if (dart.library.io) 'speech_service_native.dart' as impl;
 
 abstract class SpeechRecognitionBase {
@@ -17,4 +17,5 @@ abstract class SpeechRecognitionBase {
 }
 
 /// Factory returning platform implementation of live speech recognition
-SpeechRecognitionBase createSpeechRecognition() => impl.createSpeechRecognition();
+SpeechRecognitionBase createSpeechRecognition() =>
+    impl.createSpeechRecognition();

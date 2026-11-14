@@ -11,7 +11,8 @@ final taskServiceProvider = Provider<TaskService>((ref) {
 });
 
 /// FutureProvider to fetch all tasks for a specific site
-final siteTasksProvider = FutureProvider.family<List<TaskModel>, String>((ref, siteId) {
+final siteTasksProvider =
+    FutureProvider.family<List<TaskModel>, String>((ref, siteId) {
   final taskService = ref.read(taskServiceProvider);
   return taskService.getTasksForSite(siteId);
 });
@@ -26,20 +27,22 @@ final allTasksAdminProvider = FutureProvider<List<TaskModel>>((ref) async {
 final myTasksProvider = FutureProvider<List<TaskModel>>((ref) async {
   final taskService = ref.read(taskServiceProvider);
   final user = ref.watch(authProvider).user;
-  
+
   if (user == null) return [];
-  
+
   return taskService.getTasksForUser(user.id);
 });
 
 /// FutureProvider to fetch a single task by ID
-final taskDetailProvider = FutureProvider.family<TaskModel, String>((ref, taskId) {
+final taskDetailProvider =
+    FutureProvider.family<TaskModel, String>((ref, taskId) {
   final taskService = ref.read(taskServiceProvider);
   return taskService.getTaskById(taskId);
 });
 
 /// StreamProvider for real-time task comments
-final taskCommentsProvider = StreamProvider.family<List<TaskCommentModel>, String>((ref, taskId) {
+final taskCommentsProvider =
+    StreamProvider.family<List<TaskCommentModel>, String>((ref, taskId) {
   final taskService = ref.read(taskServiceProvider);
   return taskService.getCommentsStream(taskId);
 });

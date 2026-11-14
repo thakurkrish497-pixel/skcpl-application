@@ -99,7 +99,9 @@ class SiteAnnouncementModel {
   });
 
   bool get isAllSites =>
-      targetSiteId == null || targetSiteId == 'all' || targetSiteId!.trim().isEmpty;
+      targetSiteId == null ||
+      targetSiteId == 'all' ||
+      targetSiteId!.trim().isEmpty;
 
   bool get hasMeetingLink =>
       meetingLink != null && meetingLink!.trim().isNotEmpty;

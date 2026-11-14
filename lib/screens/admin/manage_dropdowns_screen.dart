@@ -52,8 +52,8 @@ class _ManageDropdownsScreenState extends ConsumerState<ManageDropdownsScreen>
         content: TextFormField(
           controller: controller,
           autofocus: true,
-          style: AppTextStyles.bodyMedium
-              .copyWith(color: AppColors.textPrimary),
+          style:
+              AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
           decoration: InputDecoration(
             labelText: '${category.displayName} Name',
           ),
@@ -61,7 +61,7 @@ class _ManageDropdownsScreenState extends ConsumerState<ManageDropdownsScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Cancel',
+            child: const Text('Cancel',
                 style: TextStyle(color: AppColors.textSecondary)),
           ),
           ElevatedButton(
@@ -74,9 +74,12 @@ class _ManageDropdownsScreenState extends ConsumerState<ManageDropdownsScreen>
                   value: controller.text.trim(),
                   siteId: widget.siteId,
                 );
-                ref.refresh(allDropdownsProvider((category: category, siteId: widget.siteId)));
-                if (mounted) Navigator.pop(context);
+                ref.invalidate(allDropdownsProvider(
+                    (category: category, siteId: widget.siteId)));
+                if (!mounted) return;
+                if (mounted) Navigator.pop(this.context);
               } catch (e) {
+                if (!mounted) return;
                 ScaffoldMessenger.of(this.context).showSnackBar(
                   SnackBar(
                     content: Text('Error: $e'),
@@ -136,7 +139,8 @@ class _DropdownCategoryTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final itemsAsync = ref.watch(allDropdownsProvider((category: category, siteId: siteId)));
+    final itemsAsync =
+        ref.watch(allDropdownsProvider((category: category, siteId: siteId)));
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -154,7 +158,7 @@ class _DropdownCategoryTab extends ConsumerWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.add_circle_outline,
+                    const Icon(Icons.add_circle_outline,
                         color: AppColors.textTertiary, size: 48),
                     const SizedBox(height: 12),
                     Text('No ${category.displayName} yet',
@@ -178,15 +182,12 @@ class _DropdownCategoryTab extends ConsumerWidget {
                     decoration: BoxDecoration(
                       color: AppColors.cardDark,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                          color: AppColors.divider, width: 0.5),
+                      border: Border.all(color: AppColors.divider, width: 0.5),
                     ),
                     child: Row(
                       children: [
                         Icon(
-                          item.isActive
-                              ? Icons.check_circle
-                              : Icons.cancel,
+                          item.isActive ? Icons.check_circle : Icons.cancel,
                           color: item.isActive
                               ? AppColors.approved
                               : AppColors.textTertiary,
@@ -209,13 +210,12 @@ class _DropdownCategoryTab extends ConsumerWidget {
                         // Toggle active
                         Switch(
                           value: item.isActive,
-                          activeColor: AppColors.approved,
+                          activeThumbColor: AppColors.approved,
                           onChanged: (val) async {
-                            final service =
-                                ref.read(dropdownServiceProvider);
+                            final service = ref.read(dropdownServiceProvider);
                             await service.toggleActive(item.id, val);
-                            ref.refresh(
-                                allDropdownsProvider((category: category, siteId: siteId)));
+                            ref.invalidate(allDropdownsProvider(
+                                (category: category, siteId: siteId)));
                           },
                         ),
                       ],

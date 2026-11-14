@@ -92,7 +92,9 @@ class SkcplBrandLogo extends StatelessWidget {
               child: Container(
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: AppColors.isLight ? Colors.transparent : const Color(0xFF080E1E),
+                  color: AppColors.isLight
+                      ? Colors.transparent
+                      : const Color(0xFF080E1E),
                 ),
                 child: ClipOval(
                   child: Image.asset(
@@ -205,7 +207,8 @@ class SkcplBrandLogo extends StatelessWidget {
                     ),
                     const SizedBox(width: 6),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
                         color: AppColors.waveCyan.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(6),
@@ -214,7 +217,7 @@ class SkcplBrandLogo extends StatelessWidget {
                           width: 0.8,
                         ),
                       ),
-                      child: Text(
+                      child: const Text(
                         'PRO',
                         style: TextStyle(
                           color: AppColors.waveCyan,

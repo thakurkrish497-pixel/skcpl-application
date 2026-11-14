@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -35,10 +34,12 @@ class RecordSiteReportScreen extends ConsumerStatefulWidget {
   const RecordSiteReportScreen({super.key, this.site});
 
   @override
-  ConsumerState<RecordSiteReportScreen> createState() => _RecordSiteReportScreenState();
+  ConsumerState<RecordSiteReportScreen> createState() =>
+      _RecordSiteReportScreenState();
 }
 
-class _RecordSiteReportScreenState extends ConsumerState<RecordSiteReportScreen> {
+class _RecordSiteReportScreenState
+    extends ConsumerState<RecordSiteReportScreen> {
   final _notesController = TextEditingController();
   final _picker = ImagePicker();
   final _whisperService = WhisperService();
@@ -50,7 +51,6 @@ class _RecordSiteReportScreenState extends ConsumerState<RecordSiteReportScreen>
   bool _isListening = false;
   bool _isTranscribing = false;
   String _selectedLanguage = 'hindi'; // 'hindi' | 'hinglish' | 'english'
-  String _liveSpokenBuffer = '';
   int _recordDurationSeconds = 0;
   Timer? _recordTimer;
 
@@ -92,7 +92,6 @@ class _RecordSiteReportScreenState extends ConsumerState<RecordSiteReportScreen>
   void _startLiveListening() {
     setState(() {
       _isListening = true;
-      _liveSpokenBuffer = '';
       _recordDurationSeconds = 0;
     });
 
@@ -115,7 +114,6 @@ class _RecordSiteReportScreenState extends ConsumerState<RecordSiteReportScreen>
       onResult: (text, isFinal) {
         if (mounted) {
           setState(() {
-            _liveSpokenBuffer = text;
             _notesController.text = '$initialPrefix$text'.trim();
             _notesController.selection = TextSelection.fromPosition(
               TextPosition(offset: _notesController.text.length),
@@ -127,7 +125,6 @@ class _RecordSiteReportScreenState extends ConsumerState<RecordSiteReportScreen>
         if (mounted) {
           setState(() {
             _isListening = false;
-            _liveSpokenBuffer = '';
           });
         }
       },
@@ -137,7 +134,8 @@ class _RecordSiteReportScreenState extends ConsumerState<RecordSiteReportScreen>
           // If browser speech recognition is not supported or failed, suggest Whisper
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Speech recognition info: $err. You can also use Whisper AI below.'),
+              content: Text(
+                  'Speech recognition info: $err. You can also use Whisper AI below.'),
               action: SnackBarAction(
                 label: 'Setup AI',
                 onPressed: () => WhisperSettingsDialog.show(context),
@@ -154,7 +152,6 @@ class _RecordSiteReportScreenState extends ConsumerState<RecordSiteReportScreen>
     _speechRecognition.stop();
     setState(() {
       _isListening = false;
-      _liveSpokenBuffer = '';
     });
   }
 
@@ -173,11 +170,12 @@ class _RecordSiteReportScreenState extends ConsumerState<RecordSiteReportScreen>
         String? targetPath;
         if (!kIsWeb) {
           final tempDir = await getTemporaryDirectory();
-          targetPath = '${tempDir.path}/whisper_temp_${DateTime.now().millisecondsSinceEpoch}.m4a';
+          targetPath =
+              '${tempDir.path}/whisper_temp_${DateTime.now().millisecondsSinceEpoch}.m4a';
         }
 
         await _audioRecorder.start(
-          RecordConfig(
+          const RecordConfig(
             encoder: kIsWeb ? AudioEncoder.opus : AudioEncoder.aacLc,
           ),
           path: targetPath ?? '',
@@ -194,6 +192,7 @@ class _RecordSiteReportScreenState extends ConsumerState<RecordSiteReportScreen>
         });
       }
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Audio recorder error: $e')),
       );
@@ -231,14 +230,16 @@ class _RecordSiteReportScreenState extends ConsumerState<RecordSiteReportScreen>
 
           if (mounted && transcript.trim().isNotEmpty) {
             final existing = _notesController.text.trim();
-            final updated = existing.isEmpty ? transcript : '$existing\n$transcript';
+            final updated =
+                existing.isEmpty ? transcript : '$existing\n$transcript';
             _notesController.text = updated;
             _notesController.selection = TextSelection.fromPosition(
               TextPosition(offset: _notesController.text.length),
             );
 
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Transcribed successfully with Whisper AI!')),
+              const SnackBar(
+                  content: Text('Transcribed successfully with Whisper AI!')),
             );
           }
         }
@@ -316,7 +317,9 @@ class _RecordSiteReportScreenState extends ConsumerState<RecordSiteReportScreen>
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary.withOpacity(0.18) : AppColors.surfaceDark,
+          color: isSelected
+              ? AppColors.primary.withValues(alpha: 0.18)
+              : AppColors.surfaceDark,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: isSelected ? AppColors.primary : AppColors.divider,
@@ -346,7 +349,9 @@ class _RecordSiteReportScreenState extends ConsumerState<RecordSiteReportScreen>
             Text(
               example,
               style: TextStyle(
-                color: isSelected ? AppColors.primary.withOpacity(0.85) : Colors.white38,
+                color: isSelected
+                    ? AppColors.primary.withValues(alpha: 0.85)
+                    : Colors.white38,
                 fontSize: 10,
                 fontStyle: FontStyle.italic,
               ),
@@ -361,7 +366,10 @@ class _RecordSiteReportScreenState extends ConsumerState<RecordSiteReportScreen>
   Future<void> _handleSubmit() async {
     final authState = ref.read(authProvider);
     final sitesList = ref.read(activeSitesProvider).valueOrNull ?? [];
-    final site = _selectedSite ?? widget.site ?? authState.activeSite ?? (sitesList.isNotEmpty ? sitesList.first : null);
+    final site = _selectedSite ??
+        widget.site ??
+        authState.activeSite ??
+        (sitesList.isNotEmpty ? sitesList.first : null);
 
     if (site == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -373,7 +381,9 @@ class _RecordSiteReportScreenState extends ConsumerState<RecordSiteReportScreen>
     final text = _notesController.text.trim();
     if (text.isEmpty && _photoBytesList.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please speak your work update or attach site photos first')),
+        const SnackBar(
+            content: Text(
+                'Please speak your work update or attach site photos first')),
       );
       return;
     }
@@ -385,7 +395,8 @@ class _RecordSiteReportScreenState extends ConsumerState<RecordSiteReportScreen>
     if (!isAllowed) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Access Denied: Daily Site Reports are turned off for ${activeStaff.name}.'),
+          content: Text(
+              'Access Denied: Daily Site Reports are turned off for ${activeStaff.name}.'),
           backgroundColor: AppColors.rejected,
         ),
       );
@@ -399,16 +410,17 @@ class _RecordSiteReportScreenState extends ConsumerState<RecordSiteReportScreen>
         : (authState.user?.fullName ?? site.name);
 
     // Submit via Provider (audioBytes is null because voice is converted to text!)
-    final saved = await ref.read(reportSubmissionProvider.notifier).submitDailyReport(
-          siteId: site.id,
-          siteName: site.name,
-          date: _selectedDate,
-          submittedBy: submittedBy,
-          audioBytes: null, // Zero audio uploaded = zero storage cost!
-          photoBytesList: _photoBytesList,
-          textNotes: text.isNotEmpty ? text : null,
-          remarks: reportRemarks,
-        );
+    final saved =
+        await ref.read(reportSubmissionProvider.notifier).submitDailyReport(
+              siteId: site.id,
+              siteName: site.name,
+              date: _selectedDate,
+              submittedBy: submittedBy,
+              audioBytes: null, // Zero audio uploaded = zero storage cost!
+              photoBytesList: _photoBytesList,
+              textNotes: text.isNotEmpty ? text : null,
+              remarks: reportRemarks,
+            );
 
     if (saved != null && mounted) {
       _showSuccessDialog(saved);
@@ -427,16 +439,20 @@ class _RecordSiteReportScreenState extends ConsumerState<RecordSiteReportScreen>
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: AppColors.approved.withOpacity(0.2),
+                color: AppColors.approved.withValues(alpha: 0.2),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.check_circle_rounded, color: AppColors.approved, size: 28),
+              child: const Icon(Icons.check_circle_rounded,
+                  color: AppColors.approved, size: 28),
             ),
             const SizedBox(width: 12),
             const Expanded(
               child: Text(
                 'Report Submitted!',
-                style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold),
               ),
             ),
           ],
@@ -447,7 +463,8 @@ class _RecordSiteReportScreenState extends ConsumerState<RecordSiteReportScreen>
           children: [
             Text(
               'Your daily work report has been submitted and forwarded to the Project Head for review.',
-              style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
+              style: AppTextStyles.bodySmall
+                  .copyWith(color: AppColors.textSecondary),
             ),
             const SizedBox(height: 16),
             Container(
@@ -462,12 +479,18 @@ class _RecordSiteReportScreenState extends ConsumerState<RecordSiteReportScreen>
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.record_voice_over_rounded, color: AppColors.primary, size: 18),
+                      const Icon(Icons.record_voice_over_rounded,
+                          color: AppColors.primary, size: 18),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          report.notes != null ? 'Voice-to-Text Note Saved' : 'No text provided',
-                          style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+                          report.notes != null
+                              ? 'Voice-to-Text Note Saved'
+                              : 'No text provided',
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold),
                         ),
                       ),
                     ],
@@ -476,8 +499,12 @@ class _RecordSiteReportScreenState extends ConsumerState<RecordSiteReportScreen>
                   Row(
                     children: [
                       Icon(
-                        report.photoUrls.isNotEmpty ? Icons.photo_library : Icons.no_photography,
-                        color: report.photoUrls.isNotEmpty ? AppColors.secondary : AppColors.textTertiary,
+                        report.photoUrls.isNotEmpty
+                            ? Icons.photo_library
+                            : Icons.no_photography,
+                        color: report.photoUrls.isNotEmpty
+                            ? AppColors.secondary
+                            : AppColors.textTertiary,
                         size: 18,
                       ),
                       const SizedBox(width: 8),
@@ -486,7 +513,9 @@ class _RecordSiteReportScreenState extends ConsumerState<RecordSiteReportScreen>
                             ? '${report.photoUrls.length} site photos attached'
                             : 'No photos attached',
                         style: TextStyle(
-                          color: report.photoUrls.isNotEmpty ? Colors.white : AppColors.textTertiary,
+                          color: report.photoUrls.isNotEmpty
+                              ? Colors.white
+                              : AppColors.textTertiary,
                           fontSize: 13,
                         ),
                       ),
@@ -514,23 +543,32 @@ class _RecordSiteReportScreenState extends ConsumerState<RecordSiteReportScreen>
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
     final sitesList = ref.watch(activeSitesProvider).valueOrNull ?? [];
-    final site = _selectedSite ?? widget.site ?? authState.activeSite ?? (sitesList.isNotEmpty ? sitesList.first : null);
+    final site = _selectedSite ??
+        widget.site ??
+        authState.activeSite ??
+        (sitesList.isNotEmpty ? sitesList.first : null);
     final submissionState = ref.watch(reportSubmissionProvider);
 
     // Load staff for the active site
-    final staffState = site != null ? ref.watch(siteStaffProvider(site.id)) : null;
+    final staffState =
+        site != null ? ref.watch(siteStaffProvider(site.id)) : null;
     final availableStaff = staffState?.staffList.where((s) {
-      if (site != null && site.isHeadOffice) return true; // All staff added to Indore Head Office
-      return s.hasModule(StaffModule.report) || s.isSupervisor;
-    }).toList() ?? [];
+          if (site != null && site.isHeadOffice) {
+            return true; // All staff added to Indore Head Office
+          }
+          return s.hasModule(StaffModule.report) || s.isSupervisor;
+        }).toList() ??
+        [];
 
     // Keep selected staff in sync
-    if (_selectedStaff != null && !availableStaff.any((s) => s.id == _selectedStaff!.id)) {
+    if (_selectedStaff != null &&
+        !availableStaff.any((s) => s.id == _selectedStaff!.id)) {
       _selectedStaff = null;
     }
     if (_selectedStaff == null && availableStaff.isNotEmpty) {
       final activeStaff = ref.watch(activeStaffProvider);
-      if (activeStaff != null && availableStaff.any((s) => s.id == activeStaff.id)) {
+      if (activeStaff != null &&
+          availableStaff.any((s) => s.id == activeStaff.id)) {
         _selectedStaff = activeStaff;
       } else {
         _selectedStaff = availableStaff.first;
@@ -540,7 +578,8 @@ class _RecordSiteReportScreenState extends ConsumerState<RecordSiteReportScreen>
     return Scaffold(
       backgroundColor: AppColors.scaffoldDark,
       appBar: AppBar(
-        title: Text(context.tr('daily_work_report', defaultText: 'Daily Work Report')),
+        title: Text(
+            context.tr('daily_work_report', defaultText: 'Daily Work Report')),
         actions: [
           const Padding(
             padding: EdgeInsets.only(right: 6),
@@ -548,7 +587,8 @@ class _RecordSiteReportScreenState extends ConsumerState<RecordSiteReportScreen>
           ),
           IconButton(
             icon: const Icon(Icons.settings_voice_rounded),
-            tooltip: context.tr('voice_settings', defaultText: 'Voice Settings'),
+            tooltip:
+                context.tr('voice_settings', defaultText: 'Voice Settings'),
             onPressed: () => WhisperSettingsDialog.show(context),
           ),
           IconButton(
@@ -575,7 +615,8 @@ class _RecordSiteReportScreenState extends ConsumerState<RecordSiteReportScreen>
               children: [
                 // Site Banner (with Site Switcher if multiple sites)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
                     color: AppColors.cardDark,
                     borderRadius: BorderRadius.circular(16),
@@ -590,7 +631,9 @@ class _RecordSiteReportScreenState extends ConsumerState<RecordSiteReportScreen>
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Icon(
-                          (site?.isHeadOffice ?? false) ? Icons.apartment_rounded : Icons.location_city_rounded,
+                          (site?.isHeadOffice ?? false)
+                              ? Icons.apartment_rounded
+                              : Icons.location_city_rounded,
                           color: AppColors.primary,
                           size: 24,
                         ),
@@ -606,21 +649,28 @@ class _RecordSiteReportScreenState extends ConsumerState<RecordSiteReportScreen>
                                   value: site?.id,
                                   isDense: true,
                                   dropdownColor: AppColors.surfaceDark,
-                                  icon: const Icon(Icons.arrow_drop_down, color: AppColors.primary),
-                                  style: AppTextStyles.h4.copyWith(color: AppColors.textPrimary),
+                                  icon: const Icon(Icons.arrow_drop_down,
+                                      color: AppColors.primary),
+                                  style: AppTextStyles.h4
+                                      .copyWith(color: AppColors.textPrimary),
                                   items: sitesList.map((s) {
                                     return DropdownMenuItem<String>(
                                       value: s.id,
                                       child: Text(
-                                        s.isHeadOffice ? '${s.name} (Head Office)' : s.name,
-                                        style: AppTextStyles.h4.copyWith(color: AppColors.textPrimary, fontSize: 15),
+                                        s.isHeadOffice
+                                            ? '${s.name} (Head Office)'
+                                            : s.name,
+                                        style: AppTextStyles.h4.copyWith(
+                                            color: AppColors.textPrimary,
+                                            fontSize: 15),
                                       ),
                                     );
                                   }).toList(),
                                   onChanged: (newSiteId) {
                                     if (newSiteId != null) {
                                       setState(() {
-                                        _selectedSite = sitesList.firstWhere((s) => s.id == newSiteId);
+                                        _selectedSite = sitesList.firstWhere(
+                                            (s) => s.id == newSiteId);
                                         _selectedStaff = null;
                                       });
                                     }
@@ -630,25 +680,30 @@ class _RecordSiteReportScreenState extends ConsumerState<RecordSiteReportScreen>
                             else
                               Text(
                                 site?.name ?? 'Site',
-                                style: AppTextStyles.h4.copyWith(color: AppColors.textPrimary),
+                                style: AppTextStyles.h4
+                                    .copyWith(color: AppColors.textPrimary),
                               ),
                             const SizedBox(height: 2),
                             Text(
                               'Date: ${DateFormat('dd MMMM yyyy').format(_selectedDate)}',
-                              style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary),
+                              style: AppTextStyles.caption
+                                  .copyWith(color: AppColors.textSecondary),
                             ),
                           ],
                         ),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: AppColors.primary.withOpacity(0.15),
+                          color: AppColors.primary.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
                           context.tr('dsr_entry', defaultText: 'DSR Entry'),
-                          style: AppTextStyles.caption.copyWith(color: AppColors.primary, fontWeight: FontWeight.bold),
+                          style: AppTextStyles.caption.copyWith(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.bold),
                         ),
                       ),
                     ],
@@ -665,7 +720,7 @@ class _RecordSiteReportScreenState extends ConsumerState<RecordSiteReportScreen>
                     color: AppColors.cardDark,
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: AppColors.primary.withOpacity(0.35),
+                      color: AppColors.primary.withValues(alpha: 0.35),
                       width: 1.2,
                     ),
                   ),
@@ -677,10 +732,13 @@ class _RecordSiteReportScreenState extends ConsumerState<RecordSiteReportScreen>
                         children: [
                           Row(
                             children: [
-                              const Icon(Icons.badge_rounded, color: AppColors.primary, size: 20),
+                              const Icon(Icons.badge_rounded,
+                                  color: AppColors.primary, size: 20),
                               const SizedBox(width: 8),
                               Text(
-                                context.tr('reporting_staff', defaultText: 'REPORTING STAFF (SUBMITTED BY)'),
+                                context.tr('reporting_staff',
+                                    defaultText:
+                                        'REPORTING STAFF (SUBMITTED BY)'),
                                 style: AppTextStyles.overline.copyWith(
                                   color: AppColors.primary,
                                   fontWeight: FontWeight.bold,
@@ -691,9 +749,11 @@ class _RecordSiteReportScreenState extends ConsumerState<RecordSiteReportScreen>
                           ),
                           if (_selectedStaff != null)
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 2),
                               decoration: BoxDecoration(
-                                color: AppColors.primary.withOpacity(0.18),
+                                color:
+                                    AppColors.primary.withValues(alpha: 0.18),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
@@ -709,8 +769,11 @@ class _RecordSiteReportScreenState extends ConsumerState<RecordSiteReportScreen>
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        context.tr('select_reporting_staff', defaultText: 'Select who is entering this Daily Site Report. The approved report will be stamped with this person\'s name.'),
-                        style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary, fontSize: 11.5),
+                        context.tr('select_reporting_staff',
+                            defaultText:
+                                'Select who is entering this Daily Site Report. The approved report will be stamped with this person\'s name.'),
+                        style: AppTextStyles.bodySmall.copyWith(
+                            color: AppColors.textSecondary, fontSize: 11.5),
                       ),
                       const SizedBox(height: 12),
                       if (staffState?.isLoading ?? false)
@@ -720,7 +783,8 @@ class _RecordSiteReportScreenState extends ConsumerState<RecordSiteReportScreen>
                             child: SizedBox(
                               width: 22,
                               height: 22,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.primary),
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: AppColors.primary),
                             ),
                           ),
                         )
@@ -733,12 +797,14 @@ class _RecordSiteReportScreenState extends ConsumerState<RecordSiteReportScreen>
                           ),
                           child: Row(
                             children: [
-                              const Icon(Icons.info_outline, size: 18, color: AppColors.textTertiary),
+                              const Icon(Icons.info_outline,
+                                  size: 18, color: AppColors.textTertiary),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
                                   'No staff assigned to ${site?.name ?? "this site"}. Submitting as general staff.',
-                                  style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
+                                  style: AppTextStyles.bodySmall
+                                      .copyWith(color: AppColors.textSecondary),
                                 ),
                               ),
                             ],
@@ -756,24 +822,29 @@ class _RecordSiteReportScreenState extends ConsumerState<RecordSiteReportScreen>
                                   _selectedStaff = staff;
                                 });
                                 if (site != null) {
-                                  ref.read(activeStaffProvider.notifier).setActiveStaff(
-                                    staff,
-                                    siteId: site.id,
-                                    module: StaffModule.report,
-                                    remember: true,
-                                  );
+                                  ref
+                                      .read(activeStaffProvider.notifier)
+                                      .setActiveStaff(
+                                        staff,
+                                        siteId: site.id,
+                                        module: StaffModule.report,
+                                        remember: true,
+                                      );
                                 }
                               },
                               borderRadius: BorderRadius.circular(12),
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 14, vertical: 10),
                                 decoration: BoxDecoration(
                                   color: isSelected
-                                      ? AppColors.primary.withOpacity(0.2)
+                                      ? AppColors.primary.withValues(alpha: 0.2)
                                       : AppColors.surfaceDark,
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(
-                                    color: isSelected ? AppColors.primary : AppColors.divider,
+                                    color: isSelected
+                                        ? AppColors.primary
+                                        : AppColors.divider,
                                     width: isSelected ? 1.6 : 1,
                                   ),
                                 ),
@@ -781,29 +852,43 @@ class _RecordSiteReportScreenState extends ConsumerState<RecordSiteReportScreen>
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Icon(
-                                      isSelected ? Icons.check_circle_rounded : Icons.person_outline_rounded,
-                                      color: isSelected ? AppColors.primary : AppColors.textSecondary,
+                                      isSelected
+                                          ? Icons.check_circle_rounded
+                                          : Icons.person_outline_rounded,
+                                      color: isSelected
+                                          ? AppColors.primary
+                                          : AppColors.textSecondary,
                                       size: 18,
                                     ),
                                     const SizedBox(width: 8),
                                     Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text(
                                           staff.name,
-                                          style: AppTextStyles.bodyMedium.copyWith(
-                                            color: isSelected ? AppColors.textPrimary : AppColors.textSecondary,
-                                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                          style:
+                                              AppTextStyles.bodyMedium.copyWith(
+                                            color: isSelected
+                                                ? AppColors.textPrimary
+                                                : AppColors.textSecondary,
+                                            fontWeight: isSelected
+                                                ? FontWeight.bold
+                                                : FontWeight.normal,
                                           ),
                                         ),
                                         Text(
                                           staff.role.displayName +
-                                              (staff.description != null && staff.description!.isNotEmpty
+                                              (staff.description != null &&
+                                                      staff.description!
+                                                          .isNotEmpty
                                                   ? ' • ${staff.description}'
                                                   : ''),
                                           style: TextStyle(
                                             fontSize: 10.5,
-                                            color: isSelected ? AppColors.primary : AppColors.textTertiary,
+                                            color: isSelected
+                                                ? AppColors.primary
+                                                : AppColors.textTertiary,
                                           ),
                                         ),
                                       ],
@@ -829,8 +914,8 @@ class _RecordSiteReportScreenState extends ConsumerState<RecordSiteReportScreen>
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
                       color: _isListening
-                          ? Colors.redAccent.withOpacity(0.6)
-                          : AppColors.primary.withOpacity(0.3),
+                          ? Colors.redAccent.withValues(alpha: 0.6)
+                          : AppColors.primary.withValues(alpha: 0.3),
                     ),
                   ),
                   child: Column(
@@ -847,21 +932,33 @@ class _RecordSiteReportScreenState extends ConsumerState<RecordSiteReportScreen>
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             GestureDetector(
-                              onTap: _isListening ? null : () => setState(() => _useWhisperEngine = true),
+                              onTap: _isListening
+                                  ? null
+                                  : () =>
+                                      setState(() => _useWhisperEngine = true),
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 14, vertical: 7),
                                 decoration: BoxDecoration(
-                                  color: _useWhisperEngine ? AppColors.primary : Colors.transparent,
+                                  color: _useWhisperEngine
+                                      ? AppColors.primary
+                                      : Colors.transparent,
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                                 child: Row(
                                   children: [
-                                    Icon(Icons.auto_awesome, size: 14, color: _useWhisperEngine ? Colors.black : Colors.white70),
+                                    Icon(Icons.auto_awesome,
+                                        size: 14,
+                                        color: _useWhisperEngine
+                                            ? Colors.black
+                                            : Colors.white70),
                                     const SizedBox(width: 6),
                                     Text(
                                       'Whisper AI (Extreme Accuracy)',
                                       style: TextStyle(
-                                        color: _useWhisperEngine ? Colors.black : Colors.white70,
+                                        color: _useWhisperEngine
+                                            ? Colors.black
+                                            : Colors.white70,
                                         fontSize: 12,
                                         fontWeight: FontWeight.bold,
                                       ),
@@ -872,21 +969,33 @@ class _RecordSiteReportScreenState extends ConsumerState<RecordSiteReportScreen>
                             ),
                             const SizedBox(width: 4),
                             GestureDetector(
-                              onTap: _isListening ? null : () => setState(() => _useWhisperEngine = false),
+                              onTap: _isListening
+                                  ? null
+                                  : () =>
+                                      setState(() => _useWhisperEngine = false),
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 14, vertical: 7),
                                 decoration: BoxDecoration(
-                                  color: !_useWhisperEngine ? AppColors.primary : Colors.transparent,
+                                  color: !_useWhisperEngine
+                                      ? AppColors.primary
+                                      : Colors.transparent,
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                                 child: Row(
                                   children: [
-                                    Icon(Icons.mic, size: 14, color: !_useWhisperEngine ? Colors.black : Colors.white70),
+                                    Icon(Icons.mic,
+                                        size: 14,
+                                        color: !_useWhisperEngine
+                                            ? Colors.black
+                                            : Colors.white70),
                                     const SizedBox(width: 6),
                                     Text(
                                       'Live Dictation',
                                       style: TextStyle(
-                                        color: !_useWhisperEngine ? Colors.black : Colors.white70,
+                                        color: !_useWhisperEngine
+                                            ? Colors.black
+                                            : Colors.white70,
                                         fontSize: 12,
                                         fontWeight: FontWeight.bold,
                                       ),
@@ -951,7 +1060,9 @@ class _RecordSiteReportScreenState extends ConsumerState<RecordSiteReportScreen>
                                     ? 'Tap to Speak More'
                                     : 'Tap Mic to Speak Today\'s Work')),
                         style: AppTextStyles.h3.copyWith(
-                          color: _isListening ? Colors.redAccent : AppColors.textPrimary,
+                          color: _isListening
+                              ? Colors.redAccent
+                              : AppColors.textPrimary,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -963,7 +1074,9 @@ class _RecordSiteReportScreenState extends ConsumerState<RecordSiteReportScreen>
                                 ? 'Groq Whisper turbo engine active • Zero cloud audio stored'
                                 : 'Live word-by-word streaming dictation'),
                         style: AppTextStyles.bodySmall.copyWith(
-                          color: _isListening ? Colors.redAccent : AppColors.textTertiary,
+                          color: _isListening
+                              ? Colors.redAccent
+                              : AppColors.textTertiary,
                         ),
                         textAlign: TextAlign.center,
                       ),
@@ -972,17 +1085,19 @@ class _RecordSiteReportScreenState extends ConsumerState<RecordSiteReportScreen>
 
                       // Large Circular Mic Button
                       GestureDetector(
-                        onTap: _isTranscribing ? null : () {
-                          if (_useWhisperEngine) {
-                            if (_isListening) {
-                              _stopWhisperRecordingAndTranscribe();
-                            } else {
-                              _recordAndTranscribeWithWhisper();
-                            }
-                          } else {
-                            _toggleLiveVoiceToText();
-                          }
-                        },
+                        onTap: _isTranscribing
+                            ? null
+                            : () {
+                                if (_useWhisperEngine) {
+                                  if (_isListening) {
+                                    _stopWhisperRecordingAndTranscribe();
+                                  } else {
+                                    _recordAndTranscribeWithWhisper();
+                                  }
+                                } else {
+                                  _toggleLiveVoiceToText();
+                                }
+                              },
                         child: Stack(
                           alignment: Alignment.center,
                           children: [
@@ -992,9 +1107,13 @@ class _RecordSiteReportScreenState extends ConsumerState<RecordSiteReportScreen>
                                 height: 130,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: Colors.redAccent.withOpacity(0.2),
+                                  color:
+                                      Colors.redAccent.withValues(alpha: 0.2),
                                 ),
-                              ).animate(onPlay: (c) => c.repeat(reverse: true)).scale(
+                              )
+                                  .animate(
+                                      onPlay: (c) => c.repeat(reverse: true))
+                                  .scale(
                                     begin: const Offset(1.0, 1.0),
                                     end: const Offset(1.25, 1.25),
                                     duration: 800.ms,
@@ -1005,11 +1124,15 @@ class _RecordSiteReportScreenState extends ConsumerState<RecordSiteReportScreen>
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 gradient: _isListening
-                                    ? const LinearGradient(colors: [Colors.redAccent, Colors.red])
+                                    ? const LinearGradient(
+                                        colors: [Colors.redAccent, Colors.red])
                                     : AppColors.primaryGradient,
                                 boxShadow: [
                                   BoxShadow(
-                                    color: (_isListening ? Colors.red : AppColors.primary).withOpacity(0.4),
+                                    color: (_isListening
+                                            ? Colors.red
+                                            : AppColors.primary)
+                                        .withValues(alpha: 0.4),
                                     blurRadius: 18,
                                     spreadRadius: 2,
                                   ),
@@ -1017,10 +1140,13 @@ class _RecordSiteReportScreenState extends ConsumerState<RecordSiteReportScreen>
                               ),
                               child: _isTranscribing
                                   ? const Center(
-                                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3),
+                                      child: CircularProgressIndicator(
+                                          color: Colors.white, strokeWidth: 3),
                                     )
                                   : Icon(
-                                      _isListening ? Icons.stop_rounded : Icons.mic_rounded,
+                                      _isListening
+                                          ? Icons.stop_rounded
+                                          : Icons.mic_rounded,
                                       color: Colors.white,
                                       size: 42,
                                     ),
@@ -1040,14 +1166,16 @@ class _RecordSiteReportScreenState extends ConsumerState<RecordSiteReportScreen>
                   children: [
                     Text(
                       'WORK REPORT (VOICE-TO-TEXT)',
-                      style: AppTextStyles.overline.copyWith(color: AppColors.textTertiary),
+                      style: AppTextStyles.overline
+                          .copyWith(color: AppColors.textTertiary),
                     ),
                     if (_notesController.text.isNotEmpty)
                       GestureDetector(
                         onTap: () => setState(() => _notesController.clear()),
                         child: Text(
                           'Clear Text',
-                          style: AppTextStyles.caption.copyWith(color: AppColors.rejected),
+                          style: AppTextStyles.caption
+                              .copyWith(color: AppColors.rejected),
                         ),
                       ),
                   ],
@@ -1056,10 +1184,13 @@ class _RecordSiteReportScreenState extends ConsumerState<RecordSiteReportScreen>
                 TextField(
                   controller: _notesController,
                   maxLines: 4,
-                  style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.4),
+                  style: const TextStyle(
+                      color: Colors.white, fontSize: 14, height: 1.4),
                   decoration: InputDecoration(
-                    hintText: 'Spoken text will automatically appear here. You can also edit or type manually...',
-                    hintStyle: AppTextStyles.bodySmall.copyWith(color: AppColors.textTertiary),
+                    hintText:
+                        'Spoken text will automatically appear here. You can also edit or type manually...',
+                    hintStyle: AppTextStyles.bodySmall
+                        .copyWith(color: AppColors.textTertiary),
                     filled: true,
                     fillColor: AppColors.cardDark,
                     border: OutlineInputBorder(
@@ -1082,7 +1213,8 @@ class _RecordSiteReportScreenState extends ConsumerState<RecordSiteReportScreen>
                 // ── Site Photos Section ──
                 Text(
                   'SITE PHOTOS (EVIDENCE)',
-                  style: AppTextStyles.overline.copyWith(color: AppColors.textTertiary),
+                  style: AppTextStyles.overline
+                      .copyWith(color: AppColors.textTertiary),
                 ),
                 const SizedBox(height: 10),
                 Row(
@@ -1096,7 +1228,8 @@ class _RecordSiteReportScreenState extends ConsumerState<RecordSiteReportScreen>
                           foregroundColor: AppColors.textPrimary,
                           side: const BorderSide(color: AppColors.divider),
                           padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
                         ),
                       ),
                     ),
@@ -1110,7 +1243,8 @@ class _RecordSiteReportScreenState extends ConsumerState<RecordSiteReportScreen>
                           foregroundColor: AppColors.textPrimary,
                           side: const BorderSide(color: AppColors.divider),
                           padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
                         ),
                       ),
                     ),
@@ -1157,7 +1291,8 @@ class _RecordSiteReportScreenState extends ConsumerState<RecordSiteReportScreen>
                                     color: Colors.black87,
                                     shape: BoxShape.circle,
                                   ),
-                                  child: const Icon(Icons.close, color: Colors.white, size: 14),
+                                  child: const Icon(Icons.close,
+                                      color: Colors.white, size: 14),
                                 ),
                               ),
                             ),
@@ -1178,7 +1313,8 @@ class _RecordSiteReportScreenState extends ConsumerState<RecordSiteReportScreen>
                     onPressed: submissionState.isLoading ? null : _handleSubmit,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16)),
                       elevation: 4,
                     ),
                     child: Row(
@@ -1203,15 +1339,17 @@ class _RecordSiteReportScreenState extends ConsumerState<RecordSiteReportScreen>
           // Loading Overlay with dynamic status text
           if (submissionState.isLoading)
             Container(
-              color: Colors.black.withOpacity(0.75),
+              color: Colors.black.withValues(alpha: 0.75),
               child: Center(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
                   margin: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
                     color: AppColors.cardDark,
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: AppColors.primary.withOpacity(0.5)),
+                    border: Border.all(
+                        color: AppColors.primary.withValues(alpha: 0.5)),
                   ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -1220,13 +1358,15 @@ class _RecordSiteReportScreenState extends ConsumerState<RecordSiteReportScreen>
                       const SizedBox(height: 20),
                       Text(
                         submissionState.loadingStatusText,
-                        style: AppTextStyles.bodyMedium.copyWith(color: Colors.white, fontWeight: FontWeight.bold),
+                        style: AppTextStyles.bodyMedium.copyWith(
+                            color: Colors.white, fontWeight: FontWeight.bold),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 6),
                       Text(
                         'Saving daily work report and site photos',
-                        style: AppTextStyles.caption.copyWith(color: AppColors.textTertiary),
+                        style: AppTextStyles.caption
+                            .copyWith(color: AppColors.textTertiary),
                         textAlign: TextAlign.center,
                       ),
                     ],

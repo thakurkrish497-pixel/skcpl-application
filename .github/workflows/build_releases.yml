@@ -1,0 +1,216 @@
+name: Build and publish SKCPL native releases
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'lib/**'
+      - 'assets/**'
+      - 'test/**'
+      - 'android/**'
+      - 'windows/**'
+      - 'macos/**'
+      - 'scripts/**'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+      - '.github/workflows/build_releases.yml'
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish all three verified native packages to GitHub Releases
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: skcpl-native-release
+  cancel-in-progress: false
+
+env:
+  FLUTTER_VERSION: '3.47.8'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: flutter pub get --enforce-lockfile
+      - run: flutter analyze --no-pub
+      - run: flutter test --no-pub --reporter expanded
+      - run: python3 -m unittest discover -s scripts -p 'test_*.py'
+
+  android:
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - name: Restore existing Android release signing identity
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          python3 - <<'PY'
+          import base64, os
+          from pathlib import Path
+          names = ['ANDROID_KEYSTORE_BASE64', 'ANDROID_KEYSTORE_PASSWORD', 'ANDROID_KEY_PASSWORD', 'ANDROID_KEY_ALIAS']
+          missing = [name for name in names if not os.environ.get(name)]
+          if missing:
+              raise SystemExit('Configure GitHub Actions signing secrets: ' + ', '.join(missing))
+          Path('android/app/upload-keystore.jks').write_bytes(base64.b64decode(os.environ[names[0]], validate=True))
+          def escape(value):
+              return value.replace('\\', '\\\\').replace('\n', '\\n').replace('\r', '\\r').replace(' ', '\\ ')
+          values = {'storeFile': 'upload-keystore.jks', 'storePassword': os.environ[names[1]], 'keyPassword': os.environ[names[2]], 'keyAlias': os.environ[names[3]]}
+          Path('android/key.properties').write_text(''.join(key + '=' + escape(value) + '\n' for key, value in values.items()))
+          PY
+      - run: flutter pub get --enforce-lockfile
+      - run: flutter build apk --release --no-pub --android-skip-build-dependency-validation
+      - name: Package signed Android APK
+        run: |
+          mkdir -p dist
+          cp build/app/outputs/flutter-apk/app-release.apk dist/SKCPL-Android.apk
+          python3 scripts/release_manifest.py --platform android --artifact dist/SKCPL-Android.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-android
+          path: dist/*
+          if-no-files-found: error
+      - name: Remove runner signing files
+        if: always()
+        run: rm -f android/key.properties android/app/upload-keystore.jks
+
+  windows:
+    needs: validate
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - run: flutter pub get --enforce-lockfile
+      - run: flutter build windows --release --no-pub
+      - name: Package EXE, plugins, assets and Visual C++ runtime
+        shell: pwsh
+        run: ./scripts/package_windows.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-windows
+          path: dist/*
+          if-no-files-found: error
+
+  macos:
+    needs: validate
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+      - name: Build both Apple Silicon and Intel architectures
+        run: |
+          flutter config --no-enable-macos-arm64-only
+          flutter config --no-enable-swift-package-manager
+          pod --version
+          flutter pub get --enforce-lockfile
+          flutter build macos --release --no-pub
+      - name: Import optional Developer ID certificate
+        shell: bash
+        env:
+          APPLE_CERTIFICATE_P12_BASE64: ${{ secrets.APPLE_CERTIFICATE_P12_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          if [[ -n "$APPLE_CERTIFICATE_P12_BASE64" ]]; then
+            cert="$RUNNER_TEMP/skcpl-developer-id.p12"
+            keychain="$RUNNER_TEMP/skcpl-signing.keychain-db"
+            password="$(openssl rand -hex 24)"
+            echo "::add-mask::$password"
+            printf '%s' "$APPLE_CERTIFICATE_P12_BASE64" | base64 --decode > "$cert"
+            security create-keychain -p "$password" "$keychain"
+            security set-keychain-settings -lut 21600 "$keychain"
+            security unlock-keychain -p "$password" "$keychain"
+            security import "$cert" -P "$APPLE_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$keychain"
+            security list-keychains -d user -s "$keychain" login.keychain-db
+            security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$password" "$keychain" >/dev/null
+            rm "$cert"
+          fi
+      - name: Package universal APP and optionally notarize
+        shell: bash
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_NOTARY_PRIVATE_KEY_BASE64: ${{ secrets.APPLE_NOTARY_PRIVATE_KEY_BASE64 }}
+          APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+          APPLE_NOTARY_ISSUER: ${{ secrets.APPLE_NOTARY_ISSUER }}
+        run: bash scripts/package_macos.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-macos
+          path: dist/*
+          if-no-files-found: error
+      - name: Remove runner signing keychain
+        if: always()
+        run: |
+          rm -f "$RUNNER_TEMP/skcpl-developer-id.p12"
+          if [[ -f "$RUNNER_TEMP/skcpl-signing.keychain-db" ]]; then
+            security delete-keychain "$RUNNER_TEMP/skcpl-signing.keychain-db"
+          fi
+
+  publish:
+    needs: [android, windows, macos]
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.publish)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: native-*
+          merge-multiple: true
+          path: dist
+      - name: Verify all three artifacts describe the same source
+        id: release
+        shell: bash
+        run: |
+          tag="$(python3 scripts/release_manifest.py --combine dist)"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+      - name: Publish a complete immutable version
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo 'This version already exists. Bump pubspec.yaml before publishing another release.' >&2
+            exit 1
+          fi
+          gh release create "$RELEASE_TAG" \
+            dist/SKCPL-Android.apk dist/SKCPL-Windows-x64.zip dist/SKCPL-macOS.zip \
+            dist/release-manifest.json dist/SHA256SUMS.txt \
+            --target "$GITHUB_SHA" --draft \
+            --title "SKCPL ERP ${RELEASE_TAG#v}" --notes-file dist/RELEASE_NOTES.md
+          gh release edit "$RELEASE_TAG" --draft=false --latest

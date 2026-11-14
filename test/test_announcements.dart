@@ -61,7 +61,9 @@ void main() {
       expect(notice.category, equals(AnnouncementCategory.general));
     });
 
-    test('Role restriction: strictly Admin, Project Head, and Accounts can post notices', () {
+    test(
+        'Role restriction: strictly Admin, Project Head, and Accounts can post notices',
+        () {
       expect(canUserPostAnnouncements(UserRole.admin), isTrue);
       expect(canUserPostAnnouncements(UserRole.projectHead), isTrue);
       expect(canUserPostAnnouncements(UserRole.accounts), isTrue);
@@ -70,13 +72,20 @@ void main() {
     });
 
     test('Category parsing handles variations gracefully', () {
-      expect(AnnouncementCategory.fromString('meeting'), equals(AnnouncementCategory.meeting));
-      expect(AnnouncementCategory.fromString('zoom'), equals(AnnouncementCategory.meeting));
-      expect(AnnouncementCategory.fromString('urgent'), equals(AnnouncementCategory.urgent));
-      expect(AnnouncementCategory.fromString('celebration'), equals(AnnouncementCategory.celebration));
-      expect(AnnouncementCategory.fromString('general'), equals(AnnouncementCategory.general));
-      expect(AnnouncementCategory.fromString(null), equals(AnnouncementCategory.general));
-      expect(AnnouncementCategory.fromString('unknown_value'), equals(AnnouncementCategory.general));
+      expect(AnnouncementCategory.fromString('meeting'),
+          equals(AnnouncementCategory.meeting));
+      expect(AnnouncementCategory.fromString('zoom'),
+          equals(AnnouncementCategory.meeting));
+      expect(AnnouncementCategory.fromString('urgent'),
+          equals(AnnouncementCategory.urgent));
+      expect(AnnouncementCategory.fromString('celebration'),
+          equals(AnnouncementCategory.celebration));
+      expect(AnnouncementCategory.fromString('general'),
+          equals(AnnouncementCategory.general));
+      expect(AnnouncementCategory.fromString(null),
+          equals(AnnouncementCategory.general));
+      expect(AnnouncementCategory.fromString('unknown_value'),
+          equals(AnnouncementCategory.general));
     });
   });
 }

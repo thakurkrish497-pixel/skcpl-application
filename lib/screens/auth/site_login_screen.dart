@@ -71,7 +71,9 @@ class _SiteLoginScreenState extends ConsumerState<SiteLoginScreen> {
       if (rememberedStaff != null && rememberedStaff.hasModule(targetModule)) {
         // Staff already remembered & authorized! Directly proceed to destination module
         if (widget.module == 'stock') {
-          await ref.read(stockProvider.notifier).loadTransactions(activeSite.id);
+          await ref
+              .read(stockProvider.notifier)
+              .loadTransactions(activeSite.id);
           if (mounted) Navigator.pushReplacementNamed(context, '/stock-choice');
         } else if (widget.module == 'report') {
           if (mounted) Navigator.pushReplacementNamed(context, '/site-report');
@@ -129,13 +131,13 @@ class _SiteLoginScreenState extends ConsumerState<SiteLoginScreen> {
 
                 // Site badge
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16, vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   decoration: BoxDecoration(
                     color: AppColors.primarySurface,
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
-                      color: AppColors.primary.withOpacity(0.3),
+                      color: AppColors.primary.withValues(alpha: 0.3),
                     ),
                   ),
                   child: Row(
@@ -158,7 +160,8 @@ class _SiteLoginScreenState extends ConsumerState<SiteLoginScreen> {
 
                 Text(
                   'Site Login',
-                  style: AppTextStyles.h1.copyWith(color: AppColors.textPrimary),
+                  style:
+                      AppTextStyles.h1.copyWith(color: AppColors.textPrimary),
                 ).animate().fadeIn(delay: 100.ms),
 
                 const SizedBox(height: 8),
@@ -181,7 +184,7 @@ class _SiteLoginScreenState extends ConsumerState<SiteLoginScreen> {
                       color: AppColors.rejectedSurface,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: AppColors.rejected.withOpacity(0.3),
+                        color: AppColors.rejected.withValues(alpha: 0.3),
                       ),
                     ),
                     child: Text(
@@ -266,13 +269,17 @@ class _SiteLoginScreenState extends ConsumerState<SiteLoginScreen> {
                       Icon(
                         Icons.code_rounded,
                         size: 14,
-                        color: AppColors.isLight ? AppColors.primary : AppColors.waveCyan,
+                        color: AppColors.isLight
+                            ? AppColors.primary
+                            : AppColors.waveCyan,
                       ),
                       const SizedBox(width: 6),
                       Text(
                         'Made by — Krish Thakur',
                         style: AppTextStyles.caption.copyWith(
-                          color: AppColors.isLight ? AppColors.primary : AppColors.waveCyan,
+                          color: AppColors.isLight
+                              ? AppColors.primary
+                              : AppColors.waveCyan,
                           fontWeight: FontWeight.w600,
                           letterSpacing: 0.3,
                         ),

@@ -2,7 +2,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:skcpl_app/models/role_permissions_model.dart';
 import 'package:skcpl_app/models/stock_transaction_model.dart';
-import 'package:skcpl_app/models/user_model.dart';
 import 'package:skcpl_app/services/role_access_service.dart';
 import 'package:skcpl_app/services/auth_service.dart';
 
@@ -19,9 +18,11 @@ void main() {
       final perms = await service.loadRolePermissions();
 
       expect(perms.accountsEmail, 'accounts@skcpl.com');
-      expect(perms.accountsPassword, 'accounts123');
+      expect(perms.accountsPassword,
+          const RolePermissionsModel().accountsPassword);
       expect(perms.projectHeadEmail, 'projecthead@skcpl.com');
-      expect(perms.projectHeadPassword, 'projecthead123');
+      expect(perms.projectHeadPassword,
+          const RolePermissionsModel().projectHeadPassword);
       expect(perms.accountsCanApproveStock, isTrue);
       expect(perms.accountsCanApproveCash, isTrue);
       expect(perms.projectHeadCanApproveStock, isTrue);
@@ -30,10 +31,12 @@ void main() {
       expect(perms.projectHeadCanApproveDSR, isTrue);
     });
 
-    test('Admin can update credentials and extract Stock approval from Accounts', () async {
+    test(
+        'Admin can update credentials and extract Stock approval from Accounts',
+        () async {
       final service = RoleAccessService();
 
-      final updated = RolePermissionsModel(
+      const updated = RolePermissionsModel(
         accountsEmail: 'chiefaccounts@skcpl.com',
         accountsPassword: 'chiefSecret789',
         accountsCanApproveCash: true,
@@ -56,58 +59,27 @@ void main() {
       expect(reloaded.projectHeadPassword, 'engineerPass456');
     });
 
-    test('AuthService accepts Admin-updated credentials for Accounts & Project Head', () async {
-      final service = RoleAccessService();
-      final auth = AuthService();
-
-      // Configure custom credentials via Super-Admin
-      await service.saveRolePermissions(RolePermissionsModel(
-        accountsEmail: 'finance.lead@skcpl.com',
-        accountsPassword: 'secureFinance2026',
-        accountsCanApproveCash: true,
-        accountsCanApproveStock: false,
-        projectHeadEmail: 'site.director@skcpl.com',
-        projectHeadPassword: 'siteDirector2026',
-        projectHeadCanApproveCash: true,
-        projectHeadCanApproveStock: true,
-        projectHeadCanApproveAttendance: true,
-        projectHeadCanApproveDSR: true,
-      ));
-
-      // Test login with updated Accounts credentials
-      final accountsUser = await auth.signInWithEmail(
-        email: 'finance.lead@skcpl.com',
-        password: 'secureFinance2026',
-      );
-      expect(accountsUser.email, 'finance.lead@skcpl.com');
-      expect(accountsUser.role, UserRole.accounts);
-
-      // Test login with updated Project Head credentials
-      final phUser = await auth.signInWithEmail(
-        email: 'site.director@skcpl.com',
-        password: 'siteDirector2026',
-      );
-      expect(phUser.email, 'site.director@skcpl.com');
-      expect(phUser.role, UserRole.projectHead);
-
-      // Test invalid password fails
-      expect(
-        () => auth.signInWithEmail(
-          email: 'finance.lead@skcpl.com',
-          password: 'wrongPassword',
-        ),
-        throwsA(isA<Exception>()),
-      );
+    test('Permission-setting credentials cannot bypass Supabase Auth',
+        () async {
+      await RoleAccessService().saveRolePermissions(const RolePermissionsModel(
+          accountsEmail: 'unregistered@skcpl.com',
+          accountsPassword: 'settings-only'));
+      await expectLater(
+          AuthService().signInWithEmail(
+              email: 'unregistered@skcpl.com', password: 'settings-only'),
+          throwsA(isA<Exception>()));
     });
 
-    test('Approval Bypass Routing: When accountsCanApproveStock is false, routes to pendingAdmin', () async {
-      const bypassModel = RolePermissionsModel(
+    test(
+        'Approval Bypass Routing: When accountsCanApproveStock is false, routes to pendingAdmin',
+        () async {
+      final bypassModel = RolePermissionsModel(
         accountsEmail: 'accounts@skcpl.com',
-        accountsPassword: 'accounts123',
+        accountsPassword: const RolePermissionsModel().accountsPassword,
         accountsCanApproveStock: false, // Extracted by Admin policy
         accountsCanApproveCash: true,
         projectHeadEmail: 'projecthead@skcpl.com',
-        projectHeadPassword: 'projecthead123',
+        projectHeadPassword: const RolePermissionsModel().projectHeadPassword,
         projectHeadCanApproveCash: true,
         projectHeadCanApproveStock: true,
         projectHeadCanApproveAttendance: true,
@@ -132,14 +104,16 @@ void main() {
       expect(cashTargetStatus, TransactionStatus.pendingAccounts);
     });
 
-    test('Project Head Stock Power Extracted: Routes directly to Accounts and is visible in Accounts queue', () async {
-      const phBypassModel = RolePermissionsModel(
+    test(
+        'Project Head Stock Power Extracted: Routes directly to Accounts and is visible in Accounts queue',
+        () async {
+      final phBypassModel = RolePermissionsModel(
         accountsEmail: 'accounts@skcpl.com',
-        accountsPassword: 'accounts123',
+        accountsPassword: const RolePermissionsModel().accountsPassword,
         accountsCanApproveStock: true,
         accountsCanApproveCash: true,
         projectHeadEmail: 'projecthead@skcpl.com',
-        projectHeadPassword: 'projecthead123',
+        projectHeadPassword: const RolePermissionsModel().projectHeadPassword,
         projectHeadCanApproveCash: true,
         projectHeadCanApproveStock: false, // Power removed from Project Head!
         projectHeadCanApproveAttendance: true,
@@ -179,16 +153,21 @@ void main() {
       // Check the filter logic in pendingStockAccountsProvider:
       final bool accountsSeesIt = !phBypassModel.accountsCanApproveStock
           ? false
-          : (!phBypassModel.projectHeadCanApproveStock ? true : !legacyTx.isPendingSupervisorReview);
+          : (!phBypassModel.projectHeadCanApproveStock
+              ? true
+              : !legacyTx.isPendingSupervisorReview);
 
-      expect(accountsSeesIt, isTrue, reason: 'Accounts MUST see the stock entry immediately when Project Head power is removed!');
+      expect(accountsSeesIt, isTrue,
+          reason:
+              'Accounts MUST see the stock entry immediately when Project Head power is removed!');
     });
 
-    test('Reset to factory defaults restores initial credentials & powers', () async {
+    test('Reset to factory defaults restores initial credentials & powers',
+        () async {
       final service = RoleAccessService();
 
       // Change permissions first
-      await service.saveRolePermissions(RolePermissionsModel(
+      await service.saveRolePermissions(const RolePermissionsModel(
         accountsEmail: 'changed@skcpl.com',
         accountsPassword: 'changed',
         accountsCanApproveCash: false,
@@ -206,7 +185,8 @@ void main() {
 
       final restored = await service.loadRolePermissions();
       expect(restored.accountsEmail, 'accounts@skcpl.com');
-      expect(restored.accountsPassword, 'accounts123');
+      expect(restored.accountsPassword,
+          const RolePermissionsModel().accountsPassword);
       expect(restored.accountsCanApproveStock, isTrue);
       expect(restored.accountsCanApproveCash, isTrue);
       expect(restored.projectHeadCanApproveStock, isTrue);

@@ -1,20 +1,14 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:crypto/crypto.dart';
 import 'dart:convert';
-import '../core/constants/supabase_constants.dart';
 import '../models/user_model.dart';
-import 'role_access_service.dart';
 
 /// Handles authentication for all three user roles
 class AuthService {
   final SupabaseClient _client;
 
   AuthService([SupabaseClient? client])
-      : _client = client ??
-            SupabaseClient(
-              SupabaseConstants.supabaseUrl,
-              SupabaseConstants.supabaseAnonKey,
-            );
+      : _client = client ?? Supabase.instance.client;
 
   /// Get the current Supabase auth user ID
   String? get currentUserId => _client.auth.currentUser?.id;
@@ -30,97 +24,34 @@ class AuthService {
     var cleanEmail = email.trim().toLowerCase();
     if (cleanEmail == 'admin') {
       cleanEmail = 'admin@skcpl.com';
+    } else if (cleanEmail == 'project' ||
+        cleanEmail == 'projecthead' ||
+        cleanEmail == 'head') {
+      cleanEmail = 'projecthead@skcpl.com';
+    } else if (cleanEmail == 'accounts' || cleanEmail == 'account') {
+      cleanEmail = 'accounts@skcpl.com';
     }
 
-    try {
-      final response = await _client.auth.signInWithPassword(
-        email: cleanEmail,
-        password: password,
-      );
-
-      if (response.user != null) {
-        final profileData = await _client
-            .from('users')
-            .select()
-            .eq('id', response.user!.id)
-            .maybeSingle();
-
-        if (profileData != null) {
-          return UserModel.fromJson(profileData);
-        }
-
-        // Determine role from email if profile row is missing
-        UserRole inferredRole = UserRole.admin;
-        if (cleanEmail.contains('projecthead') || cleanEmail.contains('head') || cleanEmail.contains('supervisor')) {
-          inferredRole = UserRole.projectHead;
-        } else if (cleanEmail.contains('account')) {
-          inferredRole = UserRole.accounts;
-        }
-
-        return UserModel(
-          id: response.user!.id,
-          email: cleanEmail,
-          fullName: inferredRole.displayName,
-          role: inferredRole,
-          createdAt: DateTime.now(),
-          updatedAt: DateTime.now(),
-        );
-      }
-    } catch (e) {
-      // Resilient verification with dynamic Admin-configured credentials (forceRefresh from cloud)
-      final dynamicConfig = await RoleAccessService().getPermissions(forceRefresh: true);
-      final configuredProjectHeadEmail = dynamicConfig.projectHeadEmail.toLowerCase().trim();
-      final configuredAccountsEmail = dynamicConfig.accountsEmail.toLowerCase().trim();
-
-      final matchesProjectHead = cleanEmail == configuredProjectHeadEmail ||
-          cleanEmail == 'project' ||
-          cleanEmail == 'projec' ||
-          cleanEmail == 'projecthead' ||
-          cleanEmail == 'projecthead@skcpl.com' ||
-          cleanEmail == 'head@skcpl.com' ||
-          cleanEmail == 'supervisor@skcpl.com';
-
-      final matchesAccounts = cleanEmail == configuredAccountsEmail ||
-          cleanEmail == 'account' ||
-          cleanEmail == 'accounts' ||
-          cleanEmail == 'accounts@skcpl.com' ||
-          cleanEmail == 'account@skcpl.com';
-
-      if (matchesProjectHead &&
-          (password == dynamicConfig.projectHeadPassword || password == 'projecthead123' || password == 'skcpl123' || password == '123456' || password == 'admin123')) {
-        return UserModel(
-          id: 'b194578e-67ba-4513-93f6-a8e691c01908',
-          email: cleanEmail,
-          fullName: 'Project Head',
-          role: UserRole.projectHead,
-          createdAt: DateTime.now(),
-          updatedAt: DateTime.now(),
-        );
-      } else if (matchesAccounts &&
-          (password == dynamicConfig.accountsPassword || password == 'accounts123' || password == 'skcpl123' || password == '123456' || password == 'admin123')) {
-        return UserModel(
-          id: '3f6ae45e-67ba-4513-93f6-a8e691c01907',
-          email: cleanEmail,
-          fullName: 'Accounts Manager',
-          role: UserRole.accounts,
-          createdAt: DateTime.now(),
-          updatedAt: DateTime.now(),
-        );
-      } else if ((cleanEmail == 'admin@skcpl.com' || cleanEmail == 'admin') &&
-          (password == 'Suresh@11' || password == 'admin123' || password == 'skcpl123' || password == '123456')) {
-        return UserModel(
-          id: '24721aa3-ae89-4f10-8a19-29fdcd9137de',
-          email: 'admin@skcpl.com',
-          fullName: 'Super Admin',
-          role: UserRole.admin,
-          createdAt: DateTime.now(),
-          updatedAt: DateTime.now(),
-        );
-      }
-      rethrow;
+    if (_client.auth.currentUser != null) await _client.auth.signOut();
+    final response = await _client.auth
+        .signInWithPassword(email: cleanEmail, password: password);
+    if (response.user == null) throw StateError('Company sign-in failed.');
+    final profile = await _client
+        .from('users')
+        .select()
+        .eq('id', response.user!.id)
+        .maybeSingle();
+    if (profile == null || profile['is_active'] == false) {
+      await _client.auth.signOut();
+      throw StateError(
+          'An active company role profile is required. Contact Admin.');
     }
-
-    throw Exception('Login failed. Please check your credentials.');
+    if (!['admin', 'accounts', 'project_head', 'worker']
+        .contains(profile['role'])) {
+      await _client.auth.signOut();
+      throw StateError('Your company role is not recognized. Contact Admin.');
+    }
+    return UserModel.fromJson(profile);
   }
 
   /// Sign in a site worker using site-specific credentials
@@ -197,13 +128,10 @@ class AuthService {
     final userId = currentUserId;
     if (userId == null) return null;
 
-    final data = await _client
-        .from('users')
-        .select()
-        .eq('id', userId)
-        .maybeSingle();
+    final data =
+        await _client.from('users').select().eq('id', userId).maybeSingle();
 
-    if (data == null) return null;
+    if (data == null || data['is_active'] == false) return null;
     return UserModel.fromJson(data);
   }
 }

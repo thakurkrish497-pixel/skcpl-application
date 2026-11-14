@@ -151,7 +151,8 @@ class _PhotoViewerDialogState extends State<PhotoViewerDialog> {
                               const SizedBox(height: 16),
                               OutlinedButton.icon(
                                 onPressed: () => _openExternalUrl(url),
-                                icon: const Icon(Icons.open_in_new_rounded, size: 16),
+                                icon: const Icon(Icons.open_in_new_rounded,
+                                    size: 16),
                                 label: const Text('Open Link'),
                               ),
                             ],
@@ -179,14 +180,16 @@ class _PhotoViewerDialogState extends State<PhotoViewerDialog> {
                     style: IconButton.styleFrom(
                       backgroundColor: Colors.black.withValues(alpha: 0.65),
                     ),
-                    icon: const Icon(Icons.arrow_back_rounded, color: Colors.white, size: 22),
+                    icon: const Icon(Icons.arrow_back_rounded,
+                        color: Colors.white, size: 22),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                   const SizedBox(width: 8),
 
                   // Photo counter pill
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                     decoration: BoxDecoration(
                       color: Colors.black.withValues(alpha: 0.65),
                       borderRadius: BorderRadius.circular(20),
@@ -217,7 +220,8 @@ class _PhotoViewerDialogState extends State<PhotoViewerDialog> {
                     style: IconButton.styleFrom(
                       backgroundColor: Colors.black.withValues(alpha: 0.65),
                     ),
-                    icon: const Icon(Icons.open_in_new_rounded, color: Colors.white, size: 20),
+                    icon: const Icon(Icons.open_in_new_rounded,
+                        color: Colors.white, size: 20),
                     onPressed: () => _openExternalUrl(currentUrl),
                   ),
                 ],

@@ -43,10 +43,10 @@ android {
 
     signingConfigs {
         create("release") {
-            keyAlias = "upload"
-            keyPassword = "skcpl2026"
-            storeFile = file("upload-keystore.jks")
-            storePassword = "skcpl2026"
+            keyAlias = keystoreProperties.getProperty("keyAlias")
+            keyPassword = keystoreProperties.getProperty("keyPassword")
+            storeFile = keystoreProperties.getProperty("storeFile")?.let { file(it) }
+            storePassword = keystoreProperties.getProperty("storePassword")
         }
     }
 

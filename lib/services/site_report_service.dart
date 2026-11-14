@@ -1,8 +1,8 @@
+import 'submission_support.dart';
+import 'package:flutter/foundation.dart';
 import 'dart:convert';
-import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/daily_site_report_model.dart';
-import '../core/constants/supabase_constants.dart';
 
 /// Service managing Daily Site Reports (DSR), audio/photo uploads to Supabase storage,
 /// and database persistence with automatic fallback resilience.
@@ -10,11 +10,7 @@ class SiteReportService {
   final SupabaseClient _client;
 
   SiteReportService([SupabaseClient? client])
-      : _client = client ??
-            SupabaseClient(
-              SupabaseConstants.supabaseUrl,
-              SupabaseConstants.supabaseServiceRoleKey,
-            );
+      : _client = client ?? Supabase.instance.client;
 
   static const String _storageBucket = 'site_reports';
 
@@ -24,7 +20,8 @@ class SiteReportService {
     required String siteId,
     required String fileName,
   }) async {
-    final path = 'audio/$siteId/${DateTime.now().millisecondsSinceEpoch}_$fileName';
+    final path =
+        'audio/$siteId/${DateTime.now().millisecondsSinceEpoch}_$fileName';
     final isWebm = fileName.endsWith('.webm');
     await _client.storage.from(_storageBucket).uploadBinary(
           path,
@@ -43,7 +40,8 @@ class SiteReportService {
     required String siteId,
     required String fileName,
   }) async {
-    final path = 'photos/$siteId/${DateTime.now().millisecondsSinceEpoch}_$fileName';
+    final path =
+        'photos/$siteId/${DateTime.now().millisecondsSinceEpoch}_$fileName';
     await _client.storage.from(_storageBucket).uploadBinary(
           path,
           photoBytes,
@@ -67,7 +65,7 @@ class SiteReportService {
           .single();
       return DailySiteReportModel.fromJson(res);
     } catch (e) {
-      print('daily_site_reports table not ready or error ($e). Using resilient fallback.');
+      if (!isSchemaUnavailable(e)) rethrow;
       return _saveReportFallback(report);
     }
   }
@@ -80,9 +78,7 @@ class SiteReportService {
     DateTime? endDate,
   }) async {
     try {
-      var query = _client
-          .from('daily_site_reports')
-          .select('*, sites(name)');
+      var query = _client.from('daily_site_reports').select('*, sites(name)');
 
       if (siteId != 'all') {
         query = query.eq('site_id', siteId);
@@ -103,24 +99,35 @@ class SiteReportService {
       }
 
       final data = await query.order('date', ascending: false);
-      final list = (data as List).map((j) => DailySiteReportModel.fromJson(j)).toList();
-      list.sort((a, b) => b.createdAt.compareTo(a.createdAt)); // Latest report on top
-      return list;
+      final list =
+          (data as List).map((j) => DailySiteReportModel.fromJson(j)).toList();
+      final legacy = await _getReportsFallback(siteId,
+          date: date, startDate: startDate, endDate: endDate);
+      final merged = {
+        for (final report in legacy) report.id: report,
+        for (final report in list) report.id: report
+      }.values.toList();
+      merged.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      return merged;
     } catch (e) {
-      print('Query daily_site_reports error ($e). Fetching from fallback...');
-      return _getReportsFallback(siteId, date: date, startDate: startDate, endDate: endDate);
+      if (!isSchemaUnavailable(e)) rethrow;
+      return _getReportsFallback(siteId,
+          date: date, startDate: startDate, endDate: endDate);
     }
   }
 
   /// Fetch all reports for a specific site on a given date (latest update first)
-  Future<List<DailySiteReportModel>> getReportsForDate(String siteId, DateTime date) async {
+  Future<List<DailySiteReportModel>> getReportsForDate(
+      String siteId, DateTime date) async {
     final list = await getReportsForSite(siteId, date: date);
-    list.sort((a, b) => b.createdAt.compareTo(a.createdAt)); // Latest update on top
+    list.sort(
+        (a, b) => b.createdAt.compareTo(a.createdAt)); // Latest update on top
     return list;
   }
 
   /// Fetch single report for a specific site on a given date (backward compatibility)
-  Future<DailySiteReportModel?> getReportForDate(String siteId, DateTime date) async {
+  Future<DailySiteReportModel?> getReportForDate(
+      String siteId, DateTime date) async {
     final list = await getReportsForSite(siteId, date: date);
     if (list.isNotEmpty) return list.first;
     return null;
@@ -131,7 +138,7 @@ class SiteReportService {
     try {
       await _client.from('daily_site_reports').delete().eq('id', reportId);
     } catch (e) {
-      print('delete from daily_site_reports error: $e');
+      debugPrint('delete from daily_site_reports error: $e');
     }
 
     try {
@@ -140,14 +147,15 @@ class SiteReportService {
           .delete()
           .or('title.like.%$reportId%,description.like.%"id":"$reportId"%');
     } catch (e) {
-      print('delete from fallback tasks error: $e');
+      debugPrint('delete from fallback tasks error: $e');
     }
   }
 
   // ── Resilient Fallback Engine ──
   // If daily_site_reports table is not migrated in Supabase,
   // we store the JSON in the existing `tasks` table tagged as 'DSR' so data is NEVER lost!
-  Future<DailySiteReportModel> _saveReportFallback(DailySiteReportModel report) async {
+  Future<DailySiteReportModel> _saveReportFallback(
+      DailySiteReportModel report) async {
     final dateStr = report.date.toIso8601String().split('T').first;
     // Unique tag title per report ID ensures multiple updates on the same date NEVER overwrite each other
     final tagTitle = 'DSR:$dateStr:${report.id}';
@@ -185,7 +193,7 @@ class SiteReportService {
         });
       }
     } catch (e) {
-      print('[SiteReportService] _saveReportFallback error: $e');
+      rethrow;
     }
 
     return report;
@@ -213,7 +221,10 @@ class SiteReportService {
     Map<String, String>? siteMap;
     try {
       final sitesRes = await _client.from('sites').select('id, name');
-      siteMap = {for (final s in (sitesRes as List)) s['id'].toString(): s['name'].toString()};
+      siteMap = {
+        for (final s in (sitesRes as List))
+          s['id'].toString(): s['name'].toString()
+      };
     } catch (_) {}
 
     for (final row in (data as List)) {
@@ -224,8 +235,10 @@ class SiteReportService {
           var report = DailySiteReportModel.fromJson(decoded);
 
           // Populate site name if missing
-          if ((report.siteName == null || report.siteName!.isEmpty) && siteMap != null) {
-            final resolvedName = siteMap[report.siteId] ?? siteMap[row['site_id']?.toString()];
+          if ((report.siteName == null || report.siteName!.isEmpty) &&
+              siteMap != null) {
+            final resolvedName =
+                siteMap[report.siteId] ?? siteMap[row['site_id']?.toString()];
             if (resolvedName != null) {
               report = report.copyWith(siteName: resolvedName);
             }

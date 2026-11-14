@@ -1,3 +1,5 @@
+import '../../services/review_access.dart';
+import '../../providers/role_access_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -10,12 +12,12 @@ import '../../providers/stock_provider.dart';
 import '../../providers/cash_provider.dart';
 import '../../widgets/status_badge.dart';
 import '../../widgets/photo_thumbnail_strip.dart';
-import '../../widgets/photo_viewer_dialog.dart';
 import '../../providers/dropdown_provider.dart';
 import '../../models/dropdown_item_model.dart';
 import '../stock/add_product_screen.dart';
 import '../stock/use_product_screen.dart';
 import '../cashbook/expense_form_screen.dart';
+
 /// Detail view for a single transaction — Accounts can approve or reject
 class TransactionReviewScreen extends ConsumerStatefulWidget {
   final StockTransactionModel? stockTransaction;
@@ -43,27 +45,44 @@ class _TransactionReviewScreenState
       ? widget.stockTransaction!.status
       : widget.cashTransaction!.status;
 
-  bool get canAccountsReview => status == TransactionStatus.pendingAccounts;
-  bool get canAdminReview => status == TransactionStatus.pendingAdmin;
-  bool get canReview => canAccountsReview || canAdminReview;
-  bool get canEdit => status != TransactionStatus.approved;
+  bool get canReview => canReviewTransaction(
+      role: ref.read(authProvider).user?.role,
+      status: status,
+      stock: isStockReview,
+      pendingProjectHead: widget.stockTransaction?.isPendingSupervisorReview ??
+          widget.cashTransaction!.isPendingSupervisorReview,
+      queued: (widget.stockTransaction?.id ?? widget.cashTransaction?.id ?? '')
+          .startsWith('offline_'),
+      permissions: ref.read(roleAccessProvider));
+  bool get canAdminReview => canReview && ref.read(authProvider).isAdmin;
+  bool get canEdit => canReview;
 
   Future<void> _openEditScreen() async {
+    if (!canEdit || _isProcessing) return;
     bool? didUpdate = false;
     if (isStockReview) {
       if (widget.stockTransaction!.type == TransactionType.inbound) {
-        didUpdate = await Navigator.push<bool>(context, MaterialPageRoute(
-          builder: (_) => AddProductScreen(existingTransaction: widget.stockTransaction),
-        ));
+        didUpdate = await Navigator.push<bool>(
+            context,
+            MaterialPageRoute(
+              builder: (_) => AddProductScreen(
+                  existingTransaction: widget.stockTransaction),
+            ));
       } else {
-        didUpdate = await Navigator.push<bool>(context, MaterialPageRoute(
-          builder: (_) => UseProductScreen(existingTransaction: widget.stockTransaction),
-        ));
+        didUpdate = await Navigator.push<bool>(
+            context,
+            MaterialPageRoute(
+              builder: (_) => UseProductScreen(
+                  existingTransaction: widget.stockTransaction),
+            ));
       }
     } else {
-      didUpdate = await Navigator.push<bool>(context, MaterialPageRoute(
-        builder: (_) => ExpenseFormScreen(existingTransaction: widget.cashTransaction),
-      ));
+      didUpdate = await Navigator.push<bool>(
+          context,
+          MaterialPageRoute(
+            builder: (_) =>
+                ExpenseFormScreen(existingTransaction: widget.cashTransaction),
+          ));
     }
 
     if (didUpdate == true && mounted) {
@@ -76,10 +95,11 @@ class _TransactionReviewScreenState
   }
 
   Future<void> _approve() async {
+    if (!canReview || _isProcessing) return;
     setState(() => _isProcessing = true);
-    final userId = ref.read(authProvider).user?.id ?? 
-                   ref.read(supabaseClientProvider).auth.currentUser?.id ?? 
-                   '';
+    final userId = ref.read(authProvider).user?.id ??
+        ref.read(supabaseClientProvider).auth.currentUser?.id ??
+        '';
 
     bool success;
     if (canAdminReview) {
@@ -135,6 +155,7 @@ class _TransactionReviewScreenState
   }
 
   Future<void> _reject() async {
+    if (!canReview || _isProcessing) return;
     if (_rejectionNoteController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please provide a rejection reason')),
@@ -143,9 +164,9 @@ class _TransactionReviewScreenState
     }
 
     setState(() => _isProcessing = true);
-    final userId = ref.read(authProvider).user?.id ?? 
-                   ref.read(supabaseClientProvider).auth.currentUser?.id ?? 
-                   '';
+    final userId = ref.read(authProvider).user?.id ??
+        ref.read(supabaseClientProvider).auth.currentUser?.id ??
+        '';
 
     bool success;
     if (isStockReview) {
@@ -171,8 +192,8 @@ class _TransactionReviewScreenState
       ref.invalidate(pendingStockAdminProvider);
       ref.invalidate(pendingCashAdminProvider);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Transaction rejected.'),
+        const SnackBar(
+          content: Text('Transaction rejected.'),
           backgroundColor: AppColors.rejected,
         ),
       );
@@ -198,19 +219,27 @@ class _TransactionReviewScreenState
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(authProvider);
+    ref.watch(roleAccessProvider);
     final stockTx = widget.stockTransaction;
     final cashTx = widget.cashTransaction;
     final siteId = stockTx?.siteId ?? cashTx?.siteId ?? '';
-    
-    final vendorsAsync = ref.watch(allDropdownsProvider((category: DropdownCategory.vendor, siteId: siteId)));
-    final productsAsync = ref.watch(allDropdownsProvider((category: DropdownCategory.product, siteId: siteId)));
-    final unitsAsync = ref.watch(allDropdownsProvider((category: DropdownCategory.metricUnit, siteId: siteId)));
-    final expenseTypesAsync = ref.watch(allDropdownsProvider((category: DropdownCategory.expenseType, siteId: siteId)));
+
+    final vendorsAsync = ref.watch(allDropdownsProvider(
+        (category: DropdownCategory.vendor, siteId: siteId)));
+    final productsAsync = ref.watch(allDropdownsProvider(
+        (category: DropdownCategory.product, siteId: siteId)));
+    final unitsAsync = ref.watch(allDropdownsProvider(
+        (category: DropdownCategory.metricUnit, siteId: siteId)));
+    final expenseTypesAsync = ref.watch(allDropdownsProvider(
+        (category: DropdownCategory.expenseType, siteId: siteId)));
 
     final isLoading = isStockReview
-        ? (vendorsAsync.isLoading || productsAsync.isLoading || unitsAsync.isLoading)
+        ? (vendorsAsync.isLoading ||
+            productsAsync.isLoading ||
+            unitsAsync.isLoading)
         : expenseTypesAsync.isLoading;
-    
+
     if (isLoading) {
       return const Scaffold(
         backgroundColor: AppColors.scaffoldDark,
@@ -222,8 +251,6 @@ class _TransactionReviewScreenState
     final products = productsAsync.valueOrNull ?? [];
     final units = unitsAsync.valueOrNull ?? [];
     final expenseTypes = expenseTypesAsync.valueOrNull ?? [];
-
-    final canEdit = status != TransactionStatus.approved;
 
     return Scaffold(
       backgroundColor: AppColors.scaffoldDark,
@@ -239,7 +266,8 @@ class _TransactionReviewScreenState
               padding: const EdgeInsets.only(right: 8),
               child: TextButton.icon(
                 onPressed: _openEditScreen,
-                icon: const Icon(Icons.edit_note_rounded, color: AppColors.primary, size: 22),
+                icon: const Icon(Icons.edit_note_rounded,
+                    color: AppColors.primary, size: 22),
                 label: const Text(
                   'Edit',
                   style: TextStyle(
@@ -264,7 +292,8 @@ class _TransactionReviewScreenState
               border: Border.all(color: AppColors.divider, width: 0.5),
             ),
             child: isStockReview
-                ? _buildStockDetails(widget.stockTransaction!, vendors, products, units)
+                ? _buildStockDetails(
+                    widget.stockTransaction!, vendors, products, units)
                 : _buildCashDetails(widget.cashTransaction!, expenseTypes),
           ),
 
@@ -273,7 +302,7 @@ class _TransactionReviewScreenState
             const SizedBox(height: 16),
             Container(
               decoration: BoxDecoration(
-                color: AppColors.primary.withOpacity(0.08),
+                color: AppColors.primary.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: AppColors.primary, width: 1.5),
               ),
@@ -283,11 +312,13 @@ class _TransactionReviewScreenState
                   borderRadius: BorderRadius.circular(14),
                   onTap: _isProcessing ? null : _openEditScreen,
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 14, horizontal: 16),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const Icon(Icons.edit_note_rounded, color: AppColors.primary, size: 24),
+                        const Icon(Icons.edit_note_rounded,
+                            color: AppColors.primary, size: 24),
                         const SizedBox(width: 8),
                         Text(
                           'Edit / Correct Transaction Details',
@@ -370,18 +401,26 @@ class _TransactionReviewScreenState
     );
   }
 
-  Widget _buildStockDetails(StockTransactionModel tx, List<DropdownItemModel> vendors, List<DropdownItemModel> products, List<DropdownItemModel> units) {
-    final matchedProduct = products.where((p) => p.id == tx.productId).firstOrNull?.value;
-    final productName = tx.customProduct ?? (matchedProduct ?? tx.displayProductName);
+  Widget _buildStockDetails(
+      StockTransactionModel tx,
+      List<DropdownItemModel> vendors,
+      List<DropdownItemModel> products,
+      List<DropdownItemModel> units) {
+    final matchedProduct =
+        products.where((p) => p.id == tx.productId).firstOrNull?.value;
+    final productName =
+        tx.customProduct ?? (matchedProduct ?? tx.displayProductName);
 
-    final matchedVendor = tx.vendorId != null 
+    final matchedVendor = tx.vendorId != null
         ? vendors.where((v) => v.id == tx.vendorId).firstOrNull?.value
         : null;
     final vendorName = matchedVendor ?? tx.displayVendorName;
 
-    final matchedUnit = units.where((u) => u.id == tx.metricUnitId).firstOrNull?.value;
-    final unitName = tx.customMetricUnit ?? (matchedUnit ?? tx.displayMetricUnitName);
-    
+    final matchedUnit =
+        units.where((u) => u.id == tx.metricUnitId).firstOrNull?.value;
+    final unitName =
+        tx.customMetricUnit ?? (matchedUnit ?? tx.displayMetricUnitName);
+
     final baseAmount = (tx.rate ?? 0) * tx.quantity;
     final sgstAmount = baseAmount * (tx.sgst / 100);
     final igstAmount = baseAmount * (tx.igst / 100);
@@ -394,50 +433,71 @@ class _TransactionReviewScreenState
       children: [
         _DetailRow('Type', tx.type.displayName),
         _DetailRow('Date', DateFormat('dd MMM yyyy').format(tx.date)),
-        if (tx.type == TransactionType.inbound) _DetailRow('Vendor / Party', vendorName),
-        if (tx.billNo != null && tx.billNo!.isNotEmpty) _DetailRow('Bill / Challan No', '#${tx.billNo}'),
+        if (tx.type == TransactionType.inbound)
+          _DetailRow('Vendor / Party', vendorName),
+        if (tx.billNo != null && tx.billNo!.isNotEmpty)
+          _DetailRow('Bill / Challan No', '#${tx.billNo}'),
         _DetailRow('Product', productName),
         _DetailRow('Quantity', '${tx.quantity} $unitName'),
-        if (tx.rate != null && tx.type == TransactionType.inbound) _DetailRow('Rate', '₹${tx.rate}'),
-        if (tx.type == TransactionType.inbound) _DetailRow('Base Amount', '₹${NumberFormat('#,##,###.##').format(baseAmount)}'),
-        if (tx.sgst > 0) _DetailRow('SGST', '${tx.sgst}% (₹${NumberFormat('#,##,###.##').format(sgstAmount)})'),
-        if (tx.igst > 0) _DetailRow('IGST', '${tx.igst}% (₹${NumberFormat('#,##,###.##').format(igstAmount)})'),
+        if (tx.rate != null && tx.type == TransactionType.inbound)
+          _DetailRow('Rate', '₹${tx.rate}'),
+        if (tx.type == TransactionType.inbound)
+          _DetailRow('Base Amount',
+              '₹${NumberFormat('#,##,###.##').format(baseAmount)}'),
+        if (tx.sgst > 0)
+          _DetailRow('SGST',
+              '${tx.sgst}% (₹${NumberFormat('#,##,###.##').format(sgstAmount)})'),
+        if (tx.igst > 0)
+          _DetailRow('IGST',
+              '${tx.igst}% (₹${NumberFormat('#,##,###.##').format(igstAmount)})'),
         if (effectiveFinalAmount > 0 && tx.type == TransactionType.inbound)
           _DetailRow('Final Amount',
               '₹${NumberFormat('#,##,###.##').format(effectiveFinalAmount)}'),
-        if (tx.submitterName != null) _DetailRow('Entered By', tx.submitterName!),
-        if (tx.supervisorReviewNote != null) _DetailRow('Project Head Review', tx.supervisorReviewNote!),
-        if (tx.cleanRemarks != null && tx.cleanRemarks!.isNotEmpty) _DetailRow('Remarks', tx.cleanRemarks!),
+        if (tx.submitterName != null)
+          _DetailRow('Entered By', tx.submitterName!),
+        if (tx.supervisorReviewNote != null)
+          _DetailRow('Project Head Review', tx.supervisorReviewNote!),
+        if (tx.cleanRemarks != null && tx.cleanRemarks!.isNotEmpty)
+          _DetailRow('Remarks', tx.cleanRemarks!),
         if (tx.photoUrls.isNotEmpty)
           PhotoThumbnailStrip(
             photoUrls: tx.photoUrls,
-            title: 'Attached Bills & Challans (${tx.photoUrls.length}) • Tap to zoom',
+            title:
+                'Attached Bills & Challans (${tx.photoUrls.length}) • Tap to zoom',
             size: 76,
           ),
       ],
     );
   }
 
-  Widget _buildCashDetails(CashTransactionModel tx, List<DropdownItemModel> expenseTypes) {
-    final matchedExpense = expenseTypes.where((e) => e.id == tx.expenseTypeId).firstOrNull?.value;
-    final expenseName = tx.customExpenseType ?? (matchedExpense ?? tx.displayExpenseTypeName);
-    
+  Widget _buildCashDetails(
+      CashTransactionModel tx, List<DropdownItemModel> expenseTypes) {
+    final matchedExpense =
+        expenseTypes.where((e) => e.id == tx.expenseTypeId).firstOrNull?.value;
+    final expenseName =
+        tx.customExpenseType ?? (matchedExpense ?? tx.displayExpenseTypeName);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _DetailRow('Date', DateFormat('dd MMM yyyy').format(tx.date)),
         _DetailRow('Expense Type', expenseName),
-        if (tx.partyName != null && tx.partyName!.isNotEmpty) _DetailRow('Party / Vendor', tx.partyName!),
-        if (tx.billNo != null && tx.billNo!.isNotEmpty) _DetailRow('Bill / Voucher No', '#${tx.billNo}'),
+        if (tx.partyName != null && tx.partyName!.isNotEmpty)
+          _DetailRow('Party / Vendor', tx.partyName!),
+        if (tx.billNo != null && tx.billNo!.isNotEmpty)
+          _DetailRow('Bill / Voucher No', '#${tx.billNo}'),
         _DetailRow('Expense Amount',
             '₹${NumberFormat('#,##,###').format(tx.expenseAmount)}'),
         _DetailRow('Amount Received',
             '₹${NumberFormat('#,##,###').format(tx.amountReceived)}'),
         _DetailRow('Cash in Hand',
             '₹${NumberFormat('#,##,###').format(tx.cashInHand)}'),
-        if (tx.submitterName != null) _DetailRow('Entered By', tx.submitterName!),
-        if (tx.supervisorReviewNote != null) _DetailRow('Project Head Review', tx.supervisorReviewNote!),
-        if (tx.cleanRemarks != null && tx.cleanRemarks!.isNotEmpty) _DetailRow('Remarks', tx.cleanRemarks!),
+        if (tx.submitterName != null)
+          _DetailRow('Entered By', tx.submitterName!),
+        if (tx.supervisorReviewNote != null)
+          _DetailRow('Project Head Review', tx.supervisorReviewNote!),
+        if (tx.cleanRemarks != null && tx.cleanRemarks!.isNotEmpty)
+          _DetailRow('Remarks', tx.cleanRemarks!),
         if (tx.photoUrls.isNotEmpty)
           PhotoThumbnailStrip(
             photoUrls: tx.photoUrls,

@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'notification/notification_stub.dart'
-    if (dart.library.html) 'notification/notification_web.dart'
+    if (dart.library.js_interop) 'notification/notification_web.dart'
     if (dart.library.io) 'notification/notification_io.dart';
 
 /// Cross-platform notification service for phone and desktop alerts
@@ -29,7 +29,8 @@ class NotificationService {
   static Future<void> showSlaNotification({
     required String title,
     required String body,
-    required String alertKey, // Unique key for this alert (e.g. 'stock_pending_id_36h')
+    required String
+        alertKey, // Unique key for this alert (e.g. 'stock_pending_id_36h')
   }) async {
     final permitted = await isPermissionGranted();
     if (!permitted) return;
@@ -95,7 +96,8 @@ class NotificationService {
 
       await showPlatformNotification(
         title: '🎂 Happy Birthday $staffName!',
-        body: 'Today is $staffName\'s Birthday! SKCPL wishes them happiness, good health & success!',
+        body:
+            'Today is $staffName\'s Birthday! SKCPL wishes them happiness, good health & success!',
         tag: alertKey,
       );
 
@@ -104,7 +106,8 @@ class NotificationService {
       if (sentMap.length > 100) sentMap.removeAt(0);
       await prefs.setStringList(_keySentAlerts, sentMap);
     } catch (e) {
-      debugPrint('[NotificationService] Failed to show birthday notification: $e');
+      debugPrint(
+          '[NotificationService] Failed to show birthday notification: $e');
     }
   }
 
@@ -145,7 +148,8 @@ class NotificationService {
       if (sentMap.length > 100) sentMap.removeAt(0);
       await prefs.setStringList(_keySentAlerts, sentMap);
     } catch (e) {
-      debugPrint('[NotificationService] Failed to show announcement notification: $e');
+      debugPrint(
+          '[NotificationService] Failed to show announcement notification: $e');
     }
   }
 }

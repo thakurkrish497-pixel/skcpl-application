@@ -1,7 +1,7 @@
 name: skcpl_app
 description: SKCPL Construction Management — Stock Inventory & Cash Book
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.0.1+2
 
 environment:
   sdk: '>=3.1.0 <4.0.0'
@@ -26,7 +26,6 @@ dependencies:
   # UI & Design
   google_fonts: ^6.1.0
   flutter_animate: ^4.3.0
-  iconsax: ^0.0.8
   shimmer: ^3.0.0
   
   # Utilities
@@ -41,6 +40,7 @@ dependencies:
   record: ^5.1.2
   audioplayers: ^6.0.0
   http: ^1.2.0
+  web: ^1.1.1
 
   # PDF
   pdf: ^3.11.0
@@ -61,6 +61,8 @@ dev_dependencies:
   build_runner: ^2.4.7
   flutter_launcher_icons: ^0.14.4
 
+  supabase: any
+  image: any
 dependency_overrides:
   record_platform_interface: 1.2.0
   record_linux: 0.7.2
@@ -71,6 +73,48 @@ flutter:
   uses-material-design: true
   assets:
     - assets/images/
+  fonts:
+    - family: Outfit
+      fonts:
+        - asset: assets/fonts/Outfit.ttf
+          weight: 100
+        - asset: assets/fonts/Outfit.ttf
+          weight: 200
+        - asset: assets/fonts/Outfit.ttf
+          weight: 300
+        - asset: assets/fonts/Outfit.ttf
+          weight: 400
+        - asset: assets/fonts/Outfit.ttf
+          weight: 500
+        - asset: assets/fonts/Outfit.ttf
+          weight: 600
+        - asset: assets/fonts/Outfit.ttf
+          weight: 700
+        - asset: assets/fonts/Outfit.ttf
+          weight: 800
+        - asset: assets/fonts/Outfit.ttf
+          weight: 900
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter.ttf
+          weight: 100
+        - asset: assets/fonts/Inter.ttf
+          weight: 200
+        - asset: assets/fonts/Inter.ttf
+          weight: 300
+        - asset: assets/fonts/Inter.ttf
+          weight: 400
+        - asset: assets/fonts/Inter.ttf
+          weight: 500
+        - asset: assets/fonts/Inter.ttf
+          weight: 600
+        - asset: assets/fonts/Inter.ttf
+          weight: 700
+        - asset: assets/fonts/Inter.ttf
+          weight: 800
+        - asset: assets/fonts/Inter.ttf
+          weight: 900
+
 
 flutter_launcher_icons:
   android: "launcher_icon"

@@ -1,3 +1,4 @@
+import '../services/transaction_refresh.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/constants/app_colors.dart';
@@ -15,19 +16,21 @@ class UniversalSyncButton extends ConsumerWidget {
 
   Future<void> _handleRefresh(BuildContext context, WidgetRef ref) async {
     final messenger = ScaffoldMessenger.of(context);
-    
+
     // 1. Flush any queued offline transactions to Supabase
     final syncResult = await ref.read(autoSyncProvider.notifier).syncNow();
 
     // 2. Invalidate and re-fetch fresh server data
     ref.invalidate(activeSitesProvider);
     ref.invalidate(allSitesProvider);
+    invalidateTransactionViews(ref.invalidate);
 
     final activeSiteId = siteId ?? ref.read(authProvider).activeSite?.id;
     if (activeSiteId != null) {
       await Future.wait([
         ref.read(cashProvider.notifier).loadTransactions(activeSiteId),
         ref.read(stockProvider.notifier).loadTransactions(activeSiteId),
+        ref.read(stockProvider.notifier).loadCurrentStock(activeSiteId),
       ]);
     } else {
       await Future.wait([
@@ -37,10 +40,21 @@ class UniversalSyncButton extends ConsumerWidget {
     }
 
     if (context.mounted) {
-      if (syncResult.syncedCount > 0) {
+      final refreshError =
+          ref.read(cashProvider).error ?? ref.read(stockProvider).error;
+      if (syncResult.errors.isNotEmpty ||
+          refreshError != null ||
+          syncResult.remainingCount > 0) {
+        messenger.showSnackBar(SnackBar(
+            content: Text(
+                '${syncResult.syncedCount} uploaded; ${syncResult.remainingCount} pending. '
+                '${syncResult.errors.isNotEmpty ? syncResult.errors.first : refreshError ?? "Retry needed"}'),
+            backgroundColor: AppColors.pending));
+      } else if (syncResult.syncedCount > 0) {
         messenger.showSnackBar(
           SnackBar(
-            content: Text('✅ Synced ${syncResult.syncedCount} offline record(s) to Cloud & refreshed!'),
+            content: Text(
+                '✅ Synced ${syncResult.syncedCount} offline record(s) to Cloud & refreshed!'),
             backgroundColor: AppColors.approved,
             duration: const Duration(seconds: 3),
           ),
@@ -48,7 +62,8 @@ class UniversalSyncButton extends ConsumerWidget {
       } else if (syncResult.remainingCount > 0) {
         messenger.showSnackBar(
           SnackBar(
-            content: Text('⚠️ ${syncResult.remainingCount} record(s) pending sync. Checking connection...'),
+            content: Text(
+                '⚠️ ${syncResult.remainingCount} record(s) pending sync. Checking connection...'),
             backgroundColor: AppColors.pending,
             duration: const Duration(seconds: 3),
           ),
@@ -84,10 +99,12 @@ class UniversalSyncButton extends ConsumerWidget {
             SizedBox(
               width: 14,
               height: 14,
-              child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.pending),
+              child: CircularProgressIndicator(
+                  strokeWidth: 2, color: AppColors.pending),
             ),
             SizedBox(width: 6),
-            Text('Syncing...', style: TextStyle(color: AppColors.pending, fontSize: 12)),
+            Text('Syncing...',
+                style: TextStyle(color: AppColors.pending, fontSize: 12)),
           ],
         ),
       );
@@ -99,11 +116,16 @@ class UniversalSyncButton extends ConsumerWidget {
         child: ActionChip(
           backgroundColor: AppColors.pending.withValues(alpha: 0.2),
           side: const BorderSide(color: AppColors.pending, width: 1),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          avatar: const Icon(Icons.cloud_upload_rounded, color: AppColors.pending, size: 16),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          avatar: const Icon(Icons.cloud_upload_rounded,
+              color: AppColors.pending, size: 16),
           label: Text(
             'Sync (${syncState.pendingCount})',
-            style: const TextStyle(color: AppColors.pending, fontSize: 12, fontWeight: FontWeight.bold),
+            style: const TextStyle(
+                color: AppColors.pending,
+                fontSize: 12,
+                fontWeight: FontWeight.bold),
           ),
           onPressed: () => _handleRefresh(context, ref),
         ),

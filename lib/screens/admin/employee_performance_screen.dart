@@ -134,7 +134,8 @@ class _EmployeePerformanceScreenState
       setState(() {
         _selectedTimeframe = ReportTimeframe.custom;
         _startDate = picked.start;
-        _endDate = DateTime(picked.end.year, picked.end.month, picked.end.day, 23, 59, 59);
+        _endDate = DateTime(
+            picked.end.year, picked.end.month, picked.end.day, 23, 59, 59);
       });
       _loadReportData();
     }
@@ -158,14 +159,17 @@ class _EmployeePerformanceScreenState
         endDate: _endDate,
       );
       final staffAttendance = allAttendance
-          .where((r) => r.staffId == widget.staff.id || r.staffName.toLowerCase() == widget.staff.name.toLowerCase())
+          .where((r) =>
+              r.staffId == widget.staff.id ||
+              r.staffName.toLowerCase() == widget.staff.name.toLowerCase())
           .toList();
 
       // 2. Fetch cash transactions for site in range
       final allCash = await cashService.getTransactionsForSite(widget.site.id);
       final staffCash = allCash.where((c) {
-        final inRange = c.date.isAfter(_startDate.subtract(const Duration(seconds: 1))) &&
-            c.date.isBefore(_endDate.add(const Duration(seconds: 1)));
+        final inRange =
+            c.date.isAfter(_startDate.subtract(const Duration(seconds: 1))) &&
+                c.date.isBefore(_endDate.add(const Duration(seconds: 1)));
         if (!inRange) return false;
 
         final sub = c.submittedBy?.toLowerCase() ?? '';
@@ -178,8 +182,9 @@ class _EmployeePerformanceScreenState
       // 3. Fetch daily site reports
       final allReports = await reportService.getReportsForSite(widget.site.id);
       final staffReports = allReports.where((r) {
-        final inRange = r.date.isAfter(_startDate.subtract(const Duration(seconds: 1))) &&
-            r.date.isBefore(_endDate.add(const Duration(seconds: 1)));
+        final inRange =
+            r.date.isAfter(_startDate.subtract(const Duration(seconds: 1))) &&
+                r.date.isBefore(_endDate.add(const Duration(seconds: 1)));
         if (!inRange) return false;
 
         final sub = r.submittedBy?.toLowerCase() ?? '';
@@ -209,71 +214,125 @@ class _EmployeePerformanceScreenState
   Future<void> _exportExcelReport() async {
     try {
       final excel = Excel.createExcel();
-      final sheetName = 'PERFORMANCE SUMMARY';
+      const sheetName = 'PERFORMANCE SUMMARY';
       excel.rename('Sheet1', sheetName);
       final sheet = excel[sheetName];
 
       final dateFormat = DateFormat('dd-MMM-yyyy');
-      final rangeStr = '${dateFormat.format(_startDate)} to ${dateFormat.format(_endDate)}';
+      final rangeStr =
+          '${dateFormat.format(_startDate)} to ${dateFormat.format(_endDate)}';
 
       // Header block
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0)).value =
-          TextCellValue('EMPLOYEE 360° PERFORMANCE AUDIT REPORT');
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 1)).value =
-          TextCellValue('Employee: ${widget.staff.name} | Role: ${widget.staff.role.displayName} | Site: ${widget.site.name}');
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 2)).value =
-          TextCellValue('Period: ${_selectedTimeframe.displayName} ($rangeStr) | Generated: ${dateFormat.format(DateTime.now())}');
+      sheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0))
+          .value = TextCellValue('EMPLOYEE 360° PERFORMANCE AUDIT REPORT');
+      sheet
+              .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 1))
+              .value =
+          TextCellValue(
+              'Employee: ${widget.staff.name} | Role: ${widget.staff.role.displayName} | Site: ${widget.site.name}');
+      sheet
+              .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 2))
+              .value =
+          TextCellValue(
+              'Period: ${_selectedTimeframe.displayName} ($rangeStr) | Generated: ${dateFormat.format(DateTime.now())}');
 
       // Summary KPIs
-      final presentCount = _attendanceRecords.where((r) =>
-          r.status == AttendanceStatus.presentOnTime ||
-          r.status == AttendanceStatus.presentLate ||
-          r.status == AttendanceStatus.regularizedPresent).length;
-      final lateCount = _attendanceRecords.where((r) => r.status == AttendanceStatus.presentLate).length;
-      final absentCount = _attendanceRecords.where((r) =>
-          r.status == AttendanceStatus.absent ||
-          r.status == AttendanceStatus.absentLateLockout).length;
-      final totalCashExpense = _cashTransactions.fold<double>(0, (sum, c) => sum + c.expenseAmount);
+      final presentCount = _attendanceRecords
+          .where((r) =>
+              r.status == AttendanceStatus.presentOnTime ||
+              r.status == AttendanceStatus.presentLate ||
+              r.status == AttendanceStatus.regularizedPresent)
+          .length;
+      final lateCount = _attendanceRecords
+          .where((r) => r.status == AttendanceStatus.presentLate)
+          .length;
+      final absentCount = _attendanceRecords
+          .where((r) =>
+              r.status == AttendanceStatus.absent ||
+              r.status == AttendanceStatus.absentLateLockout)
+          .length;
+      final totalCashExpense =
+          _cashTransactions.fold<double>(0, (sum, c) => sum + c.expenseAmount);
 
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 4)).value =
-          TextCellValue('--- KEY PERFORMANCE INDICATORS ---');
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 5)).value =
-          TextCellValue('Days Present: $presentCount | Late: $lateCount | Absent/Lockout: $absentCount');
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 6)).value =
-          TextCellValue('Cash Expenses Logged: ₹${totalCashExpense.toStringAsFixed(2)} (${_cashTransactions.length} entries)');
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 7)).value =
+      sheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 4))
+          .value = TextCellValue('--- KEY PERFORMANCE INDICATORS ---');
+      sheet
+              .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 5))
+              .value =
+          TextCellValue(
+              'Days Present: $presentCount | Late: $lateCount | Absent/Lockout: $absentCount');
+      sheet
+              .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 6))
+              .value =
+          TextCellValue(
+              'Cash Expenses Logged: ₹${totalCashExpense.toStringAsFixed(2)} (${_cashTransactions.length} entries)');
+      sheet
+              .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 7))
+              .value =
           TextCellValue('Daily Site Reports Logged: ${_siteReports.length}');
 
       // Attendance Table
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 9)).value =
-          TextCellValue('--- ATTENDANCE LOG ---');
-      final attHeaders = ['Date', 'Status', 'In Time', 'Out Time', 'Late (Mins)', 'Geofence', 'Reason/Notes'];
+      sheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 9))
+          .value = TextCellValue('--- ATTENDANCE LOG ---');
+      final attHeaders = [
+        'Date',
+        'Status',
+        'In Time',
+        'Out Time',
+        'Late (Mins)',
+        'Geofence',
+        'Reason/Notes'
+      ];
       for (int c = 0; c < attHeaders.length; c++) {
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: c, rowIndex: 10)).value =
-            TextCellValue(attHeaders[c]);
+        sheet
+            .cell(CellIndex.indexByColumnRow(columnIndex: c, rowIndex: 10))
+            .value = TextCellValue(attHeaders[c]);
       }
       int attRow = 11;
       for (final r in _attendanceRecords) {
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: attRow)).value =
-            TextCellValue(dateFormat.format(r.date));
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: attRow)).value =
-            TextCellValue(r.status.displayName);
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: attRow)).value =
-            TextCellValue(r.punchInTime != null ? DateFormat('HH:mm').format(r.punchInTime!) : '-');
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: attRow)).value =
-            TextCellValue(r.punchOutTime != null ? DateFormat('HH:mm').format(r.punchOutTime!) : '-');
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: attRow)).value =
-            IntCellValue(r.lateMinutes);
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 5, rowIndex: attRow)).value =
-            TextCellValue(r.isWithinSite ? 'Within Site' : 'Outside Fence');
-        sheet.cell(CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: attRow)).value =
-            TextCellValue(r.regularizationReason ?? r.adminDecisionNote ?? '-');
+        sheet
+            .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: attRow))
+            .value = TextCellValue(dateFormat.format(r.date));
+        sheet
+            .cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: attRow))
+            .value = TextCellValue(r.status.displayName);
+        sheet
+            .cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: attRow))
+            .value = TextCellValue(r.punchInTime !=
+                null
+            ? DateFormat('HH:mm').format(r.punchInTime!)
+            : '-');
+        sheet
+            .cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: attRow))
+            .value = TextCellValue(r.punchOutTime !=
+                null
+            ? DateFormat('HH:mm').format(r.punchOutTime!)
+            : '-');
+        sheet
+            .cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: attRow))
+            .value = IntCellValue(r.lateMinutes);
+        sheet
+            .cell(CellIndex.indexByColumnRow(columnIndex: 5, rowIndex: attRow))
+            .value = TextCellValue(r
+                .isWithinSite
+            ? 'Within Site'
+            : 'Outside Fence');
+        sheet
+            .cell(CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: attRow))
+            .value = TextCellValue(r
+                .regularizationReason ??
+            r.adminDecisionNote ??
+            '-');
         attRow++;
       }
 
       final fileBytes = excel.save();
       if (fileBytes != null) {
-        final fileName = 'Performance_${widget.staff.name.replaceAll(' ', '_')}_${DateFormat('yyyyMMdd').format(DateTime.now())}.xlsx';
+        final fileName =
+            'Performance_${widget.staff.name.replaceAll(' ', '_')}_${DateFormat('yyyyMMdd').format(DateTime.now())}.xlsx';
         await FileSaverHelper.saveAndOpen(
           bytes: Uint8List.fromList(fileBytes),
           fileName: fileName,
@@ -291,7 +350,9 @@ class _EmployeePerformanceScreenState
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Export failed: $e'), backgroundColor: AppColors.rejected),
+          SnackBar(
+              content: Text('Export failed: $e'),
+              backgroundColor: AppColors.rejected),
         );
       }
     }
@@ -300,7 +361,8 @@ class _EmployeePerformanceScreenState
   @override
   Widget build(BuildContext context) {
     final dateFormat = DateFormat('dd MMM yyyy');
-    final rangeText = '${dateFormat.format(_startDate)} – ${dateFormat.format(_endDate)}';
+    final rangeText =
+        '${dateFormat.format(_startDate)} – ${dateFormat.format(_endDate)}';
 
     return Scaffold(
       backgroundColor: AppColors.scaffoldDark,
@@ -311,7 +373,8 @@ class _EmployeePerformanceScreenState
             Text('${widget.staff.name} — Performance'),
             Text(
               '${widget.site.name} • ${widget.staff.role.displayName}',
-              style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
+              style: AppTextStyles.bodySmall
+                  .copyWith(color: AppColors.textSecondary),
             ),
           ],
         ),
@@ -334,7 +397,7 @@ class _EmployeePerformanceScreenState
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               color: AppColors.surfaceDark,
               border: Border(bottom: BorderSide(color: AppColors.divider)),
             ),
@@ -346,8 +409,8 @@ class _EmployeePerformanceScreenState
                     CircleAvatar(
                       radius: 20,
                       backgroundColor: widget.staff.isSupervisor
-                          ? AppColors.primary.withOpacity(0.18)
-                          : AppColors.secondary.withOpacity(0.18),
+                          ? AppColors.primary.withValues(alpha: 0.18)
+                          : AppColors.secondary.withValues(alpha: 0.18),
                       child: Icon(
                         widget.staff.isSupervisor
                             ? Icons.admin_panel_settings_rounded
@@ -371,11 +434,14 @@ class _EmployeePerformanceScreenState
                               ),
                               const SizedBox(width: 8),
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
                                   color: widget.staff.isSupervisor
-                                      ? AppColors.primary.withOpacity(0.15)
-                                      : AppColors.secondary.withOpacity(0.15),
+                                      ? AppColors.primary
+                                          .withValues(alpha: 0.15)
+                                      : AppColors.secondary
+                                          .withValues(alpha: 0.15),
                                   borderRadius: BorderRadius.circular(6),
                                 ),
                                 child: Text(
@@ -391,7 +457,8 @@ class _EmployeePerformanceScreenState
                               ),
                             ],
                           ),
-                          if (widget.staff.identificationSubtitle.isNotEmpty) ...[
+                          if (widget
+                              .staff.identificationSubtitle.isNotEmpty) ...[
                             const SizedBox(height: 2),
                             Text(
                               widget.staff.identificationSubtitle,
@@ -414,7 +481,8 @@ class _EmployeePerformanceScreenState
                   runSpacing: 4,
                   children: widget.staff.modules.map((m) {
                     return Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
                         color: AppColors.cardDark,
                         borderRadius: BorderRadius.circular(8),
@@ -423,7 +491,8 @@ class _EmployeePerformanceScreenState
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.check_circle_rounded, size: 12, color: AppColors.approved),
+                          const Icon(Icons.check_circle_rounded,
+                              size: 12, color: AppColors.approved),
                           const SizedBox(width: 4),
                           Text(
                             m.displayName,
@@ -460,21 +529,24 @@ class _EmployeePerformanceScreenState
                         _buildTimeframeChip(ReportTimeframe.yearly, 'Yearly'),
                         const SizedBox(width: 8),
                         ActionChip(
-                          avatar: const Icon(Icons.date_range_rounded, size: 14),
+                          avatar:
+                              const Icon(Icons.date_range_rounded, size: 14),
                           label: Text(
                             _selectedTimeframe == ReportTimeframe.custom
                                 ? rangeText
                                 : 'Custom Date',
                             style: TextStyle(
                               fontSize: 12,
-                              color: _selectedTimeframe == ReportTimeframe.custom
-                                  ? AppColors.primary
-                                  : AppColors.textSecondary,
+                              color:
+                                  _selectedTimeframe == ReportTimeframe.custom
+                                      ? AppColors.primary
+                                      : AppColors.textSecondary,
                             ),
                           ),
-                          backgroundColor: _selectedTimeframe == ReportTimeframe.custom
-                              ? AppColors.primary.withOpacity(0.15)
-                              : AppColors.surfaceDark,
+                          backgroundColor:
+                              _selectedTimeframe == ReportTimeframe.custom
+                                  ? AppColors.primary.withValues(alpha: 0.15)
+                                  : AppColors.surfaceDark,
                           onPressed: _pickCustomDateRange,
                         ),
                       ],
@@ -488,7 +560,8 @@ class _EmployeePerformanceScreenState
           // ── Main Content Area ──
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+                ? const Center(
+                    child: CircularProgressIndicator(color: AppColors.primary))
                 : _errorMessage != null
                     ? Center(
                         child: Text(
@@ -513,9 +586,15 @@ class _EmployeePerformanceScreenState
                               labelColor: AppColors.primary,
                               unselectedLabelColor: AppColors.textSecondary,
                               tabs: [
-                                Tab(text: 'Attendance (${_attendanceRecords.length})'),
-                                Tab(text: 'Cashbook (${_cashTransactions.length})'),
-                                Tab(text: 'Daily Reports (${_siteReports.length})'),
+                                Tab(
+                                    text:
+                                        'Attendance (${_attendanceRecords.length})'),
+                                Tab(
+                                    text:
+                                        'Cashbook (${_cashTransactions.length})'),
+                                Tab(
+                                    text:
+                                        'Daily Reports (${_siteReports.length})'),
                               ],
                             ),
                           ),
@@ -557,28 +636,38 @@ class _EmployeePerformanceScreenState
   }
 
   Widget _buildKpiRow() {
-    final presentCount = _attendanceRecords.where((r) =>
-        r.status == AttendanceStatus.presentOnTime ||
-        r.status == AttendanceStatus.presentLate ||
-        r.status == AttendanceStatus.regularizedPresent).length;
-    final lateCount = _attendanceRecords.where((r) => r.status == AttendanceStatus.presentLate).length;
-    final absentCount = _attendanceRecords.where((r) =>
-        r.status == AttendanceStatus.absent ||
-        r.status == AttendanceStatus.absentLateLockout).length;
+    final presentCount = _attendanceRecords
+        .where((r) =>
+            r.status == AttendanceStatus.presentOnTime ||
+            r.status == AttendanceStatus.presentLate ||
+            r.status == AttendanceStatus.regularizedPresent)
+        .length;
+    final lateCount = _attendanceRecords
+        .where((r) => r.status == AttendanceStatus.presentLate)
+        .length;
+    final absentCount = _attendanceRecords
+        .where((r) =>
+            r.status == AttendanceStatus.absent ||
+            r.status == AttendanceStatus.absentLateLockout)
+        .length;
 
     final double totalDays = _attendanceRecords.length.toDouble();
-    final double attendanceRate = totalDays > 0 ? (presentCount / totalDays) * 100 : 0;
+    final double attendanceRate =
+        totalDays > 0 ? (presentCount / totalDays) * 100 : 0;
 
-    final totalExpense = _cashTransactions.fold<double>(0, (sum, c) => sum + c.expenseAmount);
+    final totalExpense =
+        _cashTransactions.fold<double>(0, (sum, c) => sum + c.expenseAmount);
 
     return Row(
       children: [
         Expanded(
           child: _buildMetricTile(
             title: 'Attendance',
-            value: totalDays > 0 ? '${attendanceRate.toStringAsFixed(0)}%' : '0%',
+            value:
+                totalDays > 0 ? '${attendanceRate.toStringAsFixed(0)}%' : '0%',
             subtitle: '$presentCount Pres • $lateCount Late • $absentCount Abs',
-            color: attendanceRate >= 80 ? AppColors.approved : AppColors.pending,
+            color:
+                attendanceRate >= 80 ? AppColors.approved : AppColors.pending,
             icon: Icons.calendar_today_rounded,
           ),
         ),
@@ -618,7 +707,7 @@ class _EmployeePerformanceScreenState
       decoration: BoxDecoration(
         color: AppColors.cardDark,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -626,19 +715,23 @@ class _EmployeePerformanceScreenState
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(title, style: AppTextStyles.bodySmall.copyWith(fontSize: 10, color: AppColors.textSecondary)),
+              Text(title,
+                  style: AppTextStyles.bodySmall
+                      .copyWith(fontSize: 10, color: AppColors.textSecondary)),
               Icon(icon, size: 14, color: color),
             ],
           ),
           const SizedBox(height: 4),
           Text(
             value,
-            style: AppTextStyles.h4.copyWith(fontSize: 16, color: color, fontWeight: FontWeight.bold),
+            style: AppTextStyles.h4.copyWith(
+                fontSize: 16, color: color, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 2),
           Text(
             subtitle,
-            style: AppTextStyles.bodySmall.copyWith(fontSize: 9, color: AppColors.textTertiary),
+            style: AppTextStyles.bodySmall
+                .copyWith(fontSize: 9, color: AppColors.textTertiary),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -659,8 +752,12 @@ class _EmployeePerformanceScreenState
       separatorBuilder: (_, __) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
         final r = _attendanceRecords[index];
-        final inTimeStr = r.punchInTime != null ? DateFormat('hh:mm a').format(r.punchInTime!) : '--';
-        final outTimeStr = r.punchOutTime != null ? DateFormat('hh:mm a').format(r.punchOutTime!) : '--';
+        final inTimeStr = r.punchInTime != null
+            ? DateFormat('hh:mm a').format(r.punchInTime!)
+            : '--';
+        final outTimeStr = r.punchOutTime != null
+            ? DateFormat('hh:mm a').format(r.punchOutTime!)
+            : '--';
 
         return Container(
           padding: const EdgeInsets.all(12),
@@ -677,7 +774,8 @@ class _EmployeePerformanceScreenState
                 children: [
                   Text(
                     DateFormat('EEE, dd MMM yyyy').format(r.date),
-                    style: AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.bold),
+                    style: AppTextStyles.bodyMedium
+                        .copyWith(fontWeight: FontWeight.bold),
                   ),
                   _buildStatusBadge(r.status),
                 ],
@@ -685,18 +783,22 @@ class _EmployeePerformanceScreenState
               const SizedBox(height: 6),
               Row(
                 children: [
-                  const Icon(Icons.login_rounded, size: 14, color: AppColors.approved),
+                  const Icon(Icons.login_rounded,
+                      size: 14, color: AppColors.approved),
                   const SizedBox(width: 4),
                   Text('In: $inTimeStr', style: AppTextStyles.bodySmall),
                   const SizedBox(width: 16),
-                  const Icon(Icons.logout_rounded, size: 14, color: AppColors.pending),
+                  const Icon(Icons.logout_rounded,
+                      size: 14, color: AppColors.pending),
                   const SizedBox(width: 4),
                   Text('Out: $outTimeStr', style: AppTextStyles.bodySmall),
                   const Spacer(),
                   if (r.lateMinutes > 0)
                     Text(
                       '${r.lateMinutes}m Late',
-                      style: AppTextStyles.bodySmall.copyWith(color: AppColors.pending, fontWeight: FontWeight.bold),
+                      style: AppTextStyles.bodySmall.copyWith(
+                          color: AppColors.pending,
+                          fontWeight: FontWeight.bold),
                     ),
                 ],
               ),
@@ -710,7 +812,8 @@ class _EmployeePerformanceScreenState
                   ),
                   child: Text(
                     'Note: ${r.regularizationReason}',
-                    style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary, fontSize: 11),
+                    style: AppTextStyles.bodySmall
+                        .copyWith(color: AppColors.textSecondary, fontSize: 11),
                   ),
                 ),
               ],
@@ -724,7 +827,8 @@ class _EmployeePerformanceScreenState
   // ── Tab 2: Detailed Cashbook Ledger ──
   Widget _buildCashbookLedger() {
     if (_cashTransactions.isEmpty) {
-      return _buildEmptyState('No cash transactions recorded by this employee in this timeframe');
+      return _buildEmptyState(
+          'No cash transactions recorded by this employee in this timeframe');
     }
 
     return ListView.separated(
@@ -749,18 +853,21 @@ class _EmployeePerformanceScreenState
                   children: [
                     Text(
                       DateFormat('dd MMM yyyy').format(c.date),
-                      style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
+                      style: AppTextStyles.bodySmall
+                          .copyWith(color: AppColors.textSecondary),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       c.expenseTypeName ?? 'Petty Cash Expense',
-                      style: AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.bold),
+                      style: AppTextStyles.bodyMedium
+                          .copyWith(fontWeight: FontWeight.bold),
                     ),
                     if (c.remarks != null && c.remarks!.isNotEmpty) ...[
                       const SizedBox(height: 4),
                       Text(
                         c.remarks!,
-                        style: AppTextStyles.bodySmall.copyWith(color: AppColors.textTertiary, fontSize: 11),
+                        style: AppTextStyles.bodySmall.copyWith(
+                            color: AppColors.textTertiary, fontSize: 11),
                       ),
                     ],
                   ],
@@ -771,18 +878,23 @@ class _EmployeePerformanceScreenState
                 children: [
                   Text(
                     '₹${c.expenseAmount.toStringAsFixed(0)}',
-                    style: AppTextStyles.h4.copyWith(fontSize: 16, color: AppColors.primary),
+                    style: AppTextStyles.h4
+                        .copyWith(fontSize: 16, color: AppColors.primary),
                   ),
                   const SizedBox(height: 4),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
                       color: AppColors.surfaceDark,
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
                       c.status.name.toUpperCase(),
-                      style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+                      style: const TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textSecondary),
                     ),
                   ),
                 ],
@@ -797,7 +909,8 @@ class _EmployeePerformanceScreenState
   // ── Tab 3: Detailed Daily Site Reports Ledger ──
   Widget _buildSiteReportsLedger() {
     if (_siteReports.isEmpty) {
-      return _buildEmptyState('No daily site reports filed by this employee in this timeframe');
+      return _buildEmptyState(
+          'No daily site reports filed by this employee in this timeframe');
     }
 
     return ListView.separated(
@@ -821,12 +934,17 @@ class _EmployeePerformanceScreenState
                 children: [
                   Text(
                     DateFormat('EEE, dd MMM yyyy').format(r.date),
-                    style: AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.bold),
+                    style: AppTextStyles.bodyMedium
+                        .copyWith(fontWeight: FontWeight.bold),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color: (r.isSupervisorRejected ? AppColors.rejected : AppColors.approved).withOpacity(0.15),
+                      color: (r.isSupervisorRejected
+                              ? AppColors.rejected
+                              : AppColors.approved)
+                          .withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
@@ -834,11 +952,15 @@ class _EmployeePerformanceScreenState
                           ? 'APPROVED'
                           : (r.isSupervisorRejected
                               ? 'REJECTED'
-                              : (r.isPendingSupervisorReview ? 'PENDING' : 'SUBMITTED')),
+                              : (r.isPendingSupervisorReview
+                                  ? 'PENDING'
+                                  : 'SUBMITTED')),
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
-                        color: r.isSupervisorRejected ? AppColors.rejected : AppColors.approved,
+                        color: r.isSupervisorRejected
+                            ? AppColors.rejected
+                            : AppColors.approved,
                       ),
                     ),
                   ),
@@ -848,12 +970,14 @@ class _EmployeePerformanceScreenState
               if (r.remarks != null && r.remarks!.isNotEmpty)
                 Text(
                   r.remarks!,
-                  style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
+                  style: AppTextStyles.bodySmall
+                      .copyWith(color: AppColors.textSecondary),
                 )
               else
                 Text(
                   'Daily progress and site activity logged',
-                  style: AppTextStyles.bodySmall.copyWith(color: AppColors.textTertiary),
+                  style: AppTextStyles.bodySmall
+                      .copyWith(color: AppColors.textTertiary),
                 ),
             ],
           ),
@@ -887,13 +1011,14 @@ class _EmployeePerformanceScreenState
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
+        color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Text(
         status.displayName,
-        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color),
+        style:
+            TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color),
       ),
     );
   }
@@ -905,12 +1030,14 @@ class _EmployeePerformanceScreenState
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.inbox_outlined, size: 40, color: AppColors.textTertiary),
+            const Icon(Icons.inbox_outlined,
+                size: 40, color: AppColors.textTertiary),
             const SizedBox(height: 12),
             Text(
               msg,
               textAlign: TextAlign.center,
-              style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
+              style: AppTextStyles.bodySmall
+                  .copyWith(color: AppColors.textSecondary),
             ),
           ],
         ),

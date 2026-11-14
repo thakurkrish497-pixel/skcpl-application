@@ -24,7 +24,9 @@ class LanguageToggleButton extends ConsumerWidget {
         color: AppColors.cardDark,
         borderRadius: BorderRadius.circular(22),
         border: Border.all(
-          color: isHindi ? AppColors.pending.withValues(alpha: 0.6) : AppColors.divider,
+          color: isHindi
+              ? AppColors.pending.withValues(alpha: 0.6)
+              : AppColors.divider,
           width: 1.2,
         ),
         boxShadow: [
@@ -161,7 +163,9 @@ class _LanguageSegment extends StatelessWidget {
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: (title == 'हिन्दी' ? AppColors.pending : AppColors.primary)
+                    color: (title == 'हिन्दी'
+                            ? AppColors.pending
+                            : AppColors.primary)
                         .withValues(alpha: 0.3),
                     blurRadius: 6,
                     offset: const Offset(0, 2),

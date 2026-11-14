@@ -31,8 +31,7 @@ class PhotoThumbnailStrip extends StatelessWidget {
                 size: 15, color: AppColors.primary),
             const SizedBox(width: 6),
             Text(
-              title ??
-                  'Attached Bills (${photoUrls.length}) • Tap to zoom',
+              title ?? 'Attached Bills (${photoUrls.length}) • Tap to zoom',
               style: AppTextStyles.caption.copyWith(
                 color: AppColors.textSecondary,
                 fontWeight: FontWeight.w600,

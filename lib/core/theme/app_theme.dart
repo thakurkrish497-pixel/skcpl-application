@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../constants/app_colors.dart';
 
 /// Master Material 3 theme for the SKCPL app
@@ -12,6 +11,8 @@ class AppTheme {
   // ─────────────────────────────────────────────────────────────
   static ThemeData get darkTheme {
     return ThemeData(
+      fontFamily: 'Inter',
+      fontFamilyFallback: const ['Inter'],
       useMaterial3: true,
       brightness: Brightness.dark,
       scaffoldBackgroundColor: Colors.transparent,
@@ -27,17 +28,18 @@ class AppTheme {
       ),
 
       // ── App Bar ──
-      appBarTheme: AppBarTheme(
+      appBarTheme: const AppBarTheme(
         backgroundColor: AppColors.surfaceDark,
         elevation: 0,
         scrolledUnderElevation: 2,
         centerTitle: false,
-        titleTextStyle: GoogleFonts.outfit(
+        titleTextStyle: TextStyle(
+          fontFamily: 'Outfit',
           fontSize: 20,
           fontWeight: FontWeight.w600,
           color: AppColors.textPrimaryDark,
         ),
-        iconTheme: const IconThemeData(color: AppColors.textPrimaryDark),
+        iconTheme: IconThemeData(color: AppColors.textPrimaryDark),
       ),
 
       // ── Card ──
@@ -55,7 +57,8 @@ class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: AppColors.cardDarkAlt,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: AppColors.dividerDark),
@@ -72,11 +75,13 @@ class AppTheme {
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: AppColors.rejected),
         ),
-        labelStyle: GoogleFonts.inter(
+        labelStyle: const TextStyle(
+          fontFamily: 'Inter',
           color: AppColors.textSecondaryDark,
           fontSize: 14,
         ),
-        hintStyle: GoogleFonts.inter(
+        hintStyle: const TextStyle(
+          fontFamily: 'Inter',
           color: AppColors.textTertiaryDark,
           fontSize: 14,
         ),
@@ -92,7 +97,8 @@ class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
-          textStyle: GoogleFonts.inter(
+          textStyle: const TextStyle(
+            fontFamily: 'Inter',
             fontSize: 15,
             fontWeight: FontWeight.w600,
             letterSpacing: 0.3,
@@ -109,7 +115,8 @@ class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
-          textStyle: GoogleFonts.inter(
+          textStyle: const TextStyle(
+            fontFamily: 'Inter',
             fontSize: 15,
             fontWeight: FontWeight.w600,
           ),
@@ -142,7 +149,8 @@ class AppTheme {
       // ── Snackbar ──
       snackBarTheme: SnackBarThemeData(
         backgroundColor: AppColors.cardDark,
-        contentTextStyle: GoogleFonts.inter(
+        contentTextStyle: const TextStyle(
+          fontFamily: 'Inter',
           color: AppColors.textPrimaryDark,
           fontSize: 14,
         ),
@@ -170,6 +178,8 @@ class AppTheme {
   // ─────────────────────────────────────────────────────────────
   static ThemeData get lightTheme {
     return ThemeData(
+      fontFamily: 'Inter',
+      fontFamilyFallback: const ['Inter'],
       useMaterial3: true,
       brightness: Brightness.light,
       scaffoldBackgroundColor: Colors.transparent,
@@ -185,17 +195,18 @@ class AppTheme {
       ),
 
       // ── App Bar ──
-      appBarTheme: AppBarTheme(
+      appBarTheme: const AppBarTheme(
         backgroundColor: AppColors.surfaceLight,
         elevation: 0,
         scrolledUnderElevation: 1,
         centerTitle: false,
-        titleTextStyle: GoogleFonts.outfit(
+        titleTextStyle: TextStyle(
+          fontFamily: 'Outfit',
           fontSize: 20,
           fontWeight: FontWeight.w700,
           color: AppColors.textPrimaryLight,
         ),
-        iconTheme: const IconThemeData(color: AppColors.textPrimaryLight),
+        iconTheme: IconThemeData(color: AppColors.textPrimaryLight),
       ),
 
       // ── Card ──
@@ -214,7 +225,8 @@ class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: AppColors.cardLightAlt,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: AppColors.cardBorderLight),
@@ -231,12 +243,14 @@ class AppTheme {
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: AppColors.rejected),
         ),
-        labelStyle: GoogleFonts.inter(
+        labelStyle: const TextStyle(
+          fontFamily: 'Inter',
           color: AppColors.textSecondaryLight,
           fontSize: 14,
           fontWeight: FontWeight.w500,
         ),
-        hintStyle: GoogleFonts.inter(
+        hintStyle: const TextStyle(
+          fontFamily: 'Inter',
           color: AppColors.textTertiaryLight,
           fontSize: 14,
         ),
@@ -253,7 +267,8 @@ class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
-          textStyle: GoogleFonts.inter(
+          textStyle: const TextStyle(
+            fontFamily: 'Inter',
             fontSize: 15,
             fontWeight: FontWeight.w600,
             letterSpacing: 0.3,
@@ -270,7 +285,8 @@ class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
-          textStyle: GoogleFonts.inter(
+          textStyle: const TextStyle(
+            fontFamily: 'Inter',
             fontSize: 15,
             fontWeight: FontWeight.w600,
           ),
@@ -303,7 +319,8 @@ class AppTheme {
       // ── Snackbar ──
       snackBarTheme: SnackBarThemeData(
         backgroundColor: AppColors.surfaceLight,
-        contentTextStyle: GoogleFonts.inter(
+        contentTextStyle: const TextStyle(
+          fontFamily: 'Inter',
           color: AppColors.textPrimaryLight,
           fontSize: 14,
           fontWeight: FontWeight.w600,

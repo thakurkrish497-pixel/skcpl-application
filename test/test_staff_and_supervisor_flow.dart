@@ -81,9 +81,12 @@ void main() {
 
       final allStaff = [stockWorker, cashWorker, dsrWorker];
 
-      final stockOnly = allStaff.where((s) => s.module == StaffModule.stock).toList();
-      final cashOnly = allStaff.where((s) => s.module == StaffModule.cashbook).toList();
-      final reportOnly = allStaff.where((s) => s.module == StaffModule.report).toList();
+      final stockOnly =
+          allStaff.where((s) => s.module == StaffModule.stock).toList();
+      final cashOnly =
+          allStaff.where((s) => s.module == StaffModule.cashbook).toList();
+      final reportOnly =
+          allStaff.where((s) => s.module == StaffModule.report).toList();
 
       expect(stockOnly.length, 1);
       expect(stockOnly.first.name, 'Amit (Stock Incharge)');
@@ -106,7 +109,8 @@ void main() {
         type: TransactionType.inbound,
         date: DateTime(2026, 10, 20),
         quantity: 50,
-        remarks: '[By: Ramesh Kumar (Worker)] [Supervisor Review: Pending] Cement arrival',
+        remarks:
+            '[By: Ramesh Kumar (Worker)] [Supervisor Review: Pending] Cement arrival',
       );
 
       expect(tx.isPendingSupervisorReview, isTrue);
@@ -123,7 +127,8 @@ void main() {
         type: TransactionType.inbound,
         date: DateTime(2026, 10, 20),
         quantity: 50,
-        remarks: '[By: Ramesh Kumar (Worker)] [Supervisor: Approved by Vikas] Cement arrival',
+        remarks:
+            '[By: Ramesh Kumar (Worker)] [Supervisor: Approved by Vikas] Cement arrival',
       );
 
       expect(tx.isPendingSupervisorReview, isFalse);
@@ -131,7 +136,9 @@ void main() {
       expect(tx.cleanRemarks, 'Cement arrival');
     });
 
-    test('Stock: Direct flow when NO supervisor allotted -> no pending supervisor tag', () {
+    test(
+        'Stock: Direct flow when NO supervisor allotted -> no pending supervisor tag',
+        () {
       final tx = StockTransactionModel(
         id: 'stock-direct',
         siteId: 'site-direct',
@@ -157,7 +164,8 @@ void main() {
         expenseAmount: 1200,
         amountReceived: 0,
         cashInHand: 45000,
-        remarks: '[Party: HPCL] [By: Suresh Patel (Worker)] [Supervisor Review: Pending] Diesel',
+        remarks:
+            '[Party: HPCL] [By: Suresh Patel (Worker)] [Supervisor Review: Pending] Diesel',
       );
       expect(pendingCash.isPendingSupervisorReview, isTrue);
       expect(pendingCash.cleanRemarks, 'Diesel');
@@ -170,7 +178,8 @@ void main() {
         expenseAmount: 800,
         amountReceived: 0,
         cashInHand: 45000,
-        remarks: '[Party: Hardware Store] [By: Suresh Patel (Worker)] Nails & Wire',
+        remarks:
+            '[Party: Hardware Store] [By: Suresh Patel (Worker)] Nails & Wire',
       );
       expect(directCash.isPendingSupervisorReview, isFalse);
       expect(directCash.cleanRemarks, 'Nails & Wire');
@@ -211,14 +220,16 @@ void main() {
         siteId: 'site-123',
         date: DateTime(2026, 10, 20),
         submittedBy: 'Ramesh (Worker)',
-        remarks: 'Excavation completed [Supervisor: Rejected - Missing compaction test photo by Vikas]',
+        remarks:
+            'Excavation completed [Supervisor: Rejected - Missing compaction test photo by Vikas]',
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
       );
       expect(rejectedReport.isSupervisorApproved, isFalse);
       expect(rejectedReport.isSupervisorRejected, isTrue);
       expect(rejectedReport.isSupervisorReviewed, isTrue);
-      expect(rejectedReport.supervisorRejectionReason, 'Missing compaction test photo');
+      expect(rejectedReport.supervisorRejectionReason,
+          'Missing compaction test photo');
     });
   });
 }

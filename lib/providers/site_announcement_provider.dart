@@ -5,7 +5,8 @@ import '../models/user_model.dart';
 import '../services/site_announcement_service.dart';
 import '../services/notification_service.dart';
 
-final siteAnnouncementServiceProvider = Provider<SiteAnnouncementService>((ref) {
+final siteAnnouncementServiceProvider =
+    Provider<SiteAnnouncementService>((ref) {
   return SiteAnnouncementService();
 });
 
@@ -109,7 +110,8 @@ final activeAnnouncementProvider = Provider<SiteAnnouncementModel?>((ref) {
       for (final a in list) {
         if (!a.isActive) continue;
         // If scheduled in future or within past 48 hours
-        if (a.scheduledAt != null && a.scheduledAt!.isAfter(now.subtract(const Duration(hours: 6)))) {
+        if (a.scheduledAt != null &&
+            a.scheduledAt!.isAfter(now.subtract(const Duration(hours: 6)))) {
           return a;
         }
         if (now.difference(a.createdAt).inHours <= 48) {

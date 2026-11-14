@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
-import '../core/constants/supabase_constants.dart';
 
 /// Layer 4: Audit Trail, Accidental Deletion Protection & Emergency Vault
 /// Captures every critical system mutation (delete, update, approval)
@@ -13,10 +12,7 @@ class AuditService {
   static const String _keyEmergencyVault = 'skcpl_emergency_audit_vault_v1';
   static const _uuid = Uuid();
 
-  static final SupabaseClient _client = SupabaseClient(
-    SupabaseConstants.supabaseUrl,
-    SupabaseConstants.supabaseAnonKey,
-  );
+  static SupabaseClient get _client => Supabase.instance.client;
 
   /// Capture a deletion into the emergency vault before it is removed
   static Future<void> captureDeletedRecord({
@@ -103,7 +99,9 @@ class AuditService {
     try {
       final prefs = await SharedPreferences.getInstance();
       final rawList = prefs.getStringList(_keyEmergencyVault) ?? [];
-      return rawList.map((str) => jsonDecode(str) as Map<String, dynamic>).toList();
+      return rawList
+          .map((str) => jsonDecode(str) as Map<String, dynamic>)
+          .toList();
     } catch (_) {
       return [];
     }

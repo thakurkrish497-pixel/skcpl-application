@@ -83,7 +83,8 @@ class _CacheManagerDialogState extends State<CacheManagerDialog> {
       setState(() => _isClearing = false);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Offline pending queues cleared! Stuck requests removed.'),
+          content:
+              Text('Offline pending queues cleared! Stuck requests removed.'),
           backgroundColor: AppColors.approved,
         ),
       );
@@ -97,171 +98,181 @@ class _CacheManagerDialogState extends State<CacheManagerDialog> {
         constraints: const BoxConstraints(maxWidth: 600),
         child: Container(
           padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-          decoration: BoxDecoration(
+          decoration: const BoxDecoration(
             color: AppColors.surfaceDark,
             borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
           child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Drag handle
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.only(bottom: 16),
-              decoration: BoxDecoration(
-                color: AppColors.divider,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-
-          // Header
-          Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(Icons.cleaning_services_rounded,
-                    color: AppColors.primary, size: 24),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Storage & Cache Manager',
-                      style: AppTextStyles.h4.copyWith(color: AppColors.textPrimary),
-                    ),
-                    Text(
-                      'Decrease app memory footprint & clear loaded photos',
-                      style: AppTextStyles.bodySmall.copyWith(color: AppColors.textTertiary),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 20),
-
-          // Stats cards
-          if (_isLoading)
-            const Center(
-              child: Padding(
-                padding: EdgeInsets.all(24),
-                child: CircularProgressIndicator(color: AppColors.primary),
-              ),
-            )
-          else ...[
-            Row(
-              children: [
-                Expanded(
-                  child: _StatBox(
-                    icon: Icons.sd_card_rounded,
-                    label: 'App Storage & RAM',
-                    value: _stats!.formattedTotalSize,
-                    subtext: '${_stats!.imageCount} in RAM • ${_stats!.formattedDiskSize} disk',
-                    color: AppColors.primary,
+              // Drag handle
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 16),
+                  decoration: BoxDecoration(
+                    color: AppColors.divider,
+                    borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _StatBox(
-                    icon: Icons.cloud_sync_rounded,
-                    label: 'Offline Queue',
-                    value: '${_stats!.offlinePendingCount}',
-                    subtext: _stats!.offlinePendingCount > 0 ? 'Pending sync' : 'All synced',
-                    color: _stats!.offlinePendingCount > 0 ? AppColors.pending : AppColors.approved,
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 16),
-
-            // Tip note
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.cardDarkAlt,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppColors.divider),
               ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+
+              // Header
+              Row(
                 children: [
-                  const Icon(Icons.info_outline_rounded,
-                      color: AppColors.primary, size: 18),
-                  const SizedBox(width: 10),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(Icons.cleaning_services_rounded,
+                        color: AppColors.primary, size: 24),
+                  ),
+                  const SizedBox(width: 12),
                   Expanded(
-                    child: Text(
-                      'Photos are securely stored in the cloud. Clearing the cache purges local memory copies and decreases app footprint without losing any transaction records.',
-                      style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Storage & Cache Manager',
+                          style: AppTextStyles.h4
+                              .copyWith(color: AppColors.textPrimary),
+                        ),
+                        Text(
+                          'Decrease app memory footprint & clear loaded photos',
+                          style: AppTextStyles.bodySmall
+                              .copyWith(color: AppColors.textTertiary),
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
-            ),
 
-            const SizedBox(height: 24),
+              const SizedBox(height: 20),
 
-            // Actions
-            SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: ElevatedButton.icon(
-                onPressed: _isClearing ? null : _handleClearImages,
-                icon: const Icon(Icons.photo_filter_rounded, size: 20),
-                label: Text(_isClearing ? 'Clearing...' : 'Clear Photo Memory Cache'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
+              // Stats cards
+              if (_isLoading)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(24),
+                    child: CircularProgressIndicator(color: AppColors.primary),
+                  ),
+                )
+              else ...[
+                Row(
+                  children: [
+                    Expanded(
+                      child: _StatBox(
+                        icon: Icons.sd_card_rounded,
+                        label: 'App Storage & RAM',
+                        value: _stats!.formattedTotalSize,
+                        subtext:
+                            '${_stats!.imageCount} in RAM • ${_stats!.formattedDiskSize} disk',
+                        color: AppColors.primary,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _StatBox(
+                        icon: Icons.cloud_sync_rounded,
+                        label: 'Offline Queue',
+                        value: '${_stats!.offlinePendingCount}',
+                        subtext: _stats!.offlinePendingCount > 0
+                            ? 'Pending sync'
+                            : 'All synced',
+                        color: _stats!.offlinePendingCount > 0
+                            ? AppColors.pending
+                            : AppColors.approved,
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ),
 
-            const SizedBox(height: 10),
+                const SizedBox(height: 16),
 
-            SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: OutlinedButton.icon(
-                onPressed: _isClearing ? null : _handleClearAll,
-                icon: const Icon(Icons.delete_sweep_rounded, size: 20),
-                label: const Text('Clear All Temporary Cache & Menus'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.textSecondary,
-                  side: const BorderSide(color: AppColors.divider),
+                // Tip note
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppColors.cardDarkAlt,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: AppColors.divider),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.info_outline_rounded,
+                          color: AppColors.primary, size: 18),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Photos are securely stored in the cloud. Clearing the cache purges local memory copies and decreases app footprint without losing any transaction records.',
+                          style: AppTextStyles.caption
+                              .copyWith(color: AppColors.textSecondary),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ),
 
-            const SizedBox(height: 10),
+                const SizedBox(height: 24),
 
-            SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: ElevatedButton.icon(
-                onPressed: _isClearing ? null : _handleClearOfflineQueues,
-                icon: const Icon(Icons.cleaning_services_rounded, size: 20),
-                label: const Text('Purge Stuck Offline Requests'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.rejected,
-                  foregroundColor: Colors.white,
+                // Actions
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton.icon(
+                    onPressed: _isClearing ? null : _handleClearImages,
+                    icon: const Icon(Icons.photo_filter_rounded, size: 20),
+                    label: Text(_isClearing
+                        ? 'Clearing...'
+                        : 'Clear Photo Memory Cache'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                    ),
+                  ),
                 ),
-              ),
-            ),
-          ],
-        ],
+
+                const SizedBox(height: 10),
+
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: OutlinedButton.icon(
+                    onPressed: _isClearing ? null : _handleClearAll,
+                    icon: const Icon(Icons.delete_sweep_rounded, size: 20),
+                    label: const Text('Clear All Temporary Cache & Menus'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.textSecondary,
+                      side: const BorderSide(color: AppColors.divider),
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 10),
+
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton.icon(
+                    onPressed: _isClearing ? null : _handleClearOfflineQueues,
+                    icon: const Icon(Icons.cleaning_services_rounded, size: 20),
+                    label: const Text('Purge Stuck Offline Requests'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.rejected,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
       ),
-    ),
-    ),
     );
   }
 }
@@ -297,11 +308,14 @@ class _StatBox extends StatelessWidget {
             children: [
               Icon(icon, color: color, size: 18),
               const SizedBox(width: 6),
-              Text(label, style: AppTextStyles.caption.copyWith(color: AppColors.textTertiary)),
+              Text(label,
+                  style: AppTextStyles.caption
+                      .copyWith(color: AppColors.textTertiary)),
             ],
           ),
           const SizedBox(height: 8),
-          Text(value, style: AppTextStyles.h4.copyWith(color: AppColors.textPrimary)),
+          Text(value,
+              style: AppTextStyles.h4.copyWith(color: AppColors.textPrimary)),
           const SizedBox(height: 2),
           Text(subtext, style: AppTextStyles.caption.copyWith(color: color)),
         ],

@@ -1,7 +1,8 @@
+import 'package:flutter/foundation.dart';
+import 'support/erp_test_backend.dart';
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:skcpl_app/core/constants/supabase_constants.dart';
 import 'package:skcpl_app/models/attendance_model.dart';
 import 'package:skcpl_app/models/site_staff_model.dart';
 import 'package:skcpl_app/services/attendance_service.dart';
@@ -9,16 +10,9 @@ import 'package:skcpl_app/services/site_staff_service.dart';
 import 'package:skcpl_app/services/attendance_excel_service.dart';
 import 'package:skcpl_app/services/location_service.dart';
 
-class MyHttpOverrides extends HttpOverrides {
-  @override
-  HttpClient createHttpClient(SecurityContext? context) {
-    return super.createHttpClient(context);
-  }
-}
+class MyHttpOverrides extends HttpOverrides {}
 
 void main() {
-  HttpOverrides.global = MyHttpOverrides();
-
   late SupabaseClient client;
   late AttendanceService attendanceService;
   late SiteStaffService staffService;
@@ -28,8 +22,9 @@ void main() {
 
   setUpAll(() {
     client = SupabaseClient(
-      SupabaseConstants.supabaseUrl,
-      SupabaseConstants.supabaseServiceRoleKey,
+      'http://erp.test.invalid',
+      'fixture-public-key',
+      httpClient: ErpTestBackend.instance.client,
     );
     attendanceService = AttendanceService(client);
     staffService = SiteStaffService(client);
@@ -56,7 +51,8 @@ void main() {
       final staff = indoreStaff.first;
       expect(staff.pin, isNotEmpty);
       expect(staff.siteId, equals(indoreSiteId));
-      print('✓ Verified Staff Creation & Phone/PIN authentication for sites and office');
+      debugPrint(
+          '✓ Verified Staff Creation & Phone/PIN authentication for sites and office');
     });
 
     test('2. Verify GPS Calculation & Geofencing', () {
@@ -101,12 +97,15 @@ void main() {
         ),
         isFalse,
       );
-      print('✓ GPS calculation and Geofence checks working accurately: $distClose m vs $distFar m');
+      debugPrint(
+          '✓ GPS calculation and Geofence checks working accurately: $distClose m vs $distFar m');
     });
 
-    test('3. Punch-In, >40m Late Lockout, Regularization Request & Admin Approval', () async {
+    test(
+        '3. Punch-In, >40m Late Lockout, Regularization Request & Admin Approval',
+        () async {
       // Set shift policy for Nissarpur starting at 09:00 AM
-      final policy = SiteShiftPolicyModel(
+      const policy = SiteShiftPolicyModel(
         siteId: nissarpurSiteId,
         siteName: 'Nissarpur Site',
         shiftStartTime: '09:00',
@@ -134,28 +133,35 @@ void main() {
         longitude: 74.9255,
       );
 
-      print('Punched in Ramesh status: ${record.status.displayName}, lateMinutes: ${record.lateMinutes}');
+      debugPrint(
+          'Punched in Ramesh status: ${record.status.displayName}, lateMinutes: ${record.lateMinutes}');
       expect(record.status, equals(AttendanceStatus.absentLateLockout));
       expect(record.lateMinutes, equals(75));
 
       // Worker submits late attendance request with reason
-      const lateReason = 'Site vehicle had tyre puncture on highway between Kukshi and Nissarpur';
-      final requestedRecord = await attendanceService.submitRegularizationRequest(
+      const lateReason =
+          'Site vehicle had tyre puncture on highway between Kukshi and Nissarpur';
+      final requestedRecord =
+          await attendanceService.submitRegularizationRequest(
         attendanceId: record.id,
         reason: lateReason,
       );
 
-      print('Regularization requested: status = ${requestedRecord.status.displayName}, reason = ${requestedRecord.regularizationReason}');
-      expect(requestedRecord.status, equals(AttendanceStatus.regularizationPending));
+      debugPrint(
+          'Regularization requested: status = ${requestedRecord.status.displayName}, reason = ${requestedRecord.regularizationReason}');
+      expect(requestedRecord.status,
+          equals(AttendanceStatus.regularizationPending));
       expect(requestedRecord.regularizationReason, equals(lateReason));
 
       // Admin checks pending regularization requests
-      final pendingRequests = await attendanceService.getPendingRegularizationRequests();
+      final pendingRequests =
+          await attendanceService.getPendingRegularizationRequests();
       expect(pendingRequests.any((r) => r.id == record.id), isTrue);
-      print('✓ Admin received late regularization request in queue');
+      debugPrint('✓ Admin received late regularization request in queue');
 
       // Admin approves request as Present
-      final approvedRecord = await attendanceService.reviewRegularizationRequest(
+      final approvedRecord =
+          await attendanceService.reviewRegularizationRequest(
         attendanceId: record.id,
         approve: true,
         halfDay: false,
@@ -163,9 +169,12 @@ void main() {
         reviewedBy: 'Admin (Indore Office)',
       );
 
-      print('Admin review complete: status = ${approvedRecord.status.displayName}, remarks = ${approvedRecord.adminDecisionNote}');
-      expect(approvedRecord.status, equals(AttendanceStatus.regularizedPresent));
-      expect(approvedRecord.adminDecisionNote, contains('Verified with site supervisor'));
+      debugPrint(
+          'Admin review complete: status = ${approvedRecord.status.displayName}, remarks = ${approvedRecord.adminDecisionNote}');
+      expect(
+          approvedRecord.status, equals(AttendanceStatus.regularizedPresent));
+      expect(approvedRecord.adminDecisionNote,
+          contains('Verified with site supervisor'));
 
       // Test punch-out
       final punchedOut = await attendanceService.punchOut(
@@ -175,7 +184,7 @@ void main() {
         longitude: 74.9255,
       );
       expect(punchedOut.punchOutTime, isNotNull);
-      print('✓ Punch out successful at ${punchedOut.punchOutTime}');
+      debugPrint('✓ Punch out successful at ${punchedOut.punchOutTime}');
     });
 
     test('4. Live GPS Tracking Transmission & Admin Map Pulse', () async {
@@ -195,9 +204,11 @@ void main() {
       await attendanceService.updateLiveLocation(liveLoc);
 
       final activeLocations = await attendanceService.getLiveStaffLocations();
-      final empLoc = activeLocations.firstWhere((loc) => loc.staffId == 'emp-indore-ananya');
+      final empLoc = activeLocations
+          .firstWhere((loc) => loc.staffId == 'emp-indore-ananya');
       expect(empLoc.staffId, 'emp-indore-ananya');
-      print('✓ Live location tracking verified for Admin radar (Hydrated name: "${empLoc.staffName}")');
+      debugPrint(
+          '✓ Live location tracking verified for Admin radar (Hydrated name: "${empLoc.staffName}")');
     });
 
     test('5. Monthly Attendance Excel Generation', () async {
@@ -206,7 +217,8 @@ void main() {
         endDate: DateTime(2026, 10, 31),
       );
 
-      final excelBytes = AttendanceExcelService.generateMonthlyAttendanceWorkbookBytes(
+      final excelBytes =
+          AttendanceExcelService.generateMonthlyAttendanceWorkbookBytes(
         title: 'SKCPL Staff Attendance Register',
         month: DateTime(2026, 10, 1),
         records: records,
@@ -214,7 +226,8 @@ void main() {
 
       expect(excelBytes, isNotNull);
       expect(excelBytes.length, greaterThan(100));
-      print('✓ Generated Monthly Attendance Excel (${excelBytes.length} bytes)');
+      debugPrint(
+          '✓ Generated Monthly Attendance Excel (${excelBytes.length} bytes)');
     });
   });
 }

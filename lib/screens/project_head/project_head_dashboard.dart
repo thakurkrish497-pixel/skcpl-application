@@ -1,6 +1,6 @@
+import '../../widgets/responsive_toolbar_actions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/constants/app_colors.dart';
@@ -18,11 +18,9 @@ import '../../providers/site_report_provider.dart';
 import '../../providers/attendance_provider.dart';
 import '../../providers/role_access_provider.dart';
 import '../../providers/locale_provider.dart';
-import '../../core/localization/app_strings.dart';
 import '../../widgets/language_toggle_button.dart';
 import '../../widgets/skcpl_brand_logo.dart';
 import '../../widgets/photo_thumbnail_strip.dart';
-import '../../widgets/photo_viewer_dialog.dart';
 import '../../widgets/entry_detail_dialog.dart';
 import '../../widgets/responsive_layout.dart';
 import '../../widgets/sla_notification_bar.dart';
@@ -30,6 +28,9 @@ import '../../widgets/skcpl_announcement_bar.dart';
 import '../../widgets/notice_board_dialog.dart';
 import '../../widgets/notification_bell_button.dart';
 import '../../widgets/universal_sync_button.dart';
+import '../../widgets/app_drawer.dart';
+import '../../widgets/site_finance_summary_header.dart';
+import '../../widgets/master_entry_history_view.dart';
 import '../home/home_screen.dart';
 
 /// Clean, state-of-the-art Project Head Command Dashboard
@@ -40,7 +41,8 @@ class ProjectHeadDashboard extends ConsumerStatefulWidget {
   const ProjectHeadDashboard({super.key});
 
   @override
-  ConsumerState<ProjectHeadDashboard> createState() => _ProjectHeadDashboardState();
+  ConsumerState<ProjectHeadDashboard> createState() =>
+      _ProjectHeadDashboardState();
 }
 
 class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
@@ -51,7 +53,7 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
     Future.microtask(() => _refreshAllData());
   }
 
@@ -63,6 +65,7 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
 
   void _refreshAllData() {
     ref.invalidate(activeSitesProvider);
+    ref.invalidate(allSitesStockProvider);
     ref.invalidate(pendingCashAccountsProvider);
     ref.invalidate(pendingStockAccountsProvider);
     ref.invalidate(allDailyReportsProvider);
@@ -102,30 +105,35 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
     final pendingCash = !roleAccess.projectHeadCanApproveCash
         ? <CashTransactionModel>[]
         : (allCash.where((c) {
-            final matchesSite = _selectedSiteId == 'all' || c.siteId == _selectedSiteId;
+            final matchesSite =
+                _selectedSiteId == 'all' || c.siteId == _selectedSiteId;
             return matchesSite && c.isPendingSupervisorReview;
           }).toList()
-            ..sort((a, b) => (b.createdAt ?? b.date).compareTo(a.createdAt ?? a.date)));
+          ..sort((a, b) =>
+              (b.createdAt ?? b.date).compareTo(a.createdAt ?? a.date)));
 
     // Pending Stock Entries (Waiting for Project Head review - latest on top)
     final allStock = ref.watch(stockProvider).transactions;
     final pendingStock = !roleAccess.projectHeadCanApproveStock
         ? <StockTransactionModel>[]
         : (allStock.where((s) {
-            final matchesSite = _selectedSiteId == 'all' || s.siteId == _selectedSiteId;
+            final matchesSite =
+                _selectedSiteId == 'all' || s.siteId == _selectedSiteId;
             return matchesSite && s.isPendingSupervisorReview;
           }).toList()
-            ..sort((a, b) => (b.createdAt ?? b.date).compareTo(a.createdAt ?? a.date)));
+          ..sort((a, b) =>
+              (b.createdAt ?? b.date).compareTo(a.createdAt ?? a.date)));
 
     // Pending Attendance Regularization Requests (Waiting for Project Head verification - latest on top)
-    final pendingAttendanceAsync = ref.watch(pendingRegularizationRequestsProvider);
+    final pendingAttendanceAsync =
+        ref.watch(pendingRegularizationRequestsProvider);
     final allAttendanceReqs = pendingAttendanceAsync.valueOrNull ?? [];
     final pendingAttendance = !roleAccess.projectHeadCanApproveAttendance
         ? <AttendanceRecordModel>[]
         : (allAttendanceReqs.where((a) {
             return _selectedSiteId == 'all' || a.siteId == _selectedSiteId;
           }).toList()
-            ..sort((a, b) => b.createdAt.compareTo(a.createdAt)));
+          ..sort((a, b) => b.createdAt.compareTo(a.createdAt)));
 
     // Daily Site Reports (Waiting for Project Head review - latest on top)
     final reportsAsync = ref.watch(allDailyReportsProvider);
@@ -133,13 +141,18 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
     final pendingReports = !roleAccess.projectHeadCanApproveDSR
         ? <DailySiteReportModel>[]
         : (allReports.where((r) {
-            final matchesSite = _selectedSiteId == 'all' || r.siteId == _selectedSiteId;
+            final matchesSite =
+                _selectedSiteId == 'all' || r.siteId == _selectedSiteId;
             return matchesSite && r.isPendingProjectHeadReview;
           }).toList()
-            ..sort((a, b) => b.createdAt.compareTo(a.createdAt)));
+          ..sort((a, b) => b.createdAt.compareTo(a.createdAt)));
 
     return Scaffold(
       backgroundColor: AppColors.scaffoldDark,
+      drawer: AppDrawer(
+        user: authState.user,
+        onSignOut: () => _showSignOutDialog(context),
+      ),
       appBar: AppBar(
         backgroundColor: AppColors.surfaceDark,
         elevation: 0,
@@ -148,31 +161,35 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
           children: [
             const SkcplBrandLogo(variant: LogoVariant.compact, customSize: 32),
             const SizedBox(width: 10),
-            Column(
+            Flexible(
+                child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'SKCPL',
-                      style: AppTextStyles.h4.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 0.8,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      '• Project Head',
-                      style: AppTextStyles.h4.copyWith(
-                        color: AppColors.waveCyan,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
+                FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'SKCPL',
+                          style: AppTextStyles.h4.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.8,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          '• Project Head',
+                          style: AppTextStyles.h4.copyWith(
+                            color: AppColors.waveCyan,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    )),
                 Text(
                   'Central Operations Command & Multi-Tier Approvals',
                   style: AppTextStyles.caption.copyWith(
@@ -181,226 +198,169 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
                   ),
                 ),
               ],
-            ),
+            )),
           ],
         ),
         actions: [
-          const NotificationBellButton(),
-          IconButton(
-            icon: const Icon(Icons.campaign_rounded, color: AppColors.waveCyan),
-            tooltip: 'Notice Board & Broadcast Announcements',
-            onPressed: () => NoticeBoardDialog.show(context),
-          ),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-            child: LanguageToggleButton(isCompact: true),
-          ),
-          const UniversalSyncButton(),
-          IconButton(
-            icon: const Icon(Icons.logout_rounded, color: AppColors.rejected),
-            tooltip: 'Sign Out',
-            onPressed: () => _showSignOutDialog(context),
-          ),
+          ResponsiveToolbarActions(actions: [
+            const NotificationBellButton(),
+            IconButton(
+              icon:
+                  const Icon(Icons.campaign_rounded, color: AppColors.waveCyan),
+              tooltip: 'Notice Board & Broadcast Announcements',
+              onPressed: () => NoticeBoardDialog.show(context),
+            ),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+              child: LanguageToggleButton(isCompact: true),
+            ),
+            const UniversalSyncButton(),
+            IconButton(
+              icon: const Icon(Icons.logout_rounded, color: AppColors.rejected),
+              tooltip: 'Sign Out',
+              onPressed: () => _showSignOutDialog(context),
+            ),
+          ])
         ],
       ),
       body: ResponsiveContainer(
         maxWidth: 1200,
         child: SafeArea(
-          child: Column(
-          children: [
-            // ── Birthday & Corporate Announcement Bar ──
-            const Padding(
-              padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
-              child: SkcplAnnouncementBar(margin: EdgeInsets.zero),
-            ),
-
-            // ── In-App SLA Overdue Notification Bar (>36h) ──
-            const Padding(
-              padding: EdgeInsets.fromLTRB(16, 8, 16, 0),
-              child: SlaNotificationBar(),
-            ),
-
-            // ── Top Header Controls & Site Filter ──
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              color: AppColors.cardDark,
-              child: Row(
+          child: NestedScrollView(
+            headerSliverBuilder: (context, innerBoxIsScrolled) => [
+              SliverToBoxAdapter(
+                  child: Column(
                 children: [
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceDark,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppColors.divider),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: _selectedSiteId,
-                          isExpanded: true,
-                          dropdownColor: AppColors.surfaceDark,
-                          icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.waveCyan),
-                          style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
-                          items: [
-                            const DropdownMenuItem(
-                              value: 'all',
-                              child: Row(
-                                children: [
-                                  Icon(Icons.dashboard_customize_rounded, size: 16, color: AppColors.waveCyan),
-                                  SizedBox(width: 8),
-                                  Text('All Sites Overview', style: TextStyle(fontWeight: FontWeight.bold)),
-                                ],
-                              ),
-                            ),
-                            ...sites.map((s) => DropdownMenuItem(
-                                  value: s.id,
-                                  child: Row(
-                                    children: [
-                                      const Icon(Icons.location_on_rounded, size: 16, color: AppColors.goldAccent),
-                                      const SizedBox(width: 8),
-                                      Text(s.name),
-                                    ],
-                                  ),
-                                )),
-                          ],
-                          onChanged: (val) {
-                            if (val != null) {
-                              setState(() => _selectedSiteId = val);
-                              if (val == 'all') {
-                                ref.read(cashProvider.notifier).loadAllTransactions();
-                                ref.read(stockProvider.notifier).loadAllTransactions();
-                              } else {
-                                ref.read(cashProvider.notifier).loadTransactions(val);
-                                ref.read(stockProvider.notifier).loadTransactions(val);
-                              }
-                            }
-                          },
-                        ),
-                      ),
-                    ),
+                  // ── Birthday & Corporate Announcement Bar ──
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
+                    child: SkcplAnnouncementBar(margin: EdgeInsets.zero),
                   ),
-                  const SizedBox(width: 10),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: AppColors.waveCyan.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppColors.waveCyan.withOpacity(0.3)),
-                    ),
+
+                  // ── In-App SLA Overdue Notification Bar (>36h) ──
+                  const Padding(
+                    padding: EdgeInsets.fromLTRB(16, 8, 16, 0),
+                    child: SlaNotificationBar(),
+                  ),
+
+                  // ── Interactive Site Finance & Live Balance Summary Header ──
+                  SiteFinanceSummaryHeader(
+                    selectedSiteId: _selectedSiteId,
+                    onSiteChanged: (val) {
+                      setState(() => _selectedSiteId = val);
+                      if (val == 'all') {
+                        ref.read(cashProvider.notifier).loadAllTransactions();
+                        ref.read(stockProvider.notifier).loadAllTransactions();
+                      } else {
+                        ref.read(cashProvider.notifier).loadTransactions(val);
+                        ref.read(stockProvider.notifier).loadTransactions(val);
+                      }
+                    },
+                  ),
+
+                  // ── KPI Summary Cards ──
+                  Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     child: Row(
-                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.verified_user_rounded, size: 14, color: AppColors.waveCyan),
-                        const SizedBox(width: 6),
-                        Text(
-                          _currentProjectHeadName,
-                          style: const TextStyle(
-                            color: AppColors.waveCyan,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
+                        _buildKpiCard(
+                          title: 'Cash',
+                          count: pendingCash.length,
+                          icon: Icons.account_balance_wallet_rounded,
+                          color: AppColors.approved,
+                          onTap: () => _tabController.animateTo(0),
+                        ),
+                        const SizedBox(width: 8),
+                        _buildKpiCard(
+                          title: 'Stock',
+                          count: pendingStock.length,
+                          icon: Icons.inventory_2_rounded,
+                          color: AppColors.waveCyan,
+                          onTap: () => _tabController.animateTo(1),
+                        ),
+                        const SizedBox(width: 8),
+                        _buildKpiCard(
+                          title: 'Attendance',
+                          count: pendingAttendance.length,
+                          icon: Icons.how_to_reg_rounded,
+                          color: const Color(0xFF14B8A6),
+                          onTap: () => _tabController.animateTo(2),
+                        ),
+                        const SizedBox(width: 8),
+                        _buildKpiCard(
+                          title: 'DSR',
+                          count: pendingReports.length,
+                          icon: Icons.record_voice_over_rounded,
+                          color: AppColors.goldAccent,
+                          onTap: () => _tabController.animateTo(3),
                         ),
                       ],
                     ),
                   ),
+
+                  // ── Tab Bar ──
+                  Container(
+                    color: AppColors.surfaceDark,
+                    child: TabBar(
+                      controller: _tabController,
+                      indicatorColor: AppColors.waveCyan,
+                      indicatorWeight: 3,
+                      labelColor: Colors.white,
+                      unselectedLabelColor: AppColors.textTertiary,
+                      labelStyle: const TextStyle(
+                          fontSize: 12, fontWeight: FontWeight.bold),
+                      tabs: [
+                        Tab(
+                          text: 'Cash Expenses (${pendingCash.length})',
+                          icon: const Icon(Icons.payments_outlined, size: 18),
+                        ),
+                        Tab(
+                          text: 'Stock (${pendingStock.length})',
+                          icon: const Icon(Icons.inventory_outlined, size: 18),
+                        ),
+                        Tab(
+                          text: 'Attendance (${pendingAttendance.length})',
+                          icon: const Icon(Icons.access_time_rounded, size: 18),
+                        ),
+                        Tab(
+                          text: 'DSR Reports (${pendingReports.length})',
+                          icon: const Icon(Icons.summarize_outlined, size: 18),
+                        ),
+                        const Tab(
+                          text: 'All History',
+                          icon: Icon(Icons.history_edu_rounded, size: 18),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // ── Tab Views ──
                 ],
-              ),
+              )),
+            ],
+            body: TabBarView(
+              controller: _tabController,
+              children: [
+                // Tab 1: Cash Expenses
+                _buildCashApprovalsList(pendingCash, sites),
+
+                // Tab 2: Stock Approvals
+                _buildStockApprovalsList(pendingStock, sites),
+
+                // Tab 3: Attendance Regularization
+                _buildAttendanceApprovalsList(pendingAttendance),
+
+                // Tab 4: DSR Reports
+                _buildDsrApprovalsList(pendingReports, sites),
+
+                // Tab 5: Master Entry History
+                MasterEntryHistoryView(selectedSiteId: _selectedSiteId),
+              ],
             ),
-
-            // ── KPI Summary Cards ──
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                children: [
-                  _buildKpiCard(
-                    title: 'Cash',
-                    count: pendingCash.length,
-                    icon: Icons.account_balance_wallet_rounded,
-                    color: AppColors.approved,
-                    onTap: () => _tabController.animateTo(0),
-                  ),
-                  const SizedBox(width: 8),
-                  _buildKpiCard(
-                    title: 'Stock',
-                    count: pendingStock.length,
-                    icon: Icons.inventory_2_rounded,
-                    color: AppColors.waveCyan,
-                    onTap: () => _tabController.animateTo(1),
-                  ),
-                  const SizedBox(width: 8),
-                  _buildKpiCard(
-                    title: 'Attendance',
-                    count: pendingAttendance.length,
-                    icon: Icons.how_to_reg_rounded,
-                    color: const Color(0xFF14B8A6),
-                    onTap: () => _tabController.animateTo(2),
-                  ),
-                  const SizedBox(width: 8),
-                  _buildKpiCard(
-                    title: 'DSR',
-                    count: pendingReports.length,
-                    icon: Icons.record_voice_over_rounded,
-                    color: AppColors.goldAccent,
-                    onTap: () => _tabController.animateTo(3),
-                  ),
-                ],
-              ),
-            ),
-
-            // ── Tab Bar ──
-            Container(
-              color: AppColors.surfaceDark,
-              child: TabBar(
-                controller: _tabController,
-                indicatorColor: AppColors.waveCyan,
-                indicatorWeight: 3,
-                labelColor: Colors.white,
-                unselectedLabelColor: AppColors.textTertiary,
-                labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                tabs: [
-                  Tab(
-                    text: 'Cash Expenses (${pendingCash.length})',
-                    icon: const Icon(Icons.payments_outlined, size: 18),
-                  ),
-                  Tab(
-                    text: 'Stock (${pendingStock.length})',
-                    icon: const Icon(Icons.inventory_outlined, size: 18),
-                  ),
-                  Tab(
-                    text: 'Attendance (${pendingAttendance.length})',
-                    icon: const Icon(Icons.access_time_rounded, size: 18),
-                  ),
-                  Tab(
-                    text: 'DSR Reports (${pendingReports.length})',
-                    icon: const Icon(Icons.summarize_outlined, size: 18),
-                  ),
-                ],
-              ),
-            ),
-
-            // ── Tab Views ──
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  // Tab 1: Cash Expenses
-                  _buildCashApprovalsList(pendingCash, sites),
-
-                  // Tab 2: Stock Approvals
-                  _buildStockApprovalsList(pendingStock, sites),
-
-                  // Tab 3: Attendance Regularization
-                  _buildAttendanceApprovalsList(pendingAttendance),
-
-                  // Tab 4: DSR Reports
-                  _buildDsrApprovalsList(pendingReports, sites),
-                ],
-              ),
-            ),
-          ],
+          ),
         ),
       ),
-    ),
     );
   }
 
@@ -425,7 +385,10 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
             decoration: BoxDecoration(
               color: AppColors.cardDark,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: count > 0 ? color.withOpacity(0.4) : AppColors.divider),
+              border: Border.all(
+                  color: count > 0
+                      ? color.withValues(alpha: 0.4)
+                      : AppColors.divider),
             ),
             child: Column(
               children: [
@@ -437,7 +400,8 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
                     Text(
                       '$count',
                       style: AppTextStyles.h3.copyWith(
-                        color: count > 0 ? Colors.white : AppColors.textTertiary,
+                        color:
+                            count > 0 ? Colors.white : AppColors.textTertiary,
                         fontSize: 16,
                       ),
                     ),
@@ -462,7 +426,8 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
   // ─────────────────────────────────────────────────────────────
   // TAB 1: CASH EXPENSE APPROVALS
   // ─────────────────────────────────────────────────────────────
-  Widget _buildCashApprovalsList(List<CashTransactionModel> list, List<SiteModel> sites) {
+  Widget _buildCashApprovalsList(
+      List<CashTransactionModel> list, List<SiteModel> sites) {
     final roleAccess = ref.watch(roleAccessProvider);
     final accountsCanApproveCash = roleAccess.accountsCanApproveCash;
     final projectHeadCanApproveCash = roleAccess.projectHeadCanApproveCash;
@@ -470,7 +435,8 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
     if (list.isEmpty) {
       return _buildEmptyState(
         title: 'No Pending Cash Expenses',
-        subtitle: 'All cash expenses submitted by site staff have been approved or forwarded to Accounts.',
+        subtitle:
+            'All cash expenses submitted by site staff have been approved or forwarded to Accounts.',
         icon: Icons.check_circle_outline_rounded,
         color: AppColors.approved,
       );
@@ -483,7 +449,8 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
         final tx = list[i];
         final siteName = _getSiteName(sites, tx.siteId);
         final isCashReceived = tx.amountReceived > 0 && tx.expenseAmount == 0;
-        final displayAmount = isCashReceived ? tx.amountReceived : tx.expenseAmount;
+        final displayAmount =
+            isCashReceived ? tx.amountReceived : tx.expenseAmount;
 
         return Card(
           color: AppColors.cardDark,
@@ -492,8 +459,8 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
             borderRadius: BorderRadius.circular(16),
             side: BorderSide(
               color: isCashReceived
-                  ? const Color(0xFF10B981).withOpacity(0.5)
-                  : AppColors.approved.withOpacity(0.35),
+                  ? const Color(0xFF10B981).withValues(alpha: 0.5)
+                  : AppColors.approved.withValues(alpha: 0.35),
             ),
           ),
           child: Padding(
@@ -507,20 +474,28 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
                     Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
-                            color: AppColors.goldAccent.withOpacity(0.15),
+                            color: AppColors.goldAccent.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
                             siteName,
-                            style: const TextStyle(color: AppColors.goldAccent, fontWeight: FontWeight.bold, fontSize: 12),
+                            style: const TextStyle(
+                                color: AppColors.goldAccent,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12),
                           ),
                         ),
-                        if (DateTime.now().difference(tx.createdAt ?? tx.date).inHours >= 36) ...[
+                        if (DateTime.now()
+                                .difference(tx.createdAt ?? tx.date)
+                                .inHours >=
+                            36) ...[
                           const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
                               color: const Color(0xFFEF4444),
                               borderRadius: BorderRadius.circular(8),
@@ -528,11 +503,15 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.timer_outlined, size: 12, color: Colors.white),
+                                const Icon(Icons.timer_outlined,
+                                    size: 12, color: Colors.white),
                                 const SizedBox(width: 4),
                                 Text(
                                   'OVERDUE (${DateTime.now().difference(tx.createdAt ?? tx.date).inHours}h)',
-                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 10),
+                                  style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 10),
                                 ),
                               ],
                             ),
@@ -542,7 +521,8 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
                     ),
                     Text(
                       DateFormat('dd MMM yyyy').format(tx.date),
-                      style: AppTextStyles.caption.copyWith(color: AppColors.textTertiary),
+                      style: AppTextStyles.caption
+                          .copyWith(color: AppColors.textTertiary),
                     ),
                   ],
                 ),
@@ -561,24 +541,33 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
                               if (isCashReceived) ...[
                                 Container(
                                   margin: const EdgeInsets.only(right: 6),
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFF10B981).withOpacity(0.15),
+                                    color: const Color(0xFF10B981)
+                                        .withValues(alpha: 0.15),
                                     borderRadius: BorderRadius.circular(6),
-                                    border: Border.all(color: const Color(0xFF10B981).withOpacity(0.4)),
+                                    border: Border.all(
+                                        color: const Color(0xFF10B981)
+                                            .withValues(alpha: 0.4)),
                                   ),
                                   child: const Text(
                                     'CASH RECEIVED',
-                                    style: TextStyle(color: Color(0xFF10B981), fontSize: 10, fontWeight: FontWeight.bold),
+                                    style: TextStyle(
+                                        color: Color(0xFF10B981),
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold),
                                   ),
                                 ),
                               ],
                               Expanded(
                                 child: Text(
                                   isCashReceived
-                                      ? (tx.customExpenseType ?? (tx.partyName ?? "Office Top-up"))
+                                      ? (tx.customExpenseType ??
+                                          (tx.partyName ?? "Office Top-up"))
                                       : tx.displayExpenseTypeName,
-                                  style: AppTextStyles.h4.copyWith(color: Colors.white, fontSize: 16),
+                                  style: AppTextStyles.h4.copyWith(
+                                      color: Colors.white, fontSize: 16),
                                 ),
                               ),
                             ],
@@ -586,34 +575,46 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
                           if (tx.partyName != null)
                             Text(
                               'Party: ${tx.partyName}',
-                              style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
+                              style: AppTextStyles.bodySmall
+                                  .copyWith(color: AppColors.textSecondary),
                             ),
                           if (tx.billNo != null)
                             Text(
                               'Bill / Voucher #: ${tx.billNo}',
-                              style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
+                              style: AppTextStyles.bodySmall
+                                  .copyWith(color: AppColors.textSecondary),
                             ),
                           if (tx.submitterName != null)
                             Padding(
                               padding: const EdgeInsets.only(top: 4),
                               child: Text(
                                 'Submitted By: ${tx.submitterName}',
-                                style: const TextStyle(color: AppColors.waveCyan, fontSize: 11, fontWeight: FontWeight.bold),
+                                style: const TextStyle(
+                                    color: AppColors.waveCyan,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold),
                               ),
                             ),
                           if (tx.batchId != null)
                             Padding(
                               padding: const EdgeInsets.only(top: 4),
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: AppColors.primary.withOpacity(0.12),
+                                  color:
+                                      AppColors.primary.withValues(alpha: 0.12),
                                   borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                                  border: Border.all(
+                                      color: AppColors.primary
+                                          .withValues(alpha: 0.3)),
                                 ),
                                 child: Text(
                                   '📦 Batch: ${tx.batchId}',
-                                  style: const TextStyle(color: AppColors.primary, fontSize: 10, fontWeight: FontWeight.bold),
+                                  style: const TextStyle(
+                                      color: AppColors.primary,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold),
                                 ),
                               ),
                             ),
@@ -623,7 +624,9 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
                     Text(
                       '${isCashReceived ? "+ " : ""}₹${displayAmount.toStringAsFixed(2)}',
                       style: AppTextStyles.h3.copyWith(
-                        color: isCashReceived ? const Color(0xFF10B981) : AppColors.approved,
+                        color: isCashReceived
+                            ? const Color(0xFF10B981)
+                            : AppColors.approved,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -634,7 +637,9 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
                   const SizedBox(height: 8),
                   Text(
                     'Notes: "${tx.cleanRemarks}"',
-                    style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary, fontStyle: FontStyle.italic),
+                    style: AppTextStyles.bodySmall.copyWith(
+                        color: AppColors.textSecondary,
+                        fontStyle: FontStyle.italic),
                   ),
                 ],
 
@@ -651,7 +656,8 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
                 Row(
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.delete_outline_rounded, color: AppColors.rejected, size: 20),
+                      icon: const Icon(Icons.delete_outline_rounded,
+                          color: AppColors.rejected, size: 20),
                       tooltip: 'Remove Request',
                       onPressed: () => _deleteCashEntry(tx),
                     ),
@@ -659,17 +665,25 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.textPrimary,
                         side: const BorderSide(color: AppColors.cardBorder),
-                        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 10, horizontal: 12),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
                       ),
                       icon: const Icon(Icons.visibility_outlined, size: 16),
                       label: const Text('View'),
                       onPressed: () => EntryDetailDialog.show(
                         context,
                         cashTransaction: tx,
-                        onEdit: projectHeadCanApproveCash ? () => _editAndApproveCash(tx) : null,
-                        onApprove: projectHeadCanApproveCash ? () => _approveCashEntry(tx) : null,
-                        onReject: projectHeadCanApproveCash ? () => _rejectCashEntry(tx) : null,
+                        onEdit: projectHeadCanApproveCash
+                            ? () => _editAndApproveCash(tx)
+                            : null,
+                        onApprove: projectHeadCanApproveCash
+                            ? () => _approveCashEntry(tx)
+                            : null,
+                        onReject: projectHeadCanApproveCash
+                            ? () => _rejectCashEntry(tx)
+                            : null,
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -679,11 +693,14 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
                           foregroundColor: AppColors.rejected,
                           side: const BorderSide(color: AppColors.rejected),
                           padding: const EdgeInsets.symmetric(vertical: 10),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
                         ),
                         icon: const Icon(Icons.close_rounded, size: 16),
                         label: const Text('Reject'),
-                        onPressed: projectHeadCanApproveCash ? () => _rejectCashEntry(tx) : null,
+                        onPressed: projectHeadCanApproveCash
+                            ? () => _rejectCashEntry(tx)
+                            : null,
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -693,11 +710,14 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
                           foregroundColor: AppColors.waveCyan,
                           side: const BorderSide(color: AppColors.waveCyan),
                           padding: const EdgeInsets.symmetric(vertical: 10),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
                         ),
                         icon: const Icon(Icons.edit_note_rounded, size: 16),
                         label: const Text('Edit & OK'),
-                        onPressed: projectHeadCanApproveCash ? () => _editAndApproveCash(tx) : null,
+                        onPressed: projectHeadCanApproveCash
+                            ? () => _editAndApproveCash(tx)
+                            : null,
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -705,19 +725,31 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
                       flex: 2,
                       child: ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: projectHeadCanApproveCash ? AppColors.approved : AppColors.cardBorder,
+                          backgroundColor: projectHeadCanApproveCash
+                              ? AppColors.approved
+                              : AppColors.cardBorder,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 10),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
                         ),
-                        icon: Icon(projectHeadCanApproveCash ? Icons.check_circle_rounded : Icons.lock_rounded, size: 18),
+                        icon: Icon(
+                            projectHeadCanApproveCash
+                                ? Icons.check_circle_rounded
+                                : Icons.lock_rounded,
+                            size: 18),
                         label: Text(
                           !projectHeadCanApproveCash
                               ? 'Extracted by Admin'
-                              : (accountsCanApproveCash ? 'Approve ➔ Accounts' : 'Approve ➔ Admin (Direct)'),
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                              : (accountsCanApproveCash
+                                  ? 'Approve ➔ Accounts'
+                                  : 'Approve ➔ Admin (Direct)'),
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 13),
                         ),
-                        onPressed: projectHeadCanApproveCash ? () => _approveCashEntry(tx) : null,
+                        onPressed: projectHeadCanApproveCash
+                            ? () => _approveCashEntry(tx)
+                            : null,
                       ),
                     ),
                   ],
@@ -733,7 +765,8 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
   // ─────────────────────────────────────────────────────────────
   // TAB 2: STOCK APPROVALS
   // ─────────────────────────────────────────────────────────────
-  Widget _buildStockApprovalsList(List<StockTransactionModel> list, List<SiteModel> sites) {
+  Widget _buildStockApprovalsList(
+      List<StockTransactionModel> list, List<SiteModel> sites) {
     final roleAccess = ref.watch(roleAccessProvider);
     final accountsCanApproveStock = roleAccess.accountsCanApproveStock;
     final projectHeadCanApproveStock = roleAccess.projectHeadCanApproveStock;
@@ -741,7 +774,8 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
     if (list.isEmpty) {
       return _buildEmptyState(
         title: 'No Pending Stock Entries',
-        subtitle: 'All materials added or consumed have been approved or forwarded to Accounts.',
+        subtitle:
+            'All materials added or consumed have been approved or forwarded to Accounts.',
         icon: Icons.inventory_rounded,
         color: AppColors.waveCyan,
       );
@@ -760,7 +794,10 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
           margin: const EdgeInsets.only(bottom: 14),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: isInbound ? AppColors.waveCyan.withOpacity(0.35) : AppColors.primary.withOpacity(0.35)),
+            side: BorderSide(
+                color: isInbound
+                    ? AppColors.waveCyan.withValues(alpha: 0.35)
+                    : AppColors.primary.withValues(alpha: 0.35)),
           ),
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -773,39 +810,62 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
                     Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
-                            color: isInbound ? AppColors.approved.withOpacity(0.15) : AppColors.primary.withOpacity(0.15),
+                            color: isInbound
+                                ? AppColors.approved.withValues(alpha: 0.15)
+                                : AppColors.primary.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(isInbound ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded, size: 14, color: isInbound ? AppColors.approved : AppColors.primary),
+                              Icon(
+                                  isInbound
+                                      ? Icons.arrow_downward_rounded
+                                      : Icons.arrow_upward_rounded,
+                                  size: 14,
+                                  color: isInbound
+                                      ? AppColors.approved
+                                      : AppColors.primary),
                               const SizedBox(width: 4),
                               Text(
                                 isInbound ? 'Inward' : 'Usage',
-                                style: TextStyle(color: isInbound ? AppColors.approved : AppColors.primary, fontWeight: FontWeight.bold, fontSize: 11),
+                                style: TextStyle(
+                                    color: isInbound
+                                        ? AppColors.approved
+                                        : AppColors.primary,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 11),
                               ),
                             ],
                           ),
                         ),
                         const SizedBox(width: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
-                            color: AppColors.goldAccent.withOpacity(0.15),
+                            color: AppColors.goldAccent.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
                             siteName,
-                            style: const TextStyle(color: AppColors.goldAccent, fontWeight: FontWeight.bold, fontSize: 11),
+                            style: const TextStyle(
+                                color: AppColors.goldAccent,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 11),
                           ),
                         ),
-                        if (DateTime.now().difference(tx.createdAt ?? tx.date).inHours >= 36) ...[
+                        if (DateTime.now()
+                                .difference(tx.createdAt ?? tx.date)
+                                .inHours >=
+                            36) ...[
                           const SizedBox(width: 8),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
                               color: const Color(0xFFEF4444),
                               borderRadius: BorderRadius.circular(8),
@@ -813,11 +873,15 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(Icons.timer_outlined, size: 12, color: Colors.white),
+                                const Icon(Icons.timer_outlined,
+                                    size: 12, color: Colors.white),
                                 const SizedBox(width: 4),
                                 Text(
                                   'OVERDUE (${DateTime.now().difference(tx.createdAt ?? tx.date).inHours}h)',
-                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 10),
+                                  style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 10),
                                 ),
                               ],
                             ),
@@ -827,7 +891,8 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
                     ),
                     Text(
                       DateFormat('dd MMM yyyy').format(tx.date),
-                      style: AppTextStyles.caption.copyWith(color: AppColors.textTertiary),
+                      style: AppTextStyles.caption
+                          .copyWith(color: AppColors.textTertiary),
                     ),
                   ],
                 ),
@@ -842,43 +907,59 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
                         children: [
                           Text(
                             tx.displayProductName,
-                            style: AppTextStyles.h4.copyWith(color: Colors.white, fontSize: 16),
+                            style: AppTextStyles.h4
+                                .copyWith(color: Colors.white, fontSize: 16),
                           ),
                           Text(
                             'Quantity: ${tx.quantity} ${tx.displayMetricUnitName}',
-                            style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+                            style: AppTextStyles.bodyMedium.copyWith(
+                                color: AppColors.textPrimary,
+                                fontWeight: FontWeight.w600),
                           ),
                           if (tx.rate != null && tx.rate! > 0)
                             Text(
                               'Rate: ₹${tx.rate!.toStringAsFixed(2)} / ${tx.displayMetricUnitName}',
-                              style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
+                              style: AppTextStyles.bodySmall
+                                  .copyWith(color: AppColors.textSecondary),
                             ),
-                          if (tx.displayVendorName.isNotEmpty && tx.displayVendorName != 'None')
+                          if (tx.displayVendorName.isNotEmpty &&
+                              tx.displayVendorName != 'None')
                             Text(
                               'Vendor: ${tx.displayVendorName}',
-                              style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
+                              style: AppTextStyles.bodySmall
+                                  .copyWith(color: AppColors.textSecondary),
                             ),
                           if (tx.submitterName != null)
                             Padding(
                               padding: const EdgeInsets.only(top: 4),
                               child: Text(
                                 'Submitted By: ${tx.submitterName}',
-                                style: const TextStyle(color: AppColors.waveCyan, fontSize: 11, fontWeight: FontWeight.bold),
+                                style: const TextStyle(
+                                    color: AppColors.waveCyan,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold),
                               ),
                             ),
                           if (tx.batchId != null)
                             Padding(
                               padding: const EdgeInsets.only(top: 4),
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: AppColors.primary.withOpacity(0.12),
+                                  color:
+                                      AppColors.primary.withValues(alpha: 0.12),
                                   borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                                  border: Border.all(
+                                      color: AppColors.primary
+                                          .withValues(alpha: 0.3)),
                                 ),
                                 child: Text(
                                   '📦 Batch: ${tx.batchId}',
-                                  style: const TextStyle(color: AppColors.primary, fontSize: 10, fontWeight: FontWeight.bold),
+                                  style: const TextStyle(
+                                      color: AppColors.primary,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold),
                                 ),
                               ),
                             ),
@@ -887,13 +968,16 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
                     ),
                     Builder(
                       builder: (context) {
-                        final displayAmount = (tx.finalAmount != null && tx.finalAmount! > 0)
-                            ? tx.finalAmount!
-                            : tx.calculatedFinalAmount;
+                        final displayAmount =
+                            (tx.finalAmount != null && tx.finalAmount! > 0)
+                                ? tx.finalAmount!
+                                : tx.calculatedFinalAmount;
                         if (displayAmount <= 0) return const SizedBox.shrink();
                         return Text(
                           '₹${displayAmount.toStringAsFixed(2)}',
-                          style: AppTextStyles.h3.copyWith(color: AppColors.waveCyan, fontWeight: FontWeight.bold),
+                          style: AppTextStyles.h3.copyWith(
+                              color: AppColors.waveCyan,
+                              fontWeight: FontWeight.bold),
                         );
                       },
                     ),
@@ -904,7 +988,9 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
                   const SizedBox(height: 8),
                   Text(
                     'Notes: "${tx.cleanRemarks}"',
-                    style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary, fontStyle: FontStyle.italic),
+                    style: AppTextStyles.bodySmall.copyWith(
+                        color: AppColors.textSecondary,
+                        fontStyle: FontStyle.italic),
                   ),
                 ],
 
@@ -921,7 +1007,8 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
                 Row(
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.delete_outline_rounded, color: AppColors.rejected, size: 20),
+                      icon: const Icon(Icons.delete_outline_rounded,
+                          color: AppColors.rejected, size: 20),
                       tooltip: 'Remove Request',
                       onPressed: () => _deleteStockEntry(tx),
                     ),
@@ -929,17 +1016,25 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.textPrimary,
                         side: const BorderSide(color: AppColors.cardBorder),
-                        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 10, horizontal: 12),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
                       ),
                       icon: const Icon(Icons.visibility_outlined, size: 16),
                       label: const Text('View'),
                       onPressed: () => EntryDetailDialog.show(
                         context,
                         stockTransaction: tx,
-                        onEdit: projectHeadCanApproveStock ? () => _editAndApproveStock(tx) : null,
-                        onApprove: projectHeadCanApproveStock ? () => _approveStockEntry(tx) : null,
-                        onReject: projectHeadCanApproveStock ? () => _rejectStockEntry(tx) : null,
+                        onEdit: projectHeadCanApproveStock
+                            ? () => _editAndApproveStock(tx)
+                            : null,
+                        onApprove: projectHeadCanApproveStock
+                            ? () => _approveStockEntry(tx)
+                            : null,
+                        onReject: projectHeadCanApproveStock
+                            ? () => _rejectStockEntry(tx)
+                            : null,
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -949,11 +1044,14 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
                           foregroundColor: AppColors.rejected,
                           side: const BorderSide(color: AppColors.rejected),
                           padding: const EdgeInsets.symmetric(vertical: 10),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
                         ),
                         icon: const Icon(Icons.close_rounded, size: 16),
                         label: const Text('Reject'),
-                        onPressed: projectHeadCanApproveStock ? () => _rejectStockEntry(tx) : null,
+                        onPressed: projectHeadCanApproveStock
+                            ? () => _rejectStockEntry(tx)
+                            : null,
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -963,11 +1061,14 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
                           foregroundColor: AppColors.waveCyan,
                           side: const BorderSide(color: AppColors.waveCyan),
                           padding: const EdgeInsets.symmetric(vertical: 10),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
                         ),
                         icon: const Icon(Icons.edit_note_rounded, size: 16),
                         label: const Text('Edit & OK'),
-                        onPressed: projectHeadCanApproveStock ? () => _editAndApproveStock(tx) : null,
+                        onPressed: projectHeadCanApproveStock
+                            ? () => _editAndApproveStock(tx)
+                            : null,
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -975,19 +1076,31 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
                       flex: 2,
                       child: ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: projectHeadCanApproveStock ? AppColors.approved : AppColors.cardBorder,
+                          backgroundColor: projectHeadCanApproveStock
+                              ? AppColors.approved
+                              : AppColors.cardBorder,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 10),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
                         ),
-                        icon: Icon(projectHeadCanApproveStock ? Icons.check_circle_rounded : Icons.lock_rounded, size: 18),
+                        icon: Icon(
+                            projectHeadCanApproveStock
+                                ? Icons.check_circle_rounded
+                                : Icons.lock_rounded,
+                            size: 18),
                         label: Text(
                           !projectHeadCanApproveStock
                               ? 'Extracted by Admin'
-                              : (accountsCanApproveStock ? 'Approve ➔ Accounts' : 'Approve ➔ Admin (Direct)'),
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                              : (accountsCanApproveStock
+                                  ? 'Approve ➔ Accounts'
+                                  : 'Approve ➔ Admin (Direct)'),
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 13),
                         ),
-                        onPressed: projectHeadCanApproveStock ? () => _approveStockEntry(tx) : null,
+                        onPressed: projectHeadCanApproveStock
+                            ? () => _approveStockEntry(tx)
+                            : null,
                       ),
                     ),
                   ],
@@ -1010,7 +1123,8 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
     if (list.isEmpty) {
       return _buildEmptyState(
         title: 'No Pending Regularization Requests',
-        subtitle: 'All late arrivals (>40m) or punch requests have been reviewed and forwarded to Admin.',
+        subtitle:
+            'All late arrivals (>40m) or punch requests have been reviewed and forwarded to Admin.',
         icon: Icons.how_to_reg_rounded,
         color: const Color(0xFF14B8A6),
       );
@@ -1021,7 +1135,9 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
       itemCount: list.length,
       itemBuilder: (ctx, i) {
         final req = list[i];
-        final inTimeStr = req.punchInTime != null ? DateFormat('hh:mm a').format(req.punchInTime!) : '--:--';
+        final inTimeStr = req.punchInTime != null
+            ? DateFormat('hh:mm a').format(req.punchInTime!)
+            : '--:--';
 
         return Card(
           color: AppColors.cardDark,
@@ -1039,19 +1155,24 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF14B8A6).withOpacity(0.15),
+                        color: const Color(0xFF14B8A6).withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
                         req.siteName,
-                        style: const TextStyle(color: Color(0xFF14B8A6), fontWeight: FontWeight.bold, fontSize: 12),
+                        style: const TextStyle(
+                            color: Color(0xFF14B8A6),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12),
                       ),
                     ),
                     Text(
                       DateFormat('dd MMM yyyy').format(req.date),
-                      style: AppTextStyles.caption.copyWith(color: AppColors.textTertiary),
+                      style: AppTextStyles.caption
+                          .copyWith(color: AppColors.textTertiary),
                     ),
                   ],
                 ),
@@ -1061,8 +1182,10 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
                   children: [
                     CircleAvatar(
                       radius: 20,
-                      backgroundColor: const Color(0xFF14B8A6).withOpacity(0.15),
-                      child: const Icon(Icons.person_outline_rounded, color: Color(0xFF14B8A6)),
+                      backgroundColor:
+                          const Color(0xFF14B8A6).withValues(alpha: 0.15),
+                      child: const Icon(Icons.person_outline_rounded,
+                          color: Color(0xFF14B8A6)),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -1071,11 +1194,15 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
                         children: [
                           Text(
                             req.staffName,
-                            style: AppTextStyles.h4.copyWith(color: Colors.white, fontSize: 16),
+                            style: AppTextStyles.h4
+                                .copyWith(color: Colors.white, fontSize: 16),
                           ),
                           Text(
                             'Punched In: $inTimeStr • ${req.lateMinutes} mins late',
-                            style: const TextStyle(color: AppColors.pending, fontSize: 12, fontWeight: FontWeight.w600),
+                            style: const TextStyle(
+                                color: AppColors.pending,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600),
                           ),
                         ],
                       ),
@@ -1096,12 +1223,16 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
                     children: [
                       const Text(
                         'Reason for Delay:',
-                        style: TextStyle(color: AppColors.goldAccent, fontSize: 11, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                            color: AppColors.goldAccent,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 4),
                       Text(
                         req.regularizationReason ?? 'No reason provided',
-                        style: const TextStyle(color: Colors.white, fontSize: 13, height: 1.3),
+                        style: const TextStyle(
+                            color: Colors.white, fontSize: 13, height: 1.3),
                       ),
                     ],
                   ),
@@ -1111,7 +1242,10 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
                   const SizedBox(height: 8),
                   Text(
                     'GPS Distance from Site: ${req.distanceMeters!.toStringAsFixed(0)} meters (${req.isWithinSite ? "Inside Geofence" : "Outside Geofence"})',
-                    style: AppTextStyles.caption.copyWith(color: req.isWithinSite ? AppColors.approved : AppColors.pending),
+                    style: AppTextStyles.caption.copyWith(
+                        color: req.isWithinSite
+                            ? AppColors.approved
+                            : AppColors.pending),
                   ),
                 ],
 
@@ -1126,16 +1260,22 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.textPrimary,
                         side: const BorderSide(color: AppColors.cardBorder),
-                        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 10, horizontal: 12),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
                       ),
                       icon: const Icon(Icons.visibility_outlined, size: 16),
                       label: const Text('View'),
                       onPressed: () => EntryDetailDialog.show(
                         context,
                         attendanceRecord: req,
-                        onApprove: canApproveAttendance ? () => _approveAttendance(req, halfDay: false) : null,
-                        onReject: canApproveAttendance ? () => _rejectAttendance(req) : null,
+                        onApprove: canApproveAttendance
+                            ? () => _approveAttendance(req, halfDay: false)
+                            : null,
+                        onReject: canApproveAttendance
+                            ? () => _rejectAttendance(req)
+                            : null,
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -1145,9 +1285,12 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
                           foregroundColor: AppColors.rejected,
                           side: const BorderSide(color: AppColors.rejected),
                           padding: const EdgeInsets.symmetric(vertical: 10),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
                         ),
-                        onPressed: canApproveAttendance ? () => _rejectAttendance(req) : null,
+                        onPressed: canApproveAttendance
+                            ? () => _rejectAttendance(req)
+                            : null,
                         child: const Text('Reject'),
                       ),
                     ),
@@ -1158,9 +1301,12 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
                           foregroundColor: AppColors.pending,
                           side: const BorderSide(color: AppColors.pending),
                           padding: const EdgeInsets.symmetric(vertical: 10),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
                         ),
-                        onPressed: canApproveAttendance ? () => _approveAttendance(req, halfDay: true) : null,
+                        onPressed: canApproveAttendance
+                            ? () => _approveAttendance(req, halfDay: true)
+                            : null,
                         child: const Text('Half Day'),
                       ),
                     ),
@@ -1169,17 +1315,29 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
                       flex: 2,
                       child: ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: canApproveAttendance ? const Color(0xFF14B8A6) : AppColors.cardBorder,
+                          backgroundColor: canApproveAttendance
+                              ? const Color(0xFF14B8A6)
+                              : AppColors.cardBorder,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 10),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
                         ),
-                        icon: Icon(canApproveAttendance ? Icons.check_circle_rounded : Icons.lock_rounded, size: 18),
+                        icon: Icon(
+                            canApproveAttendance
+                                ? Icons.check_circle_rounded
+                                : Icons.lock_rounded,
+                            size: 18),
                         label: Text(
-                          canApproveAttendance ? 'Verify ➔ Admin' : 'Extracted by Admin',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                          canApproveAttendance
+                              ? 'Verify ➔ Admin'
+                              : 'Extracted by Admin',
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 13),
                         ),
-                        onPressed: canApproveAttendance ? () => _approveAttendance(req, halfDay: false) : null,
+                        onPressed: canApproveAttendance
+                            ? () => _approveAttendance(req, halfDay: false)
+                            : null,
                       ),
                     ),
                   ],
@@ -1195,7 +1353,8 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
   // ─────────────────────────────────────────────────────────────
   // TAB 4: DAILY SITE REPORTS (DSR)
   // ─────────────────────────────────────────────────────────────
-  Widget _buildDsrApprovalsList(List<DailySiteReportModel> list, List<SiteModel> sites) {
+  Widget _buildDsrApprovalsList(
+      List<DailySiteReportModel> list, List<SiteModel> sites) {
     final roleAccess = ref.watch(roleAccessProvider);
     final canApproveDSR = roleAccess.projectHeadCanApproveDSR;
 
@@ -1220,7 +1379,8 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
           margin: const EdgeInsets.only(bottom: 14),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: AppColors.goldAccent.withOpacity(0.35)),
+            side:
+                BorderSide(color: AppColors.goldAccent.withValues(alpha: 0.35)),
           ),
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -1231,37 +1391,48 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
-                        color: AppColors.goldAccent.withOpacity(0.15),
+                        color: AppColors.goldAccent.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
                         siteName,
-                        style: const TextStyle(color: AppColors.goldAccent, fontWeight: FontWeight.bold, fontSize: 12),
+                        style: const TextStyle(
+                            color: AppColors.goldAccent,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12),
                       ),
                     ),
                     Text(
                       DateFormat('dd MMM yyyy').format(r.date),
-                      style: AppTextStyles.caption.copyWith(color: AppColors.textTertiary),
+                      style: AppTextStyles.caption
+                          .copyWith(color: AppColors.textTertiary),
                     ),
                   ],
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
-                    color: AppColors.waveCyan.withOpacity(0.12),
+                    color: AppColors.waveCyan.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppColors.waveCyan.withOpacity(0.35)),
+                    border: Border.all(
+                        color: AppColors.waveCyan.withValues(alpha: 0.35)),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.person_rounded, size: 14, color: AppColors.waveCyan),
+                      const Icon(Icons.person_rounded,
+                          size: 14, color: AppColors.waveCyan),
                       const SizedBox(width: 6),
                       Text(
                         'Submitted by: ${r.submittedBy != null && r.submittedBy!.isNotEmpty ? r.submittedBy : "Site Worker"}',
-                        style: const TextStyle(color: AppColors.waveCyan, fontSize: 12, fontWeight: FontWeight.bold),
+                        style: const TextStyle(
+                            color: AppColors.waveCyan,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
@@ -1282,13 +1453,22 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
                       children: [
                         const Row(
                           children: [
-                            Icon(Icons.mic_rounded, size: 14, color: AppColors.goldAccent),
+                            Icon(Icons.mic_rounded,
+                                size: 14, color: AppColors.goldAccent),
                             SizedBox(width: 6),
-                            Text('Voice Note Transcript:', style: TextStyle(color: AppColors.goldAccent, fontSize: 11, fontWeight: FontWeight.bold)),
+                            Text('Voice Note Transcript:',
+                                style: TextStyle(
+                                    color: AppColors.goldAccent,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold)),
                           ],
                         ),
                         const SizedBox(height: 4),
-                        Text(r.rawTranscript!, style: const TextStyle(color: Colors.white, fontSize: 13, height: 1.3)),
+                        Text(r.rawTranscript!,
+                            style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                                height: 1.3)),
                       ],
                     ),
                   ),
@@ -1296,11 +1476,17 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
 
                 if (r.workDone.isNotEmpty) ...[
                   const SizedBox(height: 10),
-                  const Text('Work Executed Today:', style: TextStyle(color: AppColors.waveCyan, fontSize: 12, fontWeight: FontWeight.bold)),
+                  const Text('Work Executed Today:',
+                      style: TextStyle(
+                          color: AppColors.waveCyan,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold)),
                   const SizedBox(height: 4),
                   ...r.workDone.map((w) => Padding(
                         padding: const EdgeInsets.only(left: 6, bottom: 2),
-                        child: Text('• $w', style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                        child: Text('• $w',
+                            style: const TextStyle(
+                                color: Colors.white70, fontSize: 12)),
                       )),
                 ],
 
@@ -1320,15 +1506,18 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.textPrimary,
                         side: const BorderSide(color: AppColors.cardBorder),
-                        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 10, horizontal: 12),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
                       ),
                       icon: const Icon(Icons.visibility_outlined, size: 16),
                       label: const Text('View'),
                       onPressed: () => EntryDetailDialog.show(
                         context,
                         dailyReport: r,
-                        onApprove: canApproveDSR ? () => _approveReport(r) : null,
+                        onApprove:
+                            canApproveDSR ? () => _approveReport(r) : null,
                         onReject: canApproveDSR ? () => _rejectReport(r) : null,
                       ),
                     ),
@@ -1339,9 +1528,11 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
                           foregroundColor: AppColors.rejected,
                           side: const BorderSide(color: AppColors.rejected),
                           padding: const EdgeInsets.symmetric(vertical: 10),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
                         ),
-                        onPressed: canApproveDSR ? () => _rejectReport(r) : null,
+                        onPressed:
+                            canApproveDSR ? () => _rejectReport(r) : null,
                         child: const Text('Reject'),
                       ),
                     ),
@@ -1350,17 +1541,28 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
                       flex: 2,
                       child: ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: canApproveDSR ? AppColors.goldAccent : AppColors.cardBorder,
+                          backgroundColor: canApproveDSR
+                              ? AppColors.goldAccent
+                              : AppColors.cardBorder,
                           foregroundColor: Colors.black,
                           padding: const EdgeInsets.symmetric(vertical: 10),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
                         ),
-                        icon: Icon(canApproveDSR ? Icons.verified_rounded : Icons.lock_rounded, size: 18),
+                        icon: Icon(
+                            canApproveDSR
+                                ? Icons.verified_rounded
+                                : Icons.lock_rounded,
+                            size: 18),
                         label: Text(
-                          canApproveDSR ? 'Verify & Approve DSR' : 'Extracted by Admin',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                          canApproveDSR
+                              ? 'Verify & Approve DSR'
+                              : 'Extracted by Admin',
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 13),
                         ),
-                        onPressed: canApproveDSR ? () => _approveReport(r) : null,
+                        onPressed:
+                            canApproveDSR ? () => _approveReport(r) : null,
                       ),
                     ),
                   ],
@@ -1385,13 +1587,14 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
-        child: Column(
+        child: SingleChildScrollView(
+            child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.12),
+                color: color.withValues(alpha: 0.12),
                 shape: BoxShape.circle,
               ),
               child: Icon(icon, size: 48, color: color),
@@ -1402,10 +1605,11 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
             Text(
               subtitle,
               textAlign: TextAlign.center,
-              style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary, height: 1.4),
+              style: AppTextStyles.bodyMedium
+                  .copyWith(color: AppColors.textSecondary, height: 1.4),
             ),
           ],
-        ),
+        )),
       ),
     );
   }
@@ -1416,17 +1620,21 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
   Future<void> _approveCashEntry(CashTransactionModel tx) async {
     final roleAccess = ref.read(roleAccessProvider);
     final bypassAccounts = !roleAccess.accountsCanApproveCash;
-    final targetStatus =
-        bypassAccounts ? TransactionStatus.pendingAdmin : TransactionStatus.pendingAccounts;
-    final bypassTag =
-        bypassAccounts ? ' [Accounts Verification: Bypassed by Admin Policy]' : '';
+    final targetStatus = bypassAccounts
+        ? TransactionStatus.pendingAdmin
+        : TransactionStatus.pendingAccounts;
+    final bypassTag = bypassAccounts
+        ? ' [Accounts Verification: Bypassed by Admin Policy]'
+        : '';
 
     final cleaned = (tx.remarks ?? '')
+        .replaceAll('[PENDING SUPERVISOR REVIEW]', '')
         .replaceAll('[Project Head Review: Pending]', '')
         .replaceAll('[Supervisor Review: Pending]', '')
         .trim();
     final updatedRemarks =
-        '$cleaned [Project Head: Approved by $_currentProjectHeadName]$bypassTag'.trim();
+        '$cleaned [Project Head: Approved by $_currentProjectHeadName]$bypassTag'
+            .trim();
 
     final updated = tx.copyWith(
       remarks: updatedRemarks,
@@ -1454,14 +1662,19 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
     final isCashReceived = tx.amountReceived > 0 && tx.expenseAmount == 0;
     final currentAmt = isCashReceived ? tx.amountReceived : tx.expenseAmount;
     final amountController = TextEditingController(text: currentAmt.toString());
-    final remarksController = TextEditingController(text: tx.cleanRemarks ?? '');
+    final remarksController =
+        TextEditingController(text: tx.cleanRemarks ?? '');
 
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.surfaceDark,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text(isCashReceived ? 'Edit & Forward Cash Receipt' : 'Edit & Approve Expense', style: const TextStyle(color: Colors.white)),
+        title: Text(
+            isCashReceived
+                ? 'Edit & Forward Cash Receipt'
+                : 'Edit & Approve Expense',
+            style: const TextStyle(color: Colors.white)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -1469,18 +1682,23 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
               controller: amountController,
               keyboardType: TextInputType.number,
               style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(labelText: isCashReceived ? 'Received Amount (₹)' : 'Expense Amount (₹)'),
+              decoration: InputDecoration(
+                  labelText: isCashReceived
+                      ? 'Received Amount (₹)'
+                      : 'Expense Amount (₹)'),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: remarksController,
               style: const TextStyle(color: Colors.white),
-              decoration: const InputDecoration(labelText: 'Project Head Guidance Note'),
+              decoration: const InputDecoration(
+                  labelText: 'Project Head Guidance Note'),
             ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(ctx);
@@ -1493,8 +1711,10 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
                   ? ' [Accounts Verification: Bypassed by Admin Policy]'
                   : '';
 
-              final newAmt = double.tryParse(amountController.text) ?? currentAmt;
+              final newAmt =
+                  double.tryParse(amountController.text) ?? currentAmt;
               final cleaned = (tx.remarks ?? '')
+                  .replaceAll('[PENDING SUPERVISOR REVIEW]', '')
                   .replaceAll('[Project Head Review: Pending]', '')
                   .replaceAll('[Supervisor Review: Pending]', '')
                   .trim();
@@ -1510,7 +1730,9 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
                 status: targetStatus,
               );
 
-              final ok = await ref.read(cashProvider.notifier).updateTransaction(updated);
+              final ok = await ref
+                  .read(cashProvider.notifier)
+                  .updateTransaction(updated);
               if (mounted) {
                 final err = ref.read(cashProvider).error;
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -1520,7 +1742,8 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
                             ? 'Updated! Bypassed Accounts & forwarded directly to Admin.'
                             : 'Updated & forwarded to Accounts!')
                         : 'Update failed${err != null ? ": $err" : ""}'),
-                    backgroundColor: ok ? AppColors.approved : AppColors.rejected,
+                    backgroundColor:
+                        ok ? AppColors.approved : AppColors.rejected,
                   ),
                 );
                 if (ok) _refreshAllData();
@@ -1541,7 +1764,8 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.surfaceDark,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Reject Cash Entry', style: TextStyle(color: Colors.white)),
+        title: const Text('Reject Cash Entry',
+            style: TextStyle(color: Colors.white)),
         content: TextField(
           controller: reasonController,
           style: const TextStyle(color: Colors.white),
@@ -1551,32 +1775,40 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.rejected),
+            style:
+                ElevatedButton.styleFrom(backgroundColor: AppColors.rejected),
             onPressed: () async {
               if (reasonController.text.trim().isEmpty) return;
               Navigator.pop(ctx);
 
               final reason = reasonController.text.trim();
               final cleaned = (tx.remarks ?? '')
+                  .replaceAll('[PENDING SUPERVISOR REVIEW]', '')
                   .replaceAll('[Project Head Review: Pending]', '')
                   .replaceAll('[Supervisor Review: Pending]', '')
                   .trim();
-              final updatedRemarks = '$cleaned [Project Head: Rejected - $reason by $_currentProjectHeadName]'.trim();
-              final userId = ref.read(authProvider).user?.id ?? 
-                             ref.read(supabaseClientProvider).auth.currentUser?.id ?? '';
+              final updatedRemarks =
+                  '$cleaned [Project Head: Rejected - $reason by $_currentProjectHeadName]'
+                      .trim();
+              final userId = ref.read(authProvider).user?.id ??
+                  ref.read(supabaseClientProvider).auth.currentUser?.id ??
+                  '';
 
-              // First update remarks tag
-              await ref.read(cashProvider.notifier).updateTransaction(tx.copyWith(remarks: updatedRemarks));
-
-              // Call rejectTransaction to properly mark status='rejected'
-              final ok = await ref.read(cashProvider.notifier).rejectTransaction(tx.id!, userId, reason);
+              // Persist rejection status and its note in one operation.
+              final ok = await ref
+                  .read(cashProvider.notifier)
+                  .rejectTransaction(tx.id!, userId, reason,
+                      remarks: updatedRemarks);
               if (mounted) {
                 final err = ref.read(cashProvider).error;
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text(ok ? 'Entry rejected successfully.' : 'Failed to reject${err != null ? ": $err" : ""}'),
+                    content: Text(ok
+                        ? 'Entry rejected successfully.'
+                        : 'Failed to reject${err != null ? ": $err" : ""}'),
                     backgroundColor: ok ? AppColors.rejected : Colors.grey,
                   ),
                 );
@@ -1596,7 +1828,8 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.surfaceDark,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Delete Expense Request', style: TextStyle(color: Colors.white)),
+        title: const Text('Delete Expense Request',
+            style: TextStyle(color: Colors.white)),
         content: Text(
           'Are you sure you want to permanently remove this ${tx.displayExpenseTypeName} (₹${tx.expenseAmount.toStringAsFixed(2)}) request?',
           style: const TextStyle(color: AppColors.textSecondary),
@@ -1607,7 +1840,8 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.rejected),
+            style:
+                ElevatedButton.styleFrom(backgroundColor: AppColors.rejected),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Delete'),
           ),
@@ -1621,7 +1855,8 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(ok ? 'Expense request removed.' : 'Failed to remove expense.'),
+          content: Text(
+              ok ? 'Expense request removed.' : 'Failed to remove expense.'),
           backgroundColor: ok ? AppColors.approved : AppColors.rejected,
         ),
       );
@@ -1635,24 +1870,29 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
   Future<void> _approveStockEntry(StockTransactionModel tx) async {
     final roleAccess = ref.read(roleAccessProvider);
     final bypassAccounts = !roleAccess.accountsCanApproveStock;
-    final targetStatus =
-        bypassAccounts ? TransactionStatus.pendingAdmin : TransactionStatus.pendingAccounts;
-    final bypassTag =
-        bypassAccounts ? ' [Accounts Verification: Bypassed by Admin Policy]' : '';
+    final targetStatus = bypassAccounts
+        ? TransactionStatus.pendingAdmin
+        : TransactionStatus.pendingAccounts;
+    final bypassTag = bypassAccounts
+        ? ' [Accounts Verification: Bypassed by Admin Policy]'
+        : '';
 
     final cleaned = (tx.remarks ?? '')
+        .replaceAll('[PENDING SUPERVISOR REVIEW]', '')
         .replaceAll('[Project Head Review: Pending]', '')
         .replaceAll('[Supervisor Review: Pending]', '')
         .trim();
     final updatedRemarks =
-        '$cleaned [Project Head: Approved by $_currentProjectHeadName]$bypassTag'.trim();
+        '$cleaned [Project Head: Approved by $_currentProjectHeadName]$bypassTag'
+            .trim();
 
     final updated = tx.copyWith(
       remarks: updatedRemarks,
       status: targetStatus,
     );
 
-    final ok = await ref.read(stockProvider.notifier).updateTransaction(updated);
+    final ok =
+        await ref.read(stockProvider.notifier).updateTransaction(updated);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -1670,7 +1910,8 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
 
   void _editAndApproveStock(StockTransactionModel tx) {
     final qtyController = TextEditingController(text: tx.quantity.toString());
-    final rateController = TextEditingController(text: tx.rate?.toString() ?? '0');
+    final rateController =
+        TextEditingController(text: tx.rate?.toString() ?? '0');
     final noteController = TextEditingController();
 
     showDialog(
@@ -1678,7 +1919,8 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.surfaceDark,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Edit & Approve Stock Entry', style: TextStyle(color: Colors.white)),
+        title: const Text('Edit & Approve Stock Entry',
+            style: TextStyle(color: Colors.white)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -1686,7 +1928,8 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
               controller: qtyController,
               keyboardType: TextInputType.number,
               style: const TextStyle(color: Colors.white),
-              decoration: InputDecoration(labelText: 'Quantity (${tx.displayMetricUnitName})'),
+              decoration: InputDecoration(
+                  labelText: 'Quantity (${tx.displayMetricUnitName})'),
             ),
             const SizedBox(height: 12),
             TextField(
@@ -1704,7 +1947,8 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(ctx);
@@ -1718,8 +1962,10 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
                   : '';
 
               final newQty = double.tryParse(qtyController.text) ?? tx.quantity;
-              final newRate = double.tryParse(rateController.text) ?? (tx.rate ?? 0);
+              final newRate =
+                  double.tryParse(rateController.text) ?? (tx.rate ?? 0);
               final cleaned = (tx.remarks ?? '')
+                  .replaceAll('[PENDING SUPERVISOR REVIEW]', '')
                   .replaceAll('[Project Head Review: Pending]', '')
                   .replaceAll('[Supervisor Review: Pending]', '')
                   .trim();
@@ -1740,7 +1986,9 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
                 status: targetStatus,
               );
 
-              final ok = await ref.read(stockProvider.notifier).updateTransaction(updated);
+              final ok = await ref
+                  .read(stockProvider.notifier)
+                  .updateTransaction(updated);
               if (mounted) {
                 final err = ref.read(stockProvider).error;
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -1750,7 +1998,8 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
                             ? 'Stock updated! Bypassed Accounts & forwarded directly to Admin.'
                             : 'Stock updated & forwarded to Accounts!')
                         : 'Update failed${err != null ? ": $err" : ""}'),
-                    backgroundColor: ok ? AppColors.approved : AppColors.rejected,
+                    backgroundColor:
+                        ok ? AppColors.approved : AppColors.rejected,
                   ),
                 );
                 if (ok) _refreshAllData();
@@ -1771,7 +2020,8 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.surfaceDark,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Reject Stock Entry', style: TextStyle(color: Colors.white)),
+        title: const Text('Reject Stock Entry',
+            style: TextStyle(color: Colors.white)),
         content: TextField(
           controller: reasonController,
           style: const TextStyle(color: Colors.white),
@@ -1781,32 +2031,40 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.rejected),
+            style:
+                ElevatedButton.styleFrom(backgroundColor: AppColors.rejected),
             onPressed: () async {
               if (reasonController.text.trim().isEmpty) return;
               Navigator.pop(ctx);
 
               final reason = reasonController.text.trim();
               final cleaned = (tx.remarks ?? '')
+                  .replaceAll('[PENDING SUPERVISOR REVIEW]', '')
                   .replaceAll('[Project Head Review: Pending]', '')
                   .replaceAll('[Supervisor Review: Pending]', '')
                   .trim();
-              final updatedRemarks = '$cleaned [Project Head: Rejected - $reason by $_currentProjectHeadName]'.trim();
-              final userId = ref.read(authProvider).user?.id ?? 
-                             ref.read(supabaseClientProvider).auth.currentUser?.id ?? '';
+              final updatedRemarks =
+                  '$cleaned [Project Head: Rejected - $reason by $_currentProjectHeadName]'
+                      .trim();
+              final userId = ref.read(authProvider).user?.id ??
+                  ref.read(supabaseClientProvider).auth.currentUser?.id ??
+                  '';
 
-              // First update remarks tag
-              await ref.read(stockProvider.notifier).updateTransaction(tx.copyWith(remarks: updatedRemarks));
-
-              // Call rejectTransaction to properly mark status='rejected'
-              final ok = await ref.read(stockProvider.notifier).rejectTransaction(tx.id!, userId, reason);
+              // Persist rejection status and its note in one operation.
+              final ok = await ref
+                  .read(stockProvider.notifier)
+                  .rejectTransaction(tx.id!, userId, reason,
+                      remarks: updatedRemarks);
               if (mounted) {
                 final err = ref.read(stockProvider).error;
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text(ok ? 'Stock entry rejected.' : 'Failed to reject${err != null ? ": $err" : ""}'),
+                    content: Text(ok
+                        ? 'Stock entry rejected.'
+                        : 'Failed to reject${err != null ? ": $err" : ""}'),
                     backgroundColor: ok ? AppColors.rejected : Colors.grey,
                   ),
                 );
@@ -1826,7 +2084,8 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.surfaceDark,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Delete Stock Entry', style: TextStyle(color: Colors.white)),
+        title: const Text('Delete Stock Entry',
+            style: TextStyle(color: Colors.white)),
         content: Text(
           'Are you sure you want to permanently remove this stock entry for ${tx.displayProductName}?',
           style: const TextStyle(color: AppColors.textSecondary),
@@ -1837,7 +2096,8 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.rejected),
+            style:
+                ElevatedButton.styleFrom(backgroundColor: AppColors.rejected),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Delete'),
           ),
@@ -1851,7 +2111,8 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(ok ? 'Stock entry removed.' : 'Failed to remove stock entry.'),
+          content: Text(
+              ok ? 'Stock entry removed.' : 'Failed to remove stock entry.'),
           backgroundColor: ok ? AppColors.approved : AppColors.rejected,
         ),
       );
@@ -1862,8 +2123,10 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
   // ─────────────────────────────────────────────────────────────
   // Actions: ATTENDANCE VERIFICATION (Project Head ➔ Admin)
   // ─────────────────────────────────────────────────────────────
-  Future<void> _approveAttendance(AttendanceRecordModel req, {required bool halfDay}) async {
-    final note = '[Project Head: Verified & Recommended ${halfDay ? "Half Day" : "Present"} by $_currentProjectHeadName]';
+  Future<void> _approveAttendance(AttendanceRecordModel req,
+      {required bool halfDay}) async {
+    final note =
+        '[Project Head: Verified & Recommended ${halfDay ? "Half Day" : "Present"} by $_currentProjectHeadName]';
 
     try {
       await ref.read(attendanceServiceProvider).reviewRegularizationRequest(
@@ -1877,7 +2140,8 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Attendance verified & forwarded to Admin (${halfDay ? "Half Day" : "Full Day"})'),
+            content: Text(
+                'Attendance verified & forwarded to Admin (${halfDay ? "Half Day" : "Full Day"})'),
             backgroundColor: const Color(0xFF14B8A6),
           ),
         );
@@ -1886,7 +2150,8 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.rejected),
+          SnackBar(
+              content: Text('Error: $e'), backgroundColor: AppColors.rejected),
         );
       }
     }
@@ -1900,7 +2165,8 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.surfaceDark,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Reject Regularization', style: TextStyle(color: Colors.white)),
+        title: const Text('Reject Regularization',
+            style: TextStyle(color: Colors.white)),
         content: TextField(
           controller: noteController,
           style: const TextStyle(color: Colors.white),
@@ -1910,29 +2176,38 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.rejected),
+            style:
+                ElevatedButton.styleFrom(backgroundColor: AppColors.rejected),
             onPressed: () async {
               Navigator.pop(ctx);
               try {
-                await ref.read(attendanceServiceProvider).reviewRegularizationRequest(
+                await ref
+                    .read(attendanceServiceProvider)
+                    .reviewRegularizationRequest(
                       attendanceId: req.id,
                       approve: false,
-                      note: '[Project Head: Rejected - ${noteController.text.trim()} by $_currentProjectHeadName]',
+                      note:
+                          '[Project Head: Rejected - ${noteController.text.trim()} by $_currentProjectHeadName]',
                       reviewedBy: 'Project Head: $_currentProjectHeadName',
                     );
 
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Regularization request rejected.'), backgroundColor: AppColors.rejected),
+                    const SnackBar(
+                        content: Text('Regularization request rejected.'),
+                        backgroundColor: AppColors.rejected),
                   );
                   _refreshAllData();
                 }
               } catch (e) {
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.rejected),
+                    SnackBar(
+                        content: Text('Error: $e'),
+                        backgroundColor: AppColors.rejected),
                   );
                 }
               }
@@ -1949,12 +2224,14 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
   // ─────────────────────────────────────────────────────────────
   Future<void> _approveReport(DailySiteReportModel r) async {
     final cleaned = (r.remarks ?? '')
+        .replaceAll('[PENDING SUPERVISOR REVIEW]', '')
         .replaceAll('[Project Head Review: Pending]', '')
         .replaceAll('[Project Head: Review Pending]', '')
         .replaceAll('[Supervisor Review: Pending]', '')
         .replaceAll('[Supervisor: Review Pending]', '')
         .trim();
-    final updatedRemarks = '$cleaned [Project Head: Approved by $_currentProjectHeadName]'.trim();
+    final updatedRemarks =
+        '$cleaned [Project Head: Approved by $_currentProjectHeadName]'.trim();
     final updated = r.copyWith(remarks: updatedRemarks);
 
     await ref.read(siteReportServiceProvider).saveReport(updated);
@@ -1965,7 +2242,8 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Daily site report verified & approved! Forwarded to Admin.'),
+          content: Text(
+              'Daily site report verified & approved! Forwarded to Admin.'),
           backgroundColor: AppColors.approved,
         ),
       );
@@ -1980,31 +2258,38 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.surfaceDark,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Reject Daily Site Report', style: TextStyle(color: Colors.white)),
+        title: const Text('Reject Daily Site Report',
+            style: TextStyle(color: Colors.white)),
         content: TextField(
           controller: reasonController,
           style: const TextStyle(color: Colors.white),
           decoration: const InputDecoration(
             labelText: 'Reason for rejection *',
-            hintText: 'e.g. Work quantities incomplete, missing mandatory photo evidence',
+            hintText:
+                'e.g. Work quantities incomplete, missing mandatory photo evidence',
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.rejected),
+            style:
+                ElevatedButton.styleFrom(backgroundColor: AppColors.rejected),
             onPressed: () async {
               if (reasonController.text.trim().isEmpty) return;
               Navigator.pop(ctx);
 
               final reason = reasonController.text.trim();
               final cleaned = (r.remarks ?? '')
+                  .replaceAll('[PENDING SUPERVISOR REVIEW]', '')
                   .replaceAll('[Project Head Review: Pending]', '')
                   .replaceAll('[Project Head: Review Pending]', '')
                   .replaceAll('[Supervisor Review: Pending]', '')
                   .replaceAll('[Supervisor: Review Pending]', '')
                   .trim();
-              final updatedRemarks = '$cleaned [Project Head: Rejected - $reason by $_currentProjectHeadName]'.trim();
+              final updatedRemarks =
+                  '$cleaned [Project Head: Rejected - $reason by $_currentProjectHeadName]'
+                      .trim();
               final updated = r.copyWith(remarks: updatedRemarks);
 
               await ref.read(siteReportServiceProvider).saveReport(updated);
@@ -2014,7 +2299,9 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
               _refreshAllData();
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Report marked rejected.'), backgroundColor: AppColors.rejected),
+                  const SnackBar(
+                      content: Text('Report marked rejected.'),
+                      backgroundColor: AppColors.rejected),
                 );
               }
             },
@@ -2037,9 +2324,11 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
           style: TextStyle(color: Colors.white70),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.rejected),
+            style:
+                ElevatedButton.styleFrom(backgroundColor: AppColors.rejected),
             onPressed: () async {
               Navigator.pop(ctx);
               await ref.read(authProvider.notifier).signOut();

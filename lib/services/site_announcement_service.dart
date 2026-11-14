@@ -1,10 +1,9 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
+import 'submission_support.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 import '../models/site_announcement_model.dart';
-import '../core/constants/supabase_constants.dart';
 
 /// Resilient service for broadcasting announcements to all staff.
 /// Multi-layered persistence: Primary `site_announcements` table -> Resilient `tasks` table -> Local `SharedPreferences`.
@@ -16,11 +15,7 @@ class SiteAnnouncementService {
   static const _defaultOfficeSiteId = 'bdb1478e-4fa9-4873-9804-864b0952fa4d';
 
   SiteAnnouncementService([SupabaseClient? client])
-      : _client = client ??
-            SupabaseClient(
-              SupabaseConstants.supabaseUrl,
-              SupabaseConstants.supabaseServiceRoleKey,
-            );
+      : _client = client ?? Supabase.instance.client;
 
   /// Fetch active broadcast announcements
   Future<List<SiteAnnouncementModel>> getAnnouncements() async {
@@ -56,7 +51,8 @@ class SiteAnnouncementService {
   }
 
   /// Create a new broadcast announcement (simplified: broadcast to all staff)
-  Future<SiteAnnouncementModel> createAnnouncement(SiteAnnouncementModel announcement) async {
+  Future<SiteAnnouncementModel> createAnnouncement(
+      SiteAnnouncementModel announcement) async {
     final effectiveId = announcement.id.isEmpty ? _uuid.v4() : announcement.id;
     final toSave = announcement.copyWith(
       id: effectiveId,
@@ -65,26 +61,15 @@ class SiteAnnouncementService {
       isActive: true,
     );
 
-    bool savedRemotely = false;
-
-    // 1. Try primary table
+    // Never report a device-only cache entry as a company-wide broadcast.
     try {
-      final payload = toSave.toJson();
-      await _client.from('site_announcements').insert(payload);
-      savedRemotely = true;
-    } catch (e) {
-      debugPrint('[SiteAnnouncementService] Primary insert fallback: $e');
-    }
-
-    // 2. Resilient fallback to tasks table with valid site_id
-    try {
+      await _client.from('site_announcements').insert(toSave.toJson());
+    } catch (error) {
+      if (!isSchemaUnavailable(error)) rethrow;
       await _saveFallbackAnnouncement(toSave);
-      savedRemotely = true;
-    } catch (e) {
-      debugPrint('[SiteAnnouncementService] Tasks fallback notice: $e');
     }
 
-    // 3. Always update local cache so it appears immediately on device
+    // Cache only after the server acknowledges persistence.
     try {
       final current = await _getLocalCachedAnnouncements();
       final updated = [toSave, ...current.where((a) => a.id != toSave.id)];
@@ -99,16 +84,16 @@ class SiteAnnouncementService {
     try {
       await _client
           .from('site_announcements')
-          .update({'is_active': false})
-          .eq('id', id);
-    } catch (_) {}
+          .update({'is_active': false}).eq('id', id);
+    } catch (error) {
+      if (!isSchemaUnavailable(error)) rethrow;
+    }
 
     try {
-      await _client
-          .from('tasks')
-          .delete()
-          .eq('title', 'ANNOUNCEMENT:$id');
-    } catch (_) {}
+      await _client.from('tasks').delete().eq('title', 'ANNOUNCEMENT:$id');
+    } catch (error) {
+      if (!isSchemaUnavailable(error)) rethrow;
+    }
 
     try {
       final current = await _getLocalCachedAnnouncements();
@@ -133,7 +118,8 @@ class SiteAnnouncementService {
     final jsonStr = jsonEncode(model.toJson());
     final tag = 'ANNOUNCEMENT:${model.id}';
 
-    final existing = await _client.from('tasks').select('id').eq('title', tag).limit(1);
+    final existing =
+        await _client.from('tasks').select('id').eq('title', tag).limit(1);
     if ((existing as List).isNotEmpty) {
       await _client.from('tasks').update({
         'description': jsonStr,

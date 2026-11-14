@@ -79,7 +79,8 @@ class _WhisperSettingsDialogState extends State<WhisperSettingsDialog> {
     await _service.saveApiKey(_keyController.text.trim());
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Voice-to-Text settings saved successfully!')),
+        const SnackBar(
+            content: Text('Voice-to-Text settings saved successfully!')),
       );
       Navigator.pop(context);
     }
@@ -97,7 +98,9 @@ class _WhisperSettingsDialogState extends State<WhisperSettingsDialog> {
           child: _isLoading
               ? const SizedBox(
                   height: 180,
-                  child: Center(child: CircularProgressIndicator(color: AppColors.primary)),
+                  child: Center(
+                      child:
+                          CircularProgressIndicator(color: AppColors.primary)),
                 )
               : Column(
                   mainAxisSize: MainAxisSize.min,
@@ -109,10 +112,11 @@ class _WhisperSettingsDialogState extends State<WhisperSettingsDialog> {
                         Container(
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: AppColors.primary.withOpacity(0.15),
+                            color: AppColors.primary.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: const Icon(Icons.settings_voice_rounded, color: AppColors.primary),
+                          child: const Icon(Icons.settings_voice_rounded,
+                              color: AppColors.primary),
                         ),
                         const SizedBox(width: 14),
                         Expanded(
@@ -121,11 +125,13 @@ class _WhisperSettingsDialogState extends State<WhisperSettingsDialog> {
                             children: [
                               Text(
                                 'Voice-to-Text Setup',
-                                style: AppTextStyles.h4.copyWith(color: AppColors.textPrimary),
+                                style: AppTextStyles.h4
+                                    .copyWith(color: AppColors.textPrimary),
                               ),
                               Text(
                                 'Extreme-accuracy Hindi & English speech engine',
-                                style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary),
+                                style: AppTextStyles.caption
+                                    .copyWith(color: AppColors.textSecondary),
                               ),
                             ],
                           ),
@@ -156,16 +162,21 @@ class _WhisperSettingsDialogState extends State<WhisperSettingsDialog> {
                                 _keyController.text = key ?? '';
                               },
                               child: Container(
-                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 10),
                                 decoration: BoxDecoration(
-                                  color: _provider == 'groq' ? AppColors.primary : Colors.transparent,
+                                  color: _provider == 'groq'
+                                      ? AppColors.primary
+                                      : Colors.transparent,
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                                 child: Center(
                                   child: Text(
                                     'Groq Whisper (Free)',
                                     style: TextStyle(
-                                      color: _provider == 'groq' ? Colors.black : Colors.white70,
+                                      color: _provider == 'groq'
+                                          ? Colors.black
+                                          : Colors.white70,
                                       fontWeight: FontWeight.bold,
                                       fontSize: 13,
                                     ),
@@ -182,16 +193,21 @@ class _WhisperSettingsDialogState extends State<WhisperSettingsDialog> {
                                 _keyController.text = key ?? '';
                               },
                               child: Container(
-                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 10),
                                 decoration: BoxDecoration(
-                                  color: _provider == 'openai' ? AppColors.primary : Colors.transparent,
+                                  color: _provider == 'openai'
+                                      ? AppColors.primary
+                                      : Colors.transparent,
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                                 child: Center(
                                   child: Text(
                                     'OpenAI Whisper',
                                     style: TextStyle(
-                                      color: _provider == 'openai' ? Colors.black : Colors.white70,
+                                      color: _provider == 'openai'
+                                          ? Colors.black
+                                          : Colors.white70,
                                       fontWeight: FontWeight.bold,
                                       fontSize: 13,
                                     ),
@@ -221,7 +237,10 @@ class _WhisperSettingsDialogState extends State<WhisperSettingsDialog> {
                             _provider == 'groq'
                                 ? '⚡ Groq Whisper provides sub-second (~300ms) transcription and is 100% free with no credit card needed.'
                                 : '🤖 OpenAI Whisper provides standard whisper-1 transcription.',
-                            style: const TextStyle(color: Colors.white70, fontSize: 12, height: 1.4),
+                            style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 12,
+                                height: 1.4),
                           ),
                           const SizedBox(height: 6),
                           GestureDetector(
@@ -229,11 +248,13 @@ class _WhisperSettingsDialogState extends State<WhisperSettingsDialog> {
                               final url = _provider == 'groq'
                                   ? 'https://console.groq.com/keys'
                                   : 'https://platform.openai.com/api-keys';
-                              launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+                              launchUrl(Uri.parse(url),
+                                  mode: LaunchMode.externalApplication);
                             },
                             child: Row(
                               children: [
-                                const Icon(Icons.open_in_new, color: AppColors.primary, size: 14),
+                                const Icon(Icons.open_in_new,
+                                    color: AppColors.primary, size: 14),
                                 const SizedBox(width: 6),
                                 Text(
                                   _provider == 'groq'
@@ -258,7 +279,8 @@ class _WhisperSettingsDialogState extends State<WhisperSettingsDialog> {
                     // API Key Field
                     Text(
                       '${_provider.toUpperCase()} API KEY',
-                      style: AppTextStyles.overline.copyWith(color: AppColors.textTertiary),
+                      style: AppTextStyles.overline
+                          .copyWith(color: AppColors.textTertiary),
                     ),
                     const SizedBox(height: 6),
                     TextField(
@@ -270,18 +292,23 @@ class _WhisperSettingsDialogState extends State<WhisperSettingsDialog> {
                         hintStyle: const TextStyle(color: Colors.white30),
                         filled: true,
                         fillColor: AppColors.cardDark,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 12),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: AppColors.divider),
+                          borderSide:
+                              const BorderSide(color: AppColors.divider),
                         ),
                         suffixIcon: IconButton(
                           icon: Icon(
-                            _obscureText ? Icons.visibility_off : Icons.visibility,
+                            _obscureText
+                                ? Icons.visibility_off
+                                : Icons.visibility,
                             color: Colors.white54,
                             size: 18,
                           ),
-                          onPressed: () => setState(() => _obscureText = !_obscureText),
+                          onPressed: () =>
+                              setState(() => _obscureText = !_obscureText),
                         ),
                       ),
                     ),
@@ -292,7 +319,9 @@ class _WhisperSettingsDialogState extends State<WhisperSettingsDialog> {
                         children: [
                           Icon(
                             _testSuccess ? Icons.check_circle : Icons.error,
-                            color: _testSuccess ? AppColors.approved : AppColors.rejected,
+                            color: _testSuccess
+                                ? AppColors.approved
+                                : AppColors.rejected,
                             size: 16,
                           ),
                           const SizedBox(width: 8),
@@ -300,7 +329,9 @@ class _WhisperSettingsDialogState extends State<WhisperSettingsDialog> {
                             child: Text(
                               _testMessage!,
                               style: TextStyle(
-                                color: _testSuccess ? AppColors.approved : AppColors.rejected,
+                                color: _testSuccess
+                                    ? AppColors.approved
+                                    : AppColors.rejected,
                                 fontSize: 12,
                               ),
                             ),
@@ -318,16 +349,21 @@ class _WhisperSettingsDialogState extends State<WhisperSettingsDialog> {
                           onPressed: _isTesting ? null : _testConnection,
                           style: OutlinedButton.styleFrom(
                             side: const BorderSide(color: AppColors.divider),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10)),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 14, vertical: 12),
                           ),
                           child: _isTesting
                               ? const SizedBox(
                                   width: 16,
                                   height: 16,
-                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white70),
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2, color: Colors.white70),
                                 )
-                              : const Text('Test Connection', style: TextStyle(color: Colors.white70, fontSize: 13)),
+                              : const Text('Test Connection',
+                                  style: TextStyle(
+                                      color: Colors.white70, fontSize: 13)),
                         ),
                         const Spacer(),
                         ElevatedButton(
@@ -335,10 +371,13 @@ class _WhisperSettingsDialogState extends State<WhisperSettingsDialog> {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.primary,
                             foregroundColor: Colors.black,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10)),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 24, vertical: 12),
                           ),
-                          child: const Text('Save Settings', style: TextStyle(fontWeight: FontWeight.bold)),
+                          child: const Text('Save Settings',
+                              style: TextStyle(fontWeight: FontWeight.bold)),
                         ),
                       ],
                     ),

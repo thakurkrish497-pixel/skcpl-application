@@ -481,8 +481,10 @@ class AppStrings {
       'hi': 'हाजिरी लॉकआउट (40 मिनट से अधिक लेट)',
     },
     'lockout_msg': {
-      'en': 'You are more than 40 minutes late. Punch-in is locked until Admin approves your late arrival request.',
-      'hi': 'आप 40 मिनट से अधिक लेट हैं। जब तक एडमिन आपका अनुरोध स्वीकृत नहीं करता, हाजिरी लॉक रहेगी।',
+      'en':
+          'You are more than 40 minutes late. Punch-in is locked until Admin approves your late arrival request.',
+      'hi':
+          'आप 40 मिनट से अधिक लेट हैं। जब तक एडमिन आपका अनुरोध स्वीकृत नहीं करता, हाजिरी लॉक रहेगी।',
     },
     'request_regularization': {
       'en': 'Request Late Regularization',
@@ -721,8 +723,10 @@ class AppStrings {
       'hi': 'रिपोर्टिंग कर्मचारी (प्रस्तुतकर्ता)',
     },
     'select_reporting_staff': {
-      'en': 'Select who is entering this Daily Site Report. The approved report will be stamped with this person\'s name.',
-      'hi': 'दैनिक रिपोर्ट दर्ज करने वाले कर्मचारी को चुनें। स्वीकृत रिपोर्ट पर इस कर्मचारी का नाम दर्ज होगा।',
+      'en':
+          'Select who is entering this Daily Site Report. The approved report will be stamped with this person\'s name.',
+      'hi':
+          'दैनिक रिपोर्ट दर्ज करने वाले कर्मचारी को चुनें। स्वीकृत रिपोर्ट पर इस कर्मचारी का नाम दर्ज होगा।',
     },
     'submitted_by': {
       'en': 'Submitted by',
@@ -741,8 +745,10 @@ class AppStrings {
       'hi': 'कोई स्वीकृत रिपोर्ट नहीं',
     },
     'no_approved_reports_today': {
-      'en': 'No daily site reports have been approved by the Project Head yet today.',
-      'hi': 'आज के लिए प्रोजेक्ट हेड द्वारा अभी तक कोई दैनिक रिपोर्ट स्वीकृत नहीं की गई है।',
+      'en':
+          'No daily site reports have been approved by the Project Head yet today.',
+      'hi':
+          'आज के लिए प्रोजेक्ट हेड द्वारा अभी तक कोई दैनिक रिपोर्ट स्वीकृत नहीं की गई है।',
     },
     'view_todays_reports': {
       'en': 'View Today\'s Reports',
@@ -916,7 +922,8 @@ class AppStrings {
     // automatically registers an InheritedWidget dependency and rebuilds immediately on locale change!
     final localizationsLocale = Localizations.maybeLocaleOf(context);
     if (localizationsLocale != null) {
-      return tr(key, localizationsLocale.languageCode, defaultText: defaultText);
+      return tr(key, localizationsLocale.languageCode,
+          defaultText: defaultText);
     }
 
     // 2. Fallback to ProviderScope if Localizations is not in tree yet

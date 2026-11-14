@@ -47,3 +47,10 @@ app.*.map.json
 
 scratch/
 *.xlsx
+
+# Local release signing material and packaged builds
+*.jks
+*.keystore
+android/key.properties
+android/local.properties
+dist/

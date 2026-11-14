@@ -99,8 +99,8 @@ class _SiteStaffSelectionScreenState
                       CircleAvatar(
                         radius: 20,
                         backgroundColor: staff.isSupervisor
-                            ? AppColors.primary.withOpacity(0.2)
-                            : AppColors.secondary.withOpacity(0.2),
+                            ? AppColors.primary.withValues(alpha: 0.2)
+                            : AppColors.secondary.withValues(alpha: 0.2),
                         child: Icon(
                           staff.isSupervisor
                               ? Icons.admin_panel_settings_rounded
@@ -154,7 +154,7 @@ class _SiteStaffSelectionScreenState
                       fillColor: AppColors.cardDark,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(color: AppColors.divider),
+                        borderSide: const BorderSide(color: AppColors.divider),
                       ),
                       suffixIcon: IconButton(
                         icon: Icon(
@@ -235,8 +235,11 @@ class _SiteStaffSelectionScreenState
                         );
                       },
                       child: Text(
-                        widget.module == 'attendance' ? 'Confirm & Punch Attendance' : 'Confirm & Login',
-                        style: AppTextStyles.button.copyWith(color: Colors.white),
+                        widget.module == 'attendance'
+                            ? 'Confirm & Punch Attendance'
+                            : 'Confirm & Login',
+                        style:
+                            AppTextStyles.button.copyWith(color: Colors.white),
                       ),
                     ),
                   ),
@@ -282,7 +285,8 @@ class _SiteStaffSelectionScreenState
       setModalState(() {});
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Access Denied: ${staff.name} is not authorized for ${targetModule.displayName}.'),
+          content: Text(
+              'Access Denied: ${staff.name} is not authorized for ${targetModule.displayName}.'),
           backgroundColor: AppColors.rejected,
         ),
       );
@@ -298,7 +302,7 @@ class _SiteStaffSelectionScreenState
 
     if (mounted) {
       Navigator.pop(context); // Close bottom sheet
-      
+
       // If attendance, proceed directly to punch screen
       if (widget.module == 'attendance') {
         _proceedToModule(staff);
@@ -348,7 +352,7 @@ class _SiteStaffSelectionScreenState
                 leading: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: AppColors.primary.withOpacity(0.15),
+                    color: AppColors.primary.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Icon(Icons.fact_check_rounded,
@@ -380,7 +384,7 @@ class _SiteStaffSelectionScreenState
                 leading: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: AppColors.secondary.withOpacity(0.15),
+                    color: AppColors.secondary.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Icon(Icons.post_add_rounded,
@@ -447,7 +451,7 @@ class _SiteStaffSelectionScreenState
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      AppColors.primary.withOpacity(0.15),
+                      AppColors.primary.withValues(alpha: 0.15),
                       AppColors.cardDark,
                     ],
                     begin: Alignment.topLeft,
@@ -455,7 +459,7 @@ class _SiteStaffSelectionScreenState
                   ),
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
-                    color: AppColors.primary.withOpacity(0.3),
+                    color: AppColors.primary.withValues(alpha: 0.3),
                     width: 1,
                   ),
                 ),
@@ -602,7 +606,7 @@ class _SiteStaffSelectionScreenState
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: isSupervisor
-                ? AppColors.primary.withOpacity(0.3)
+                ? AppColors.primary.withValues(alpha: 0.3)
                 : AppColors.divider,
             width: isSupervisor ? 1.2 : 0.8,
           ),
@@ -612,8 +616,8 @@ class _SiteStaffSelectionScreenState
             CircleAvatar(
               radius: 22,
               backgroundColor: isSupervisor
-                  ? AppColors.primary.withOpacity(0.15)
-                  : AppColors.secondary.withOpacity(0.15),
+                  ? AppColors.primary.withValues(alpha: 0.15)
+                  : AppColors.secondary.withValues(alpha: 0.15),
               child: Icon(
                 isSupervisor
                     ? Icons.admin_panel_settings_rounded
@@ -642,8 +646,8 @@ class _SiteStaffSelectionScreenState
                             horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
                           color: isSupervisor
-                              ? AppColors.primary.withOpacity(0.15)
-                              : AppColors.secondary.withOpacity(0.15),
+                              ? AppColors.primary.withValues(alpha: 0.15)
+                              : AppColors.secondary.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(

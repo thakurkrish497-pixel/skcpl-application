@@ -52,7 +52,8 @@ class _NoticeBoardDialogState extends ConsumerState<NoticeBoardDialog> {
       backgroundColor: AppColors.surfaceDark,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(18),
-        side: BorderSide(color: AppColors.cardBorderDark.withValues(alpha: 0.8)),
+        side:
+            BorderSide(color: AppColors.cardBorderDark.withValues(alpha: 0.8)),
       ),
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       child: ConstrainedBox(
@@ -71,7 +72,8 @@ class _NoticeBoardDialogState extends ConsumerState<NoticeBoardDialog> {
                       color: AppColors.waveCyan.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Icon(Icons.campaign_rounded, color: AppColors.waveCyan, size: 22),
+                    child: const Icon(Icons.campaign_rounded,
+                        color: AppColors.waveCyan, size: 22),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -79,12 +81,17 @@ class _NoticeBoardDialogState extends ConsumerState<NoticeBoardDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          context.tr('notice_board', defaultText: 'SKCPL Notice Board'),
-                          style: AppTextStyles.h4.copyWith(color: AppColors.textPrimary, fontSize: 18),
+                          context.tr('notice_board',
+                              defaultText: 'SKCPL Notice Board'),
+                          style: AppTextStyles.h4.copyWith(
+                              color: AppColors.textPrimary, fontSize: 18),
                         ),
                         Text(
-                          context.tr('active_notices', defaultText: 'Official Broadcasts, Zoom Meetings & Staff Announcements'),
-                          style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary, fontSize: 11),
+                          context.tr('active_notices',
+                              defaultText:
+                                  'Official Broadcasts, Zoom Meetings & Staff Announcements'),
+                          style: AppTextStyles.bodySmall.copyWith(
+                              color: AppColors.textSecondary, fontSize: 11),
                         ),
                       ],
                     ),
@@ -98,16 +105,22 @@ class _NoticeBoardDialogState extends ConsumerState<NoticeBoardDialog> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 9),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8)),
                       ),
                       icon: const Icon(Icons.add_rounded, size: 16),
-                      label: Text(context.tr('post_notice', defaultText: 'Post Notice'), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      label: Text(
+                          context.tr('post_notice', defaultText: 'Post Notice'),
+                          style: const TextStyle(
+                              fontSize: 12, fontWeight: FontWeight.bold)),
                       onPressed: () => _showCreateAnnouncementDialog(context),
                     ),
                   const SizedBox(width: 6),
                   IconButton(
-                    icon: const Icon(Icons.close_rounded, color: AppColors.textSecondary, size: 20),
+                    icon: const Icon(Icons.close_rounded,
+                        color: AppColors.textSecondary, size: 20),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ],
@@ -120,20 +133,24 @@ class _NoticeBoardDialogState extends ConsumerState<NoticeBoardDialog> {
                   if (snapshot.data == true) return const SizedBox.shrink();
                   return Container(
                     margin: const EdgeInsets.only(top: 10, bottom: 4),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                     decoration: BoxDecoration(
                       color: AppColors.waveCyan.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppColors.waveCyan.withValues(alpha: 0.35)),
+                      border: Border.all(
+                          color: AppColors.waveCyan.withValues(alpha: 0.35)),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.phonelink_ring_rounded, color: AppColors.waveCyan, size: 18),
+                        const Icon(Icons.phonelink_ring_rounded,
+                            color: AppColors.waveCyan, size: 18),
                         const SizedBox(width: 10),
                         const Expanded(
                           child: Text(
                             'Receive instant popups on your phone & desktop for notices and Zoom meetings',
-                            style: TextStyle(color: AppColors.textPrimary, fontSize: 11.5),
+                            style: TextStyle(
+                                color: AppColors.textPrimary, fontSize: 11.5),
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -141,25 +158,32 @@ class _NoticeBoardDialogState extends ConsumerState<NoticeBoardDialog> {
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.waveCyan,
                             foregroundColor: Colors.black,
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 6),
                             minimumSize: Size.zero,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6)),
                           ),
                           onPressed: () async {
-                            final granted = await NotificationService.requestPermission();
+                            final granted =
+                                await NotificationService.requestPermission();
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
                                   content: Text(granted
                                       ? '🔔 Phone & Desktop Notifications Activated!'
                                       : '⚠️ Notification permission not granted.'),
-                                  backgroundColor: granted ? AppColors.approved : AppColors.goldAccent,
+                                  backgroundColor: granted
+                                      ? AppColors.approved
+                                      : AppColors.goldAccent,
                                 ),
                               );
                               setState(() {});
                             }
                           },
-                          child: const Text('Enable Alerts', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                          child: const Text('Enable Alerts',
+                              style: TextStyle(
+                                  fontSize: 11, fontWeight: FontWeight.bold)),
                         ),
                       ],
                     ),
@@ -174,11 +198,22 @@ class _NoticeBoardDialogState extends ConsumerState<NoticeBoardDialog> {
                 scrollDirection: Axis.horizontal,
                 child: Row(
                   children: [
-                    _buildFilterChip(context.tr('all_notices', defaultText: 'All Notices'), 'all', Icons.all_inbox_rounded),
+                    _buildFilterChip(
+                        context.tr('all_notices', defaultText: 'All Notices'),
+                        'all',
+                        Icons.all_inbox_rounded),
                     const SizedBox(width: 8),
-                    _buildFilterChip(context.tr('zoom_meetings', defaultText: 'Zoom & Meetings'), 'meeting', Icons.video_camera_front_rounded),
+                    _buildFilterChip(
+                        context.tr('zoom_meetings',
+                            defaultText: 'Zoom & Meetings'),
+                        'meeting',
+                        Icons.video_camera_front_rounded),
                     const SizedBox(width: 8),
-                    _buildFilterChip(context.tr('urgent_alerts', defaultText: 'Urgent Alerts'), 'urgent', Icons.warning_amber_rounded),
+                    _buildFilterChip(
+                        context.tr('urgent_alerts',
+                            defaultText: 'Urgent Alerts'),
+                        'urgent',
+                        Icons.warning_amber_rounded),
                   ],
                 ),
               ),
@@ -193,7 +228,8 @@ class _NoticeBoardDialogState extends ConsumerState<NoticeBoardDialog> {
                   data: (list) {
                     final filtered = list.where((a) {
                       if (_selectedFilter == 'meeting') {
-                        return a.category == AnnouncementCategory.meeting || a.hasMeetingLink;
+                        return a.category == AnnouncementCategory.meeting ||
+                            a.hasMeetingLink;
                       }
                       if (_selectedFilter == 'urgent') {
                         return a.category == AnnouncementCategory.urgent;
@@ -206,13 +242,17 @@ class _NoticeBoardDialogState extends ConsumerState<NoticeBoardDialog> {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.mark_chat_unread_outlined, size: 48, color: AppColors.textTertiary),
+                            const Icon(Icons.mark_chat_unread_outlined,
+                                size: 48, color: AppColors.textTertiary),
                             const SizedBox(height: 12),
-                            Text('No Notices Available', style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary)),
+                            Text('No Notices Available',
+                                style: AppTextStyles.bodyMedium
+                                    .copyWith(color: AppColors.textSecondary)),
                             const SizedBox(height: 4),
                             Text(
                               'When Admin, Project Head or Accounts broadcast a notice, it appears here.',
-                              style: AppTextStyles.bodySmall.copyWith(color: AppColors.textTertiary, fontSize: 11),
+                              style: AppTextStyles.bodySmall.copyWith(
+                                  color: AppColors.textTertiary, fontSize: 11),
                               textAlign: TextAlign.center,
                             ),
                           ],
@@ -223,11 +263,16 @@ class _NoticeBoardDialogState extends ConsumerState<NoticeBoardDialog> {
                     return ListView.separated(
                       itemCount: filtered.length,
                       separatorBuilder: (_, __) => const SizedBox(height: 12),
-                      itemBuilder: (ctx, i) => _buildNoticeCard(filtered[i], canPost),
+                      itemBuilder: (ctx, i) =>
+                          _buildNoticeCard(filtered[i], canPost),
                     );
                   },
-                  loading: () => const Center(child: CircularProgressIndicator(color: AppColors.waveCyan)),
-                  error: (err, _) => Center(child: Text('Error: $err', style: const TextStyle(color: AppColors.rejected))),
+                  loading: () => const Center(
+                      child:
+                          CircularProgressIndicator(color: AppColors.waveCyan)),
+                  error: (err, _) => Center(
+                      child: Text('Error: $err',
+                          style: const TextStyle(color: AppColors.rejected))),
                 ),
               ),
             ],
@@ -246,7 +291,9 @@ class _NoticeBoardDialogState extends ConsumerState<NoticeBoardDialog> {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.waveCyan.withValues(alpha: 0.18) : AppColors.cardDark,
+          color: isSelected
+              ? AppColors.waveCyan.withValues(alpha: 0.18)
+              : AppColors.cardDark,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: isSelected ? AppColors.waveCyan : AppColors.cardBorderDark,
@@ -256,14 +303,18 @@ class _NoticeBoardDialogState extends ConsumerState<NoticeBoardDialog> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 14, color: isSelected ? AppColors.waveCyan : AppColors.textSecondary),
+            Icon(icon,
+                size: 14,
+                color:
+                    isSelected ? AppColors.waveCyan : AppColors.textSecondary),
             const SizedBox(width: 6),
             Text(
               label,
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                color: isSelected ? AppColors.waveCyan : AppColors.textSecondary,
+                color:
+                    isSelected ? AppColors.waveCyan : AppColors.textSecondary,
               ),
             ),
           ],
@@ -274,7 +325,8 @@ class _NoticeBoardDialogState extends ConsumerState<NoticeBoardDialog> {
 
   Widget _buildNoticeCard(SiteAnnouncementModel notice, bool canDelete) {
     final catColor = notice.category.color;
-    final isMeeting = notice.category == AnnouncementCategory.meeting || notice.hasMeetingLink;
+    final isMeeting = notice.category == AnnouncementCategory.meeting ||
+        notice.hasMeetingLink;
 
     return Container(
       padding: const EdgeInsets.all(14),
@@ -282,7 +334,9 @@ class _NoticeBoardDialogState extends ConsumerState<NoticeBoardDialog> {
         color: AppColors.cardDark,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isMeeting ? AppColors.primary.withValues(alpha: 0.4) : AppColors.cardBorderDark,
+          color: isMeeting
+              ? AppColors.primary.withValues(alpha: 0.4)
+              : AppColors.cardBorderDark,
           width: 1,
         ),
       ),
@@ -306,7 +360,10 @@ class _NoticeBoardDialogState extends ConsumerState<NoticeBoardDialog> {
                     const SizedBox(width: 4),
                     Text(
                       notice.category.displayName,
-                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: catColor),
+                      style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: catColor),
                     ),
                   ],
                 ),
@@ -322,11 +379,15 @@ class _NoticeBoardDialogState extends ConsumerState<NoticeBoardDialog> {
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.public_rounded, size: 11, color: AppColors.waveCyan),
+                    Icon(Icons.public_rounded,
+                        size: 11, color: AppColors.waveCyan),
                     SizedBox(width: 4),
                     Text(
                       'All Staff',
-                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.waveCyan),
+                      style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.waveCyan),
                     ),
                   ],
                 ),
@@ -337,7 +398,8 @@ class _NoticeBoardDialogState extends ConsumerState<NoticeBoardDialog> {
               // Timestamp
               Text(
                 DateFormat('dd MMM, hh:mm a').format(notice.createdAt),
-                style: AppTextStyles.bodySmall.copyWith(color: AppColors.textTertiary, fontSize: 10),
+                style: AppTextStyles.bodySmall
+                    .copyWith(color: AppColors.textTertiary, fontSize: 10),
               ),
 
               if (canDelete) ...[
@@ -346,7 +408,8 @@ class _NoticeBoardDialogState extends ConsumerState<NoticeBoardDialog> {
                   onTap: () => _confirmDeleteNotice(notice),
                   child: const Padding(
                     padding: EdgeInsets.all(2),
-                    child: Icon(Icons.delete_outline, size: 16, color: AppColors.textTertiary),
+                    child: Icon(Icons.delete_outline,
+                        size: 16, color: AppColors.textTertiary),
                   ),
                 ),
               ],
@@ -370,11 +433,15 @@ class _NoticeBoardDialogState extends ConsumerState<NoticeBoardDialog> {
             const SizedBox(height: 6),
             Row(
               children: [
-                const Icon(Icons.alarm_rounded, size: 14, color: AppColors.goldAccent),
+                const Icon(Icons.alarm_rounded,
+                    size: 14, color: AppColors.goldAccent),
                 const SizedBox(width: 5),
                 Text(
                   'Meeting Time: ${DateFormat('EEE, dd MMM yyyy • hh:mm a').format(notice.scheduledAt!)}',
-                  style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: AppColors.goldAccent),
+                  style: const TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.goldAccent),
                 ),
               ],
             ),
@@ -405,7 +472,8 @@ class _NoticeBoardDialogState extends ConsumerState<NoticeBoardDialog> {
               },
               borderRadius: BorderRadius.circular(8),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
                     colors: [Color(0xFF2563EB), Color(0xFF1D4ED8)],
@@ -422,14 +490,19 @@ class _NoticeBoardDialogState extends ConsumerState<NoticeBoardDialog> {
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.video_camera_front_rounded, size: 16, color: Colors.white),
+                    Icon(Icons.video_camera_front_rounded,
+                        size: 16, color: Colors.white),
                     SizedBox(width: 6),
                     Text(
                       'Join Zoom / Video Call',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+                      style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white),
                     ),
                     SizedBox(width: 4),
-                    Icon(Icons.open_in_new_rounded, size: 13, color: Colors.white70),
+                    Icon(Icons.open_in_new_rounded,
+                        size: 13, color: Colors.white70),
                   ],
                 ),
               ),
@@ -443,11 +516,13 @@ class _NoticeBoardDialogState extends ConsumerState<NoticeBoardDialog> {
           // Footer: Author Information
           Row(
             children: [
-              const Icon(Icons.person_outline_rounded, size: 13, color: AppColors.textTertiary),
+              const Icon(Icons.person_outline_rounded,
+                  size: 13, color: AppColors.textTertiary),
               const SizedBox(width: 4),
               Text(
                 'Posted by ${notice.createdByName} (${notice.createdByRole})',
-                style: AppTextStyles.bodySmall.copyWith(fontSize: 10.5, color: AppColors.textTertiary),
+                style: AppTextStyles.bodySmall
+                    .copyWith(fontSize: 10.5, color: AppColors.textTertiary),
               ),
             ],
           ),
@@ -461,14 +536,20 @@ class _NoticeBoardDialogState extends ConsumerState<NoticeBoardDialog> {
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.surfaceDark,
-        title: const Text('Delete Notice?', style: TextStyle(color: AppColors.textPrimary)),
-        content: Text('Are you sure you want to delete "${notice.title}"?', style: const TextStyle(color: AppColors.textSecondary)),
+        title: const Text('Delete Notice?',
+            style: TextStyle(color: AppColors.textPrimary)),
+        content: Text('Are you sure you want to delete "${notice.title}"?',
+            style: const TextStyle(color: AppColors.textSecondary)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.rejected),
+            style:
+                ElevatedButton.styleFrom(backgroundColor: AppColors.rejected),
             onPressed: () {
-              ref.read(announcementsProvider.notifier).removeAnnouncement(notice.id);
+              ref
+                  .read(announcementsProvider.notifier)
+                  .removeAnnouncement(notice.id);
               Navigator.pop(ctx);
             },
             child: const Text('Delete', style: TextStyle(color: Colors.white)),
@@ -542,16 +623,19 @@ class _CreateAnnouncementDialogState
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.campaign_rounded, color: AppColors.waveCyan, size: 22),
+                          const Icon(Icons.campaign_rounded,
+                              color: AppColors.waveCyan, size: 22),
                           const SizedBox(width: 8),
                           Text(
                             'Broadcast Notice',
-                            style: AppTextStyles.h4.copyWith(color: AppColors.textPrimary, fontSize: 17),
+                            style: AppTextStyles.h4.copyWith(
+                                color: AppColors.textPrimary, fontSize: 17),
                           ),
                         ],
                       ),
                       IconButton(
-                        icon: const Icon(Icons.close_rounded, size: 20, color: AppColors.textSecondary),
+                        icon: const Icon(Icons.close_rounded,
+                            size: 20, color: AppColors.textSecondary),
                         onPressed: () => Navigator.pop(context),
                       ),
                     ],
@@ -559,7 +643,11 @@ class _CreateAnnouncementDialogState
                   const SizedBox(height: 14),
 
                   // ── Category Selector ──
-                  const Text('Notice Type', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
+                  const Text('Notice Type',
+                      style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textSecondary)),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 8,
@@ -571,9 +659,16 @@ class _CreateAnnouncementDialogState
                         label: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(cat.icon, size: 14, color: isSelected ? Colors.white : cat.color),
+                            Icon(cat.icon,
+                                size: 14,
+                                color: isSelected ? Colors.white : cat.color),
                             const SizedBox(width: 5),
-                            Text(cat.displayName, style: TextStyle(fontSize: 11.5, color: isSelected ? Colors.white : AppColors.textPrimary)),
+                            Text(cat.displayName,
+                                style: TextStyle(
+                                    fontSize: 11.5,
+                                    color: isSelected
+                                        ? Colors.white
+                                        : AppColors.textPrimary)),
                           ],
                         ),
                         selectedColor: cat.color,
@@ -589,20 +684,26 @@ class _CreateAnnouncementDialogState
 
                   // ── Broadcast Badge ──
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     decoration: BoxDecoration(
                       color: AppColors.cardDark,
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: AppColors.waveCyan.withValues(alpha: 0.3)),
+                      border: Border.all(
+                          color: AppColors.waveCyan.withValues(alpha: 0.3)),
                     ),
                     child: const Row(
                       children: [
-                        Icon(Icons.public_rounded, size: 16, color: AppColors.waveCyan),
+                        Icon(Icons.public_rounded,
+                            size: 16, color: AppColors.waveCyan),
                         SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             'Broadcast Notice (Notifies all staff across all sites)',
-                            style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                            style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textPrimary),
                           ),
                         ),
                       ],
@@ -614,7 +715,8 @@ class _CreateAnnouncementDialogState
                   // ── Title Field ──
                   TextFormField(
                     controller: _titleController,
-                    style: const TextStyle(color: AppColors.textPrimary, fontSize: 13.5),
+                    style: const TextStyle(
+                        color: AppColors.textPrimary, fontSize: 13.5),
                     decoration: InputDecoration(
                       labelText: 'Notice Title *',
                       hintText: _category == AnnouncementCategory.meeting
@@ -622,9 +724,12 @@ class _CreateAnnouncementDialogState
                           : 'e.g. Holiday Tomorrow / Saturday Review',
                       filled: true,
                       fillColor: AppColors.cardDark,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8)),
                     ),
-                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Please enter a title' : null,
+                    validator: (v) => (v == null || v.trim().isEmpty)
+                        ? 'Please enter a title'
+                        : null,
                   ),
 
                   const SizedBox(height: 14),
@@ -633,14 +738,17 @@ class _CreateAnnouncementDialogState
                   if (_category == AnnouncementCategory.meeting) ...[
                     TextFormField(
                       controller: _linkController,
-                      style: const TextStyle(color: AppColors.textPrimary, fontSize: 13),
+                      style: const TextStyle(
+                          color: AppColors.textPrimary, fontSize: 13),
                       decoration: InputDecoration(
                         labelText: 'Zoom / Video Call Link (Optional)',
                         hintText: 'https://zoom.us/j/... or Google Meet URL',
-                        prefixIcon: const Icon(Icons.link_rounded, size: 18, color: AppColors.primary),
+                        prefixIcon: const Icon(Icons.link_rounded,
+                            size: 18, color: AppColors.primary),
                         filled: true,
                         fillColor: AppColors.cardDark,
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8)),
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -648,7 +756,8 @@ class _CreateAnnouncementDialogState
                       onTap: _pickMeetingDateTime,
                       borderRadius: BorderRadius.circular(8),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 10),
                         decoration: BoxDecoration(
                           color: AppColors.cardDark,
                           borderRadius: BorderRadius.circular(8),
@@ -656,7 +765,8 @@ class _CreateAnnouncementDialogState
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.calendar_today_rounded, size: 16, color: AppColors.goldAccent),
+                            const Icon(Icons.calendar_today_rounded,
+                                size: 16, color: AppColors.goldAccent),
                             const SizedBox(width: 8),
                             Text(
                               _scheduledAt == null
@@ -664,15 +774,21 @@ class _CreateAnnouncementDialogState
                                   : 'Scheduled: ${DateFormat('dd MMM yyyy, hh:mm a').format(_scheduledAt!)}',
                               style: TextStyle(
                                 fontSize: 12,
-                                fontWeight: _scheduledAt == null ? FontWeight.normal : FontWeight.bold,
-                                color: _scheduledAt == null ? AppColors.textSecondary : AppColors.goldAccent,
+                                fontWeight: _scheduledAt == null
+                                    ? FontWeight.normal
+                                    : FontWeight.bold,
+                                color: _scheduledAt == null
+                                    ? AppColors.textSecondary
+                                    : AppColors.goldAccent,
                               ),
                             ),
                             const Spacer(),
                             if (_scheduledAt != null)
                               InkWell(
-                                onTap: () => setState(() => _scheduledAt = null),
-                                child: const Icon(Icons.clear_rounded, size: 16, color: AppColors.textTertiary),
+                                onTap: () =>
+                                    setState(() => _scheduledAt = null),
+                                child: const Icon(Icons.clear_rounded,
+                                    size: 16, color: AppColors.textTertiary),
                               ),
                           ],
                         ),
@@ -685,15 +801,20 @@ class _CreateAnnouncementDialogState
                   TextFormField(
                     controller: _messageController,
                     maxLines: 3,
-                    style: const TextStyle(color: AppColors.textPrimary, fontSize: 13.5),
+                    style: const TextStyle(
+                        color: AppColors.textPrimary, fontSize: 13.5),
                     decoration: InputDecoration(
                       labelText: 'Notice Details / Message *',
-                      hintText: 'Enter full details, instructions or agenda for the team...',
+                      hintText:
+                          'Enter full details, instructions or agenda for the team...',
                       filled: true,
                       fillColor: AppColors.cardDark,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8)),
                     ),
-                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Please enter notice details' : null,
+                    validator: (v) => (v == null || v.trim().isEmpty)
+                        ? 'Please enter notice details'
+                        : null,
                   ),
 
                   const SizedBox(height: 20),
@@ -706,20 +827,28 @@ class _CreateAnnouncementDialogState
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
                       ),
                       icon: _isSubmitting
                           ? const SizedBox(
                               width: 18,
                               height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: Colors.white),
                             )
                           : const Icon(Icons.send_rounded, size: 18),
                       label: Text(
-                        _isSubmitting ? 'Broadcasting Notice...' : 'Broadcast Notice to All',
-                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                        _isSubmitting
+                            ? 'Broadcasting Notice...'
+                            : 'Broadcast Notice to All',
+                        style: const TextStyle(
+                            fontSize: 14, fontWeight: FontWeight.bold),
                       ),
-                      onPressed: _isSubmitting ? null : () => _submit(user?.fullName ?? user?.email, user?.role.displayName),
+                      onPressed: _isSubmitting
+                          ? null
+                          : () => _submit(user?.fullName ?? user?.email,
+                              user?.role.displayName),
                     ),
                   ),
                 ],
@@ -770,7 +899,9 @@ class _CreateAnnouncementDialogState
         category: _category,
         targetSiteId: 'all',
         targetSiteName: 'All Staff',
-        meetingLink: _linkController.text.trim().isNotEmpty ? _linkController.text.trim() : null,
+        meetingLink: _linkController.text.trim().isNotEmpty
+            ? _linkController.text.trim()
+            : null,
         scheduledAt: _scheduledAt,
         createdByName: creatorName ?? 'SKCPL Management',
         createdByRole: creatorRole ?? 'Admin',
@@ -791,7 +922,9 @@ class _CreateAnnouncementDialogState
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to publish: $e'), backgroundColor: AppColors.rejected),
+          SnackBar(
+              content: Text('Failed to publish: $e'),
+              backgroundColor: AppColors.rejected),
         );
       }
     } finally {

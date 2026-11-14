@@ -9,14 +9,16 @@ class LockedFormBanner extends StatelessWidget {
 
   const LockedFormBanner({
     super.key,
-    this.message = 'This record is under review or approved. You can no longer edit it.',
+    this.message =
+        'This record is under review or approved. You can no longer edit it.',
     this.isRejected = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final color = isRejected ? AppColors.rejected : AppColors.pending;
-    final bgColor = isRejected ? AppColors.rejectedSurface : AppColors.pendingSurface;
+    final bgColor =
+        isRejected ? AppColors.rejectedSurface : AppColors.pendingSurface;
 
     return Container(
       width: double.infinity,
@@ -25,7 +27,7 @@ class LockedFormBanner extends StatelessWidget {
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [

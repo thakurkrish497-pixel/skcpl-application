@@ -14,7 +14,8 @@ class SpeechRecognitionStub implements SpeechRecognitionBase {
     required Function() onEnd,
     required Function(String error) onError,
   }) {
-    onError('Speech recognition requires Chrome/Edge/Safari on Web or Whisper AI.');
+    onError(
+        'Speech recognition requires Chrome/Edge/Safari on Web or Whisper AI.');
   }
 
   @override

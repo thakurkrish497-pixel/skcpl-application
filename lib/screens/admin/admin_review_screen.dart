@@ -28,7 +28,8 @@ class AdminReviewScreen extends ConsumerWidget {
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.cardDark,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Reject Transaction', style: TextStyle(color: Colors.white)),
+        title: const Text('Reject Transaction',
+            style: TextStyle(color: Colors.white)),
         content: TextField(
           controller: controller,
           style: const TextStyle(color: Colors.white),
@@ -41,7 +42,8 @@ class AdminReviewScreen extends ConsumerWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel', style: TextStyle(color: AppColors.textSecondary)),
+            child: const Text('Cancel',
+                style: TextStyle(color: AppColors.textSecondary)),
           ),
           ElevatedButton(
             onPressed: () {
@@ -49,7 +51,8 @@ class AdminReviewScreen extends ConsumerWidget {
                 Navigator.pop(ctx, controller.text.trim());
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.rejected),
+            style:
+                ElevatedButton.styleFrom(backgroundColor: AppColors.rejected),
             child: const Text('Confirm Reject'),
           ),
         ],
@@ -86,304 +89,359 @@ class AdminReviewScreen extends ConsumerWidget {
             // Stock tab
             pendingStockAsync.when(
               loading: () => const Center(
-                  child:
-                      CircularProgressIndicator(color: AppColors.primary)),
+                  child: CircularProgressIndicator(color: AppColors.primary)),
               error: (e, _) => Center(child: Text('Error: $e')),
               data: (transactions) {
-                final sortedStock = [...transactions]
-                  ..sort((a, b) => (b.createdAt ?? b.date).compareTo(a.createdAt ?? a.date));
+                final sortedStock = [...transactions]..sort((a, b) =>
+                    (b.createdAt ?? b.date).compareTo(a.createdAt ?? a.date));
                 return sortedStock.isEmpty
-                  ? _emptyState('All Stock Approved')
-                  : ResponsiveContainer(
-                      maxWidth: 1000,
-                      child: ListView.separated(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: sortedStock.length,
-                        separatorBuilder: (_, __) =>
-                            const SizedBox(height: 10),
-                        itemBuilder: (context, index) {
-                          final tx = sortedStock[index];
-                          final batchSiblings = tx.batchId != null
-                              ? transactions.where((t) => t.batchId == tx.batchId).toList()
-                              : <StockTransactionModel>[];
-                          final batchCount = batchSiblings.length;
+                    ? _emptyState('All Stock Approved')
+                    : ResponsiveContainer(
+                        maxWidth: 1000,
+                        child: ListView.separated(
+                          padding: const EdgeInsets.all(16),
+                          itemCount: sortedStock.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 10),
+                          itemBuilder: (context, index) {
+                            final tx = sortedStock[index];
+                            final batchSiblings = tx.batchId != null
+                                ? transactions
+                                    .where((t) => t.batchId == tx.batchId)
+                                    .toList()
+                                : <StockTransactionModel>[];
+                            final batchCount = batchSiblings.length;
 
-                        final effectiveStockAmount = (tx.finalAmount != null && tx.finalAmount! > 0)
-                            ? tx.finalAmount!
-                            : tx.calculatedFinalAmount;
+                            final effectiveStockAmount =
+                                (tx.finalAmount != null && tx.finalAmount! > 0)
+                                    ? tx.finalAmount!
+                                    : tx.calculatedFinalAmount;
 
-                        return _AdminReviewTile(
-                          title:
-                              '${tx.type.displayName}: ${tx.displayProductName} (${tx.quantity} ${tx.displayMetricUnitName})',
-                          subtitle:
-                              '${DateFormat('dd MMM yyyy').format(tx.date)}${tx.displayVendorName != 'None' ? ' • Party: ${tx.displayVendorName}' : ''}${tx.billNo != null ? ' • Bill: #${tx.billNo}' : ''}${tx.cleanRemarks != null ? ' • ${tx.cleanRemarks}' : ''}',
-                          amount: effectiveStockAmount > 0 ? effectiveStockAmount : null,
-                          photoUrls: tx.photoUrls,
-                          submitter: tx.submitterName,
-                          supervisorNote: tx.supervisorReviewNote,
-                          batchId: tx.batchId,
-                          batchCount: batchCount,
-                          onApproveBatch: batchCount > 1 ? () async {
-                            final userId = ref.read(authProvider).user?.id ?? '';
-                            int approved = 0;
-                            for (final sTx in batchSiblings) {
-                              final success = await ref.read(stockProvider.notifier).approveByAdmin(sTx, userId);
-                              if (success) approved++;
-                            }
-                            ref.invalidate(pendingStockAdminProvider);
-                            ref.invalidate(stockOverviewProvider(tx.siteId));
-                            ref.invalidate(allSitesStockProvider);
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Approved batch ($approved items)!'),
-                                  backgroundColor: AppColors.approved,
-                                ),
-                              );
-                            }
-                          } : null,
-                          onView: () => EntryDetailDialog.show(
-                            context,
-                            stockTransaction: tx,
-                            onEdit: () async {
-                              bool? didUpdate = false;
-                              if (tx.type == TransactionType.inbound) {
-                                didUpdate = await Navigator.push<bool>(context, MaterialPageRoute(
-                                  builder: (_) => AddProductScreen(existingTransaction: tx),
-                                ));
-                              } else {
-                                didUpdate = await Navigator.push<bool>(context, MaterialPageRoute(
-                                  builder: (_) => UseProductScreen(existingTransaction: tx),
-                                ));
-                              }
-                              if (didUpdate == true) {
+                            return _AdminReviewTile(
+                              title:
+                                  '${tx.type.displayName}: ${tx.displayProductName} (${tx.quantity} ${tx.displayMetricUnitName})',
+                              subtitle:
+                                  '${DateFormat('dd MMM yyyy').format(tx.date)}${tx.displayVendorName != 'None' ? ' • Party: ${tx.displayVendorName}' : ''}${tx.billNo != null ? ' • Bill: #${tx.billNo}' : ''}${tx.cleanRemarks != null ? ' • ${tx.cleanRemarks}' : ''}',
+                              amount: effectiveStockAmount > 0
+                                  ? effectiveStockAmount
+                                  : null,
+                              photoUrls: tx.photoUrls,
+                              submitter: tx.submitterName,
+                              supervisorNote: tx.supervisorReviewNote,
+                              batchId: tx.batchId,
+                              batchCount: batchCount,
+                              onApproveBatch: batchCount > 1
+                                  ? () async {
+                                      final userId =
+                                          ref.read(authProvider).user?.id ?? '';
+                                      int approved = 0;
+                                      for (final sTx in batchSiblings) {
+                                        final success = await ref
+                                            .read(stockProvider.notifier)
+                                            .approveByAdmin(sTx, userId);
+                                        if (success) approved++;
+                                      }
+                                      ref.invalidate(pendingStockAdminProvider);
+                                      ref.invalidate(
+                                          stockOverviewProvider(tx.siteId));
+                                      ref.invalidate(allSitesStockProvider);
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                                'Approved batch ($approved items)!'),
+                                            backgroundColor: AppColors.approved,
+                                          ),
+                                        );
+                                      }
+                                    }
+                                  : null,
+                              onView: () => EntryDetailDialog.show(
+                                context,
+                                stockTransaction: tx,
+                                onEdit: () async {
+                                  bool? didUpdate = false;
+                                  if (tx.type == TransactionType.inbound) {
+                                    didUpdate = await Navigator.push<bool>(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => AddProductScreen(
+                                              existingTransaction: tx),
+                                        ));
+                                  } else {
+                                    didUpdate = await Navigator.push<bool>(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => UseProductScreen(
+                                              existingTransaction: tx),
+                                        ));
+                                  }
+                                  if (didUpdate == true) {
+                                    ref.invalidate(pendingStockAdminProvider);
+                                    ref.invalidate(
+                                        stockOverviewProvider(tx.siteId));
+                                    ref.invalidate(allSitesStockProvider);
+                                  }
+                                },
+                              ),
+                              onApprove: () async {
+                                final userId =
+                                    ref.read(authProvider).user?.id ?? '';
+                                final success = await ref
+                                    .read(stockProvider.notifier)
+                                    .approveByAdmin(tx, userId);
                                 ref.invalidate(pendingStockAdminProvider);
-                                ref.invalidate(stockOverviewProvider(tx.siteId));
+                                ref.invalidate(
+                                    stockOverviewProvider(tx.siteId));
                                 ref.invalidate(allSitesStockProvider);
-                              }
-                            },
-                          ),
-                          onApprove: () async {
-                            final userId =
-                                ref.read(authProvider).user?.id ?? '';
-                            final success = await ref
-                                .read(stockProvider.notifier)
-                                .approveByAdmin(tx, userId);
-                            ref.invalidate(pendingStockAdminProvider);
-                            ref.invalidate(stockOverviewProvider(tx.siteId));
-                            ref.invalidate(allSitesStockProvider);
-                            if (!context.mounted) return;
-                            if (success) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                      'Approved! Record permanently locked.'),
-                                  backgroundColor: AppColors.approved,
-                                ),
-                              );
-                            } else {
-                              final err = ref.read(stockProvider).error;
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Approval failed: ${err ?? "Please try again."}'),
-                                  backgroundColor: AppColors.rejected,
-                                ),
-                              );
-                            }
+                                if (!context.mounted) return;
+                                if (success) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                          'Approved! Record permanently locked.'),
+                                      backgroundColor: AppColors.approved,
+                                    ),
+                                  );
+                                } else {
+                                  final err = ref.read(stockProvider).error;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                          'Approval failed: ${err ?? "Please try again."}'),
+                                      backgroundColor: AppColors.rejected,
+                                    ),
+                                  );
+                                }
+                              },
+                              onReject: () async {
+                                final note =
+                                    await _showRejectionDialog(context);
+                                if (note == null || note.isEmpty) return;
+                                final userId =
+                                    ref.read(authProvider).user?.id ?? '';
+                                final success = await ref
+                                    .read(stockProvider.notifier)
+                                    .rejectTransaction(tx.id!, userId, note);
+                                ref.invalidate(pendingStockAdminProvider);
+                                ref.invalidate(
+                                    stockOverviewProvider(tx.siteId));
+                                ref.invalidate(allSitesStockProvider);
+                                if (!context.mounted) return;
+                                if (success) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Stock entry rejected.'),
+                                      backgroundColor: AppColors.rejected,
+                                    ),
+                                  );
+                                } else {
+                                  final err = ref.read(stockProvider).error;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                          'Rejection failed: ${err ?? "Please try again."}'),
+                                      backgroundColor: AppColors.rejected,
+                                    ),
+                                  );
+                                }
+                              },
+                              onEdit: () async {
+                                bool? didUpdate = false;
+                                if (tx.type == TransactionType.inbound) {
+                                  didUpdate = await Navigator.push<bool>(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => AddProductScreen(
+                                            existingTransaction: tx),
+                                      ));
+                                } else {
+                                  didUpdate = await Navigator.push<bool>(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => UseProductScreen(
+                                            existingTransaction: tx),
+                                      ));
+                                }
+                                if (didUpdate == true) {
+                                  ref.invalidate(pendingStockAdminProvider);
+                                  ref.invalidate(
+                                      stockOverviewProvider(tx.siteId));
+                                  ref.invalidate(allSitesStockProvider);
+                                }
+                              },
+                            );
                           },
-                          onReject: () async {
-                            final note = await _showRejectionDialog(context);
-                            if (note == null || note.isEmpty) return;
-                            final userId =
-                                ref.read(authProvider).user?.id ?? '';
-                            final success = await ref
-                                .read(stockProvider.notifier)
-                                .rejectTransaction(
-                                    tx.id!, userId, note);
-                            ref.invalidate(pendingStockAdminProvider);
-                            ref.invalidate(stockOverviewProvider(tx.siteId));
-                            ref.invalidate(allSitesStockProvider);
-                            if (!context.mounted) return;
-                            if (success) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Stock entry rejected.'),
-                                  backgroundColor: AppColors.rejected,
-                                ),
-                              );
-                            } else {
-                              final err = ref.read(stockProvider).error;
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Rejection failed: ${err ?? "Please try again."}'),
-                                  backgroundColor: AppColors.rejected,
-                                ),
-                              );
-                            }
-                          },
-                          onEdit: () async {
-                            bool? didUpdate = false;
-                            if (tx.type == TransactionType.inbound) {
-                              didUpdate = await Navigator.push<bool>(context, MaterialPageRoute(
-                                builder: (_) => AddProductScreen(existingTransaction: tx),
-                              ));
-                            } else {
-                              didUpdate = await Navigator.push<bool>(context, MaterialPageRoute(
-                                builder: (_) => UseProductScreen(existingTransaction: tx),
-                              ));
-                            }
-                            if (didUpdate == true) {
-                              ref.invalidate(pendingStockAdminProvider);
-                              ref.invalidate(stockOverviewProvider(tx.siteId));
-                              ref.invalidate(allSitesStockProvider);
-                            }
-                          },
-                        );
-                      },
-                    ),
-                  );
+                        ),
+                      );
               },
             ),
 
             // Cash tab
             pendingCashAsync.when(
               loading: () => const Center(
-                  child:
-                      CircularProgressIndicator(color: AppColors.primary)),
+                  child: CircularProgressIndicator(color: AppColors.primary)),
               error: (e, _) => Center(child: Text('Error: $e')),
               data: (transactions) {
-                final sortedCash = [...transactions]
-                  ..sort((a, b) => (b.createdAt ?? b.date).compareTo(a.createdAt ?? a.date));
+                final sortedCash = [...transactions]..sort((a, b) =>
+                    (b.createdAt ?? b.date).compareTo(a.createdAt ?? a.date));
                 return sortedCash.isEmpty
-                  ? _emptyState('All Cash Approved')
-                  : ResponsiveContainer(
-                      maxWidth: 1000,
-                      child: ListView.separated(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: sortedCash.length,
-                        separatorBuilder: (_, __) =>
-                            const SizedBox(height: 10),
-                        itemBuilder: (context, index) {
-                        final tx = sortedCash[index];
-                        final isCashReceived = tx.amountReceived > 0 && tx.expenseAmount == 0;
-                        final batchSiblings = tx.batchId != null
-                            ? transactions.where((t) => t.batchId == tx.batchId).toList()
-                            : <CashTransactionModel>[];
-                        final batchCount = batchSiblings.length;
+                    ? _emptyState('All Cash Approved')
+                    : ResponsiveContainer(
+                        maxWidth: 1000,
+                        child: ListView.separated(
+                          padding: const EdgeInsets.all(16),
+                          itemCount: sortedCash.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 10),
+                          itemBuilder: (context, index) {
+                            final tx = sortedCash[index];
+                            final isCashReceived =
+                                tx.amountReceived > 0 && tx.expenseAmount == 0;
+                            final batchSiblings = tx.batchId != null
+                                ? transactions
+                                    .where((t) => t.batchId == tx.batchId)
+                                    .toList()
+                                : <CashTransactionModel>[];
+                            final batchCount = batchSiblings.length;
 
-                        return _AdminReviewTile(
-                          title: isCashReceived
-                              ? 'CASH RECEIVED (Top-up): ₹${NumberFormat('#,##,###').format(tx.amountReceived)}'
-                              : '${tx.displayExpenseTypeName}: ₹${NumberFormat('#,##,###').format(tx.expenseAmount)}',
-                          subtitle: isCashReceived
-                              ? 'From: ${tx.customExpenseType ?? (tx.partyName ?? "Office")} • ${DateFormat('dd MMM yyyy').format(tx.date)}${tx.billNo != null ? ' • Ref: #${tx.billNo}' : ''}${tx.cleanRemarks != null ? ' • ${tx.cleanRemarks}' : ''}'
-                              : '${DateFormat('dd MMM yyyy').format(tx.date)}${tx.partyName != null ? ' • Party: ${tx.partyName}' : ''}${tx.billNo != null ? ' • Bill: #${tx.billNo}' : ''}${tx.cleanRemarks != null ? ' • ${tx.cleanRemarks}' : ''}',
-                          amount: isCashReceived ? tx.amountReceived : tx.expenseAmount,
-                          photoUrls: tx.photoUrls,
-                          submitter: tx.submitterName,
-                          supervisorNote: tx.supervisorReviewNote,
-                          batchId: tx.batchId,
-                          batchCount: batchCount,
-                          onApproveBatch: batchCount > 1 ? () async {
-                            final userId = ref.read(authProvider).user?.id ?? '';
-                            int approved = 0;
-                            for (final cTx in batchSiblings) {
-                              final success = await ref.read(cashProvider.notifier).approveByAdmin(cTx.id!, userId);
-                              if (success) approved++;
-                            }
-                            ref.invalidate(pendingCashAdminProvider);
-                            ref.invalidate(siteCashSummaryProvider(tx.siteId));
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Approved batch ($approved cash entries)!'),
-                                  backgroundColor: AppColors.approved,
-                                ),
-                              );
-                            }
-                          } : null,
-                          onView: () => EntryDetailDialog.show(
-                            context,
-                            cashTransaction: tx,
-                            onEdit: () async {
-                              final didUpdate = await Navigator.push<bool>(context, MaterialPageRoute(
-                                builder: (_) => ExpenseFormScreen(existingTransaction: tx),
-                              ));
-                              if (didUpdate == true) {
+                            return _AdminReviewTile(
+                              title: isCashReceived
+                                  ? 'CASH RECEIVED (Top-up): ₹${NumberFormat('#,##,###').format(tx.amountReceived)}'
+                                  : '${tx.displayExpenseTypeName}: ₹${NumberFormat('#,##,###').format(tx.expenseAmount)}',
+                              subtitle: isCashReceived
+                                  ? 'From: ${tx.customExpenseType ?? (tx.partyName ?? "Office")} • ${DateFormat('dd MMM yyyy').format(tx.date)}${tx.billNo != null ? ' • Ref: #${tx.billNo}' : ''}${tx.cleanRemarks != null ? ' • ${tx.cleanRemarks}' : ''}'
+                                  : '${DateFormat('dd MMM yyyy').format(tx.date)}${tx.partyName != null ? ' • Party: ${tx.partyName}' : ''}${tx.billNo != null ? ' • Bill: #${tx.billNo}' : ''}${tx.cleanRemarks != null ? ' • ${tx.cleanRemarks}' : ''}',
+                              amount: isCashReceived
+                                  ? tx.amountReceived
+                                  : tx.expenseAmount,
+                              photoUrls: tx.photoUrls,
+                              submitter: tx.submitterName,
+                              supervisorNote: tx.supervisorReviewNote,
+                              batchId: tx.batchId,
+                              batchCount: batchCount,
+                              onApproveBatch: batchCount > 1
+                                  ? () async {
+                                      final userId =
+                                          ref.read(authProvider).user?.id ?? '';
+                                      int approved = 0;
+                                      for (final cTx in batchSiblings) {
+                                        final success = await ref
+                                            .read(cashProvider.notifier)
+                                            .approveByAdmin(cTx.id!, userId);
+                                        if (success) approved++;
+                                      }
+                                      ref.invalidate(pendingCashAdminProvider);
+                                      ref.invalidate(
+                                          siteCashSummaryProvider(tx.siteId));
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          SnackBar(
+                                            content: Text(
+                                                'Approved batch ($approved cash entries)!'),
+                                            backgroundColor: AppColors.approved,
+                                          ),
+                                        );
+                                      }
+                                    }
+                                  : null,
+                              onView: () => EntryDetailDialog.show(
+                                context,
+                                cashTransaction: tx,
+                                onEdit: () async {
+                                  final didUpdate = await Navigator.push<bool>(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => ExpenseFormScreen(
+                                            existingTransaction: tx),
+                                      ));
+                                  if (didUpdate == true) {
+                                    ref.invalidate(pendingCashAdminProvider);
+                                    ref.invalidate(
+                                        siteCashSummaryProvider(tx.siteId));
+                                  }
+                                },
+                              ),
+                              onApprove: () async {
+                                final userId =
+                                    ref.read(authProvider).user?.id ?? '';
+                                final success = await ref
+                                    .read(cashProvider.notifier)
+                                    .approveByAdmin(tx.id!, userId);
                                 ref.invalidate(pendingCashAdminProvider);
-                                ref.invalidate(siteCashSummaryProvider(tx.siteId));
-                              }
-                            },
-                          ),
-                          onApprove: () async {
-                            final userId =
-                                ref.read(authProvider).user?.id ?? '';
-                            final success = await ref
-                                .read(cashProvider.notifier)
-                                .approveByAdmin(tx.id!, userId);
-                            ref.invalidate(pendingCashAdminProvider);
-                            ref.invalidate(siteCashSummaryProvider(tx.siteId));
-                            if (!context.mounted) return;
-                            if (success) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                      'Approved! Record permanently locked.'),
-                                  backgroundColor: AppColors.approved,
-                                ),
-                              );
-                            } else {
-                              final err = ref.read(cashProvider).error;
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Approval failed: ${err ?? "Please try again."}'),
-                                  backgroundColor: AppColors.rejected,
-                                ),
-                              );
-                            }
+                                ref.invalidate(
+                                    siteCashSummaryProvider(tx.siteId));
+                                if (!context.mounted) return;
+                                if (success) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                          'Approved! Record permanently locked.'),
+                                      backgroundColor: AppColors.approved,
+                                    ),
+                                  );
+                                } else {
+                                  final err = ref.read(cashProvider).error;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                          'Approval failed: ${err ?? "Please try again."}'),
+                                      backgroundColor: AppColors.rejected,
+                                    ),
+                                  );
+                                }
+                              },
+                              onReject: () async {
+                                final note =
+                                    await _showRejectionDialog(context);
+                                if (note == null || note.isEmpty) return;
+                                final userId =
+                                    ref.read(authProvider).user?.id ?? '';
+                                final success = await ref
+                                    .read(cashProvider.notifier)
+                                    .rejectTransaction(tx.id!, userId, note);
+                                ref.invalidate(pendingCashAdminProvider);
+                                ref.invalidate(
+                                    siteCashSummaryProvider(tx.siteId));
+                                if (!context.mounted) return;
+                                if (success) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content:
+                                          Text('Cash transaction rejected.'),
+                                      backgroundColor: AppColors.rejected,
+                                    ),
+                                  );
+                                } else {
+                                  final err = ref.read(cashProvider).error;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                          'Rejection failed: ${err ?? "Please try again."}'),
+                                      backgroundColor: AppColors.rejected,
+                                    ),
+                                  );
+                                }
+                              },
+                              onEdit: () async {
+                                final didUpdate = await Navigator.push<bool>(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => ExpenseFormScreen(
+                                          existingTransaction: tx),
+                                    ));
+                                if (didUpdate == true) {
+                                  ref.invalidate(pendingCashAdminProvider);
+                                  ref.invalidate(
+                                      siteCashSummaryProvider(tx.siteId));
+                                }
+                              },
+                            );
                           },
-                          onReject: () async {
-                            final note = await _showRejectionDialog(context);
-                            if (note == null || note.isEmpty) return;
-                            final userId =
-                                ref.read(authProvider).user?.id ?? '';
-                            final success = await ref
-                                .read(cashProvider.notifier)
-                                .rejectTransaction(
-                                    tx.id!, userId, note);
-                            ref.invalidate(pendingCashAdminProvider);
-                            ref.invalidate(siteCashSummaryProvider(tx.siteId));
-                            if (!context.mounted) return;
-                            if (success) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Cash transaction rejected.'),
-                                  backgroundColor: AppColors.rejected,
-                                ),
-                              );
-                            } else {
-                              final err = ref.read(cashProvider).error;
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Rejection failed: ${err ?? "Please try again."}'),
-                                  backgroundColor: AppColors.rejected,
-                                ),
-                              );
-                            }
-                          },
-                          onEdit: () async {
-                            final didUpdate = await Navigator.push<bool>(context, MaterialPageRoute(
-                              builder: (_) => ExpenseFormScreen(existingTransaction: tx),
-                            ));
-                            if (didUpdate == true) {
-                              ref.invalidate(pendingCashAdminProvider);
-                              ref.invalidate(siteCashSummaryProvider(tx.siteId));
-                            }
-                          },
-                        );
-                      },
-                    ),
-                  );
+                        ),
+                      );
               },
             ),
           ],
@@ -400,8 +458,7 @@ class AdminReviewScreen extends ConsumerWidget {
           const Icon(Icons.verified, color: AppColors.approved, size: 64),
           const SizedBox(height: 16),
           Text(msg,
-              style:
-                  AppTextStyles.h4.copyWith(color: AppColors.textPrimary)),
+              style: AppTextStyles.h4.copyWith(color: AppColors.textPrimary)),
         ],
       ),
     );
@@ -457,18 +514,21 @@ class _AdminReviewTile extends StatelessWidget {
             if (batchId != null && (batchCount ?? 0) > 1) ...[
               Container(
                 margin: const EdgeInsets.only(bottom: 10),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
                   color: AppColors.primary.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                  border: Border.all(
+                      color: AppColors.primary.withValues(alpha: 0.3)),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.layers_rounded, size: 14, color: AppColors.primary),
+                        const Icon(Icons.layers_rounded,
+                            size: 14, color: AppColors.primary),
                         const SizedBox(width: 6),
                         Text(
                           'Part of Batch ($batchCount items)',
@@ -484,7 +544,8 @@ class _AdminReviewTile extends StatelessWidget {
                       InkWell(
                         onTap: onApproveBatch,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
                             color: AppColors.approved,
                             borderRadius: BorderRadius.circular(6),
@@ -553,10 +614,12 @@ class _AdminReviewTile extends StatelessWidget {
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 6, vertical: 2),
                                 decoration: BoxDecoration(
-                                  color: AppColors.primary.withOpacity(0.1),
+                                  color:
+                                      AppColors.primary.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(6),
                                   border: Border.all(
-                                      color: AppColors.primary.withOpacity(0.3)),
+                                      color: AppColors.primary
+                                          .withValues(alpha: 0.3)),
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
@@ -603,8 +666,7 @@ class _AdminReviewTile extends StatelessWidget {
                 ),
               ],
             ),
-            if (photoUrls.isNotEmpty)
-              PhotoThumbnailStrip(photoUrls: photoUrls),
+            if (photoUrls.isNotEmpty) PhotoThumbnailStrip(photoUrls: photoUrls),
             const SizedBox(height: 14),
             Row(
               children: [

@@ -1,27 +1,22 @@
+import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../core/constants/supabase_constants.dart';
 import '../models/role_permissions_model.dart';
 
 /// Service managing dynamic credentials and approval powers configured by Admin
 class RoleAccessService {
   static const String _prefsKey = 'skcpl_role_permissions_config';
   static const String _supabaseConfigTag = 'CONFIG:ROLE_PERMISSIONS';
-  static const String _defaultAdminUserId = '84b7c957-e145-446a-9a31-051f2cb9b3af';
-  static const String _defaultOfficeSiteId = 'bdb1478e-4fa9-4873-9804-864b0952fa4d';
 
   final SupabaseClient _client;
-  static RolePermissionsModel? _cached;
+  RolePermissionsModel? _cached;
 
   RoleAccessService([SupabaseClient? client])
-      : _client = client ??
-            SupabaseClient(
-              SupabaseConstants.supabaseUrl,
-              SupabaseConstants.supabaseServiceRoleKey,
-            );
+      : _client = client ?? Supabase.instance.client;
 
   /// Get current role credentials and approval powers (Cloud-first so all laptops stay in sync)
-  Future<RolePermissionsModel> getPermissions({bool forceRefresh = false}) async {
+  Future<RolePermissionsModel> getPermissions(
+      {bool forceRefresh = false}) async {
     if (_cached != null && !forceRefresh) return _cached!;
 
     // 1. Try remote Supabase tasks table FIRST (cloud source of truth for all laptops)
@@ -59,50 +54,73 @@ class RoleAccessService {
     return _cached!;
   }
 
-  /// Save new role credentials and approval powers configured by Admin
+  /// Mutations require the current server policy, never an offline/default cache.
+  Future<RolePermissionsModel> getVerifiedPermissions() async {
+    final row = await _client
+        .from('tasks')
+        .select('description')
+        .eq('title', _supabaseConfigTag)
+        .order('updated_at', ascending: false)
+        .limit(1)
+        .maybeSingle();
+    if (row == null) return const RolePermissionsModel();
+    final data = jsonDecode(row['description'] as String);
+    if (data is! Map<String, dynamic>) {
+      throw StateError('Company approval policy is invalid.');
+    }
+    return RolePermissionsModel.fromJson(data);
+  }
+
+  /// A settings password does not create an Auth credential. Save policies only after server acknowledgement.
   Future<void> savePermissions(RolePermissionsModel model) async {
-    _cached = model;
+    final user = _client.auth.currentUser;
+    if (user == null) throw StateError('Admin sign-in is required.');
+    final profile = await _client
+        .from('users')
+        .select('role, is_active')
+        .eq('id', user.id)
+        .single();
+    if (profile['role'] != 'admin' || profile['is_active'] == false) {
+      throw StateError('Only active Admin accounts can change permissions.');
+    }
     final jsonStr = model.toJsonString();
-
-    // 1. Save locally
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_prefsKey, jsonStr);
-    } catch (_) {}
-
-    // 2. Save remotely in Supabase
-    try {
-      final existing = await _client
+    final existing = await _client
+        .from('tasks')
+        .select('id')
+        .eq('title', _supabaseConfigTag)
+        .limit(1)
+        .maybeSingle();
+    if (existing != null) {
+      await _client
           .from('tasks')
+          .update({'description': jsonStr})
+          .eq('id', existing['id'])
           .select('id')
-          .eq('title', _supabaseConfigTag)
-          .limit(1);
-
-      if ((existing as List).isNotEmpty) {
-        await _client
-            .from('tasks')
-            .update({'description': jsonStr})
-            .eq('id', existing.first['id']);
-      } else {
-        final anySite = await _client.from('sites').select('id').limit(1).maybeSingle();
-        final anyUser = await _client.from('users').select('id').limit(1).maybeSingle();
-        if (anySite != null && anyUser != null) {
-          await _client.from('tasks').insert({
-            'site_id': anySite['id'],
-            'created_by': anyUser['id'],
+          .single();
+    } else {
+      final site = await _client.from('sites').select('id').limit(1).single();
+      await _client
+          .from('tasks')
+          .insert({
+            'site_id': site['id'],
+            'created_by': user.id,
             'title': _supabaseConfigTag,
             'description': jsonStr,
             'status': 'completed',
-            'priority': 'high',
-          });
-        }
-      }
-    } catch (_) {}
+            'priority': 'high'
+          })
+          .select('id')
+          .single();
+    }
+    _cached = model;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_prefsKey, jsonStr);
   }
 
   Future<RolePermissionsModel> loadRolePermissions() => getPermissions();
 
-  Future<void> saveRolePermissions(RolePermissionsModel model) => savePermissions(model);
+  Future<void> saveRolePermissions(RolePermissionsModel model) =>
+      savePermissions(model);
 
   Future<void> resetToDefaults() async {
     const defaultModel = RolePermissionsModel();

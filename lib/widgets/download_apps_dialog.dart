@@ -9,13 +9,13 @@ class DownloadAppsDialog extends StatelessWidget {
   const DownloadAppsDialog({super.key});
 
   static const String androidApkUrl =
-      'https://github.com/thakurkrish497-pixel/skcpl-application/releases/download/v1.0.0/SKCPL-Android.apk';
+      'https://github.com/thakurkrish497-pixel/skcpl-application/releases/latest/download/SKCPL-Android.apk';
   static const String windowsZipUrl =
-      'https://github.com/thakurkrish497-pixel/skcpl-application/releases/download/v1.0.0/SKCPL-Windows-x64.zip';
+      'https://github.com/thakurkrish497-pixel/skcpl-application/releases/latest/download/SKCPL-Windows-x64.zip';
   static const String macOsZipUrl =
-      'https://github.com/thakurkrish497-pixel/skcpl-application/releases/download/v1.0.0/SKCPL-macOS.zip';
+      'https://github.com/thakurkrish497-pixel/skcpl-application/releases/latest/download/SKCPL-macOS.zip';
   static const String releasesPageUrl =
-      'https://github.com/thakurkrish497-pixel/skcpl-application/releases/tag/v1.0.0';
+      'https://github.com/thakurkrish497-pixel/skcpl-application/releases/latest';
 
   static void show(BuildContext context) {
     showDialog(
@@ -46,11 +46,15 @@ class DownloadAppsDialog extends StatelessWidget {
               children: [
                 const Text(
                   'Download SKCPL Apps',
-                  style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold),
                 ),
                 Text(
                   'Native apps for Phones & Laptops',
-                  style: AppTextStyles.caption.copyWith(color: AppColors.textSecondary, fontSize: 11),
+                  style: AppTextStyles.caption
+                      .copyWith(color: AppColors.textSecondary, fontSize: 11),
                 ),
               ],
             ),
@@ -73,12 +77,14 @@ class DownloadAppsDialog extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.cloud_done_rounded, color: AppColors.approved, size: 20),
+                    const Icon(Icons.cloud_done_rounded,
+                        color: AppColors.approved, size: 20),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'All your data (sites, expenses, attendance, stock) is synced securely in the cloud. Updating or switching devices never loses your data!',
-                        style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary, fontSize: 11),
+                        'Sync pending entries before updating or switching devices. Locally saved drafts stay on the device where they were entered.',
+                        style: AppTextStyles.bodySmall.copyWith(
+                            color: AppColors.textSecondary, fontSize: 11),
                       ),
                     ),
                   ],
@@ -91,7 +97,8 @@ class DownloadAppsDialog extends StatelessWidget {
                 icon: Icons.android_rounded,
                 iconColor: const Color(0xFF3DDC84),
                 title: 'Android Phone (APK)',
-                subtitle: 'Direct installer for Samsung, OnePlus, Vivo, Xiaomi, etc.',
+                subtitle:
+                    'Direct installer for Samsung, OnePlus, Vivo, Xiaomi, etc.',
                 buttonLabel: 'Download APK',
                 onPressed: () => _launchUrl(androidApkUrl),
               ),
@@ -102,7 +109,8 @@ class DownloadAppsDialog extends StatelessWidget {
                 icon: Icons.laptop_windows_rounded,
                 iconColor: const Color(0xFF00ADEF),
                 title: 'Windows Laptop (64-bit)',
-                subtitle: 'Standalone executable (.exe) in ZIP — no installer needed',
+                subtitle:
+                    'Standalone executable (.exe) in ZIP — no installer needed',
                 buttonLabel: 'Download ZIP',
                 onPressed: () => _launchUrl(windowsZipUrl),
               ),
@@ -113,21 +121,12 @@ class DownloadAppsDialog extends StatelessWidget {
                 icon: Icons.laptop_mac_rounded,
                 iconColor: Colors.white,
                 title: 'Mac Laptop (macOS)',
-                subtitle: 'Native macOS .app bundle for Apple Silicon & Intel Macs',
+                subtitle:
+                    'Native macOS .app bundle for Apple Silicon & Intel Macs',
                 buttonLabel: 'Download App',
                 onPressed: () => _launchUrl(macOsZipUrl),
               ),
               const SizedBox(height: 10),
-
-              // ── 4. iPhones (iOS) ──
-              _buildDownloadTile(
-                icon: Icons.apple_rounded,
-                iconColor: AppColors.goldAccent,
-                title: 'Apple iPhone (iOS)',
-                subtitle: 'Install via Xcode USB or company TestFlight deployment',
-                buttonLabel: 'View Guide',
-                onPressed: () => _launchUrl(releasesPageUrl),
-              ),
             ],
           ),
         ),
@@ -140,7 +139,8 @@ class DownloadAppsDialog extends StatelessWidget {
         ElevatedButton.icon(
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.primary,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
           icon: const Icon(Icons.open_in_new_rounded, size: 14),
           label: const Text('GitHub Releases Page'),
@@ -179,12 +179,16 @@ class DownloadAppsDialog extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   subtitle,
-                  style: AppTextStyles.caption.copyWith(color: AppColors.textTertiary, fontSize: 10),
+                  style: AppTextStyles.caption
+                      .copyWith(color: AppColors.textTertiary, fontSize: 10),
                 ),
               ],
             ),
@@ -203,11 +207,12 @@ class DownloadAppsDialog extends StatelessWidget {
               ),
             ),
             onPressed: onPressed,
-            child: Text(buttonLabel, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+            child: Text(buttonLabel,
+                style:
+                    const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
     );
   }
 }
-

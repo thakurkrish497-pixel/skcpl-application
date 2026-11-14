@@ -25,15 +25,22 @@ class AdminCashflowScreen extends ConsumerWidget {
           if (sites.isEmpty) {
             return const Center(child: Text('No active sites found.'));
           }
-          
-          return ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemCount: sites.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 16),
-            itemBuilder: (context, index) {
-              final site = sites[index];
-              return _SiteCashflowCard(site: site).animate().fadeIn(delay: Duration(milliseconds: 50 * index));
-            },
+
+          return Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 1000),
+              child: ListView.separated(
+                padding: const EdgeInsets.all(16),
+                itemCount: sites.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 16),
+                itemBuilder: (context, index) {
+                  final site = sites[index];
+                  return _SiteCashflowCard(site: site)
+                      .animate()
+                      .fadeIn(delay: Duration(milliseconds: 50 * index));
+                },
+              ),
+            ),
           );
         },
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -51,7 +58,8 @@ class _SiteCashflowCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cashSummaryAsync = ref.watch(siteCashSummaryProvider(site.id));
-    final currencyFormatter = NumberFormat.currency(symbol: '₹', decimalDigits: 0, locale: 'en_IN');
+    final currencyFormatter =
+        NumberFormat.currency(symbol: '₹', decimalDigits: 0, locale: 'en_IN');
 
     return Container(
       decoration: BoxDecoration(
@@ -65,8 +73,9 @@ class _SiteCashflowCard extends ConsumerWidget {
           // Header
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              border: Border(bottom: BorderSide(color: AppColors.divider, width: 0.5)),
+            decoration: const BoxDecoration(
+              border: Border(
+                  bottom: BorderSide(color: AppColors.divider, width: 0.5)),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -77,14 +86,16 @@ class _SiteCashflowCard extends ConsumerWidget {
                     children: [
                       Text(
                         site.name,
-                        style: AppTextStyles.h4.copyWith(color: AppColors.textPrimary),
+                        style: AppTextStyles.h4
+                            .copyWith(color: AppColors.textPrimary),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 4),
                       Text(
                         'Allocated Budget: ${currencyFormatter.format(site.allocatedBudget)}',
-                        style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary),
+                        style: AppTextStyles.bodyMedium
+                            .copyWith(color: AppColors.textSecondary),
                       ),
                     ],
                   ),
@@ -95,39 +106,48 @@ class _SiteCashflowCard extends ConsumerWidget {
                     color: AppColors.primarySurface,
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: const Icon(Icons.account_balance_wallet, color: AppColors.primary),
+                  child: const Icon(Icons.account_balance_wallet,
+                      color: AppColors.primary),
                 ),
               ],
             ),
           ),
-          
+
           // Body
           Padding(
             padding: const EdgeInsets.all(16),
             child: cashSummaryAsync.when(
               data: (summary) {
                 final double totalExpense = summary['total_expense'] ?? 0.0;
-                final double totalReceived = summary['total_received'] ?? 0.0;
                 // Cash balance logic: Usually received - expenses, but budget is allocated
                 // Total available = allocatedBudget + totalReceived (if external)
                 // Let's just show Budget vs Expenses
-                final double remainingBudget = site.allocatedBudget - totalExpense;
-                
-                final budgetProgress = site.allocatedBudget > 0 
-                    ? (totalExpense / site.allocatedBudget).clamp(0.0, 1.0) 
+                final double remainingBudget =
+                    site.allocatedBudget - totalExpense;
+
+                final budgetProgress = site.allocatedBudget > 0
+                    ? (totalExpense / site.allocatedBudget).clamp(0.0, 1.0)
                     : 0.0;
-                
-                final progressColor = budgetProgress > 0.9 ? AppColors.rejected 
-                                      : budgetProgress > 0.7 ? Colors.orange 
-                                      : AppColors.approved;
+
+                final progressColor = budgetProgress > 0.9
+                    ? AppColors.rejected
+                    : budgetProgress > 0.7
+                        ? Colors.orange
+                        : AppColors.approved;
 
                 return Column(
                   children: [
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        _StatItem(label: 'Total Expenses', value: currencyFormatter.format(totalExpense), color: AppColors.rejected),
-                        _StatItem(label: 'Remaining Budget', value: currencyFormatter.format(remainingBudget), color: progressColor),
+                        _StatItem(
+                            label: 'Total Expenses',
+                            value: currencyFormatter.format(totalExpense),
+                            color: AppColors.rejected),
+                        _StatItem(
+                            label: 'Remaining Budget',
+                            value: currencyFormatter.format(remainingBudget),
+                            color: progressColor),
                       ],
                     ),
                     const SizedBox(height: 20),
@@ -137,25 +157,33 @@ class _SiteCashflowCard extends ConsumerWidget {
                         value: budgetProgress,
                         minHeight: 8,
                         backgroundColor: AppColors.divider,
-                        valueColor: AlwaysStoppedAnimation<Color>(progressColor),
+                        valueColor:
+                            AlwaysStoppedAnimation<Color>(progressColor),
                       ),
                     ),
                     const SizedBox(height: 8),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('${(budgetProgress * 100).toStringAsFixed(1)}% Used', style: AppTextStyles.caption.copyWith(color: AppColors.textTertiary)),
-                        Text(currencyFormatter.format(site.allocatedBudget), style: AppTextStyles.caption.copyWith(color: AppColors.textTertiary)),
+                        Text(
+                            '${(budgetProgress * 100).toStringAsFixed(1)}% Used',
+                            style: AppTextStyles.caption
+                                .copyWith(color: AppColors.textTertiary)),
+                        Text(currencyFormatter.format(site.allocatedBudget),
+                            style: AppTextStyles.caption
+                                .copyWith(color: AppColors.textTertiary)),
                       ],
                     ),
                   ],
                 );
               },
-              loading: () => const Center(child: Padding(
+              loading: () => const Center(
+                  child: Padding(
                 padding: EdgeInsets.all(16.0),
                 child: CircularProgressIndicator(),
               )),
-              error: (e, _) => Text('Failed to load cashflow data: $e', style: const TextStyle(color: Colors.red)),
+              error: (e, _) => Text('Failed to load cashflow data: $e',
+                  style: const TextStyle(color: Colors.red)),
             ),
           ),
         ],
@@ -169,14 +197,17 @@ class _StatItem extends StatelessWidget {
   final String value;
   final Color color;
 
-  const _StatItem({required this.label, required this.value, required this.color});
+  const _StatItem(
+      {required this.label, required this.value, required this.color});
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: AppTextStyles.caption.copyWith(color: AppColors.textTertiary)),
+        Text(label,
+            style:
+                AppTextStyles.caption.copyWith(color: AppColors.textTertiary)),
         const SizedBox(height: 4),
         Text(value, style: AppTextStyles.h4.copyWith(color: color)),
       ],

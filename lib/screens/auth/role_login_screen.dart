@@ -85,7 +85,10 @@ class _RoleLoginScreenState extends ConsumerState<RoleLoginScreen> {
                     customSize: 84,
                     showTagline: true,
                   ),
-                ).animate().fadeIn(duration: 400.ms).scale(begin: const Offset(0.85, 0.85)),
+                )
+                    .animate()
+                    .fadeIn(duration: 400.ms)
+                    .scale(begin: const Offset(0.85, 0.85)),
 
                 const SizedBox(height: 28),
 
@@ -124,7 +127,7 @@ class _RoleLoginScreenState extends ConsumerState<RoleLoginScreen> {
                       color: AppColors.rejectedSurface,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: AppColors.rejected.withOpacity(0.3),
+                        color: AppColors.rejected.withValues(alpha: 0.3),
                       ),
                     ),
                     child: Row(
@@ -152,10 +155,10 @@ class _RoleLoginScreenState extends ConsumerState<RoleLoginScreen> {
                   style: AppTextStyles.bodyMedium.copyWith(
                     color: AppColors.textPrimary,
                   ),
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     labelText: 'Username or Email',
                     hintText: 'admin or user@skcpl.com',
-                    prefixIcon: const Icon(Icons.person_outline,
+                    prefixIcon: Icon(Icons.person_outline,
                         color: AppColors.textTertiary),
                   ),
                 ).animate().fadeIn(delay: 300.ms).slideY(begin: 0.05),
@@ -215,9 +218,12 @@ class _RoleLoginScreenState extends ConsumerState<RoleLoginScreen> {
                 OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.waveCyan,
-                    side: BorderSide(color: AppColors.waveCyan.withValues(alpha: 0.5)),
-                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    side: BorderSide(
+                        color: AppColors.waveCyan.withValues(alpha: 0.5)),
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 12, horizontal: 16),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
                   ),
                   icon: const Icon(Icons.install_mobile_rounded, size: 18),
                   label: const Text(
@@ -237,13 +243,17 @@ class _RoleLoginScreenState extends ConsumerState<RoleLoginScreen> {
                       Icon(
                         Icons.code_rounded,
                         size: 14,
-                        color: AppColors.isLight ? AppColors.primary : AppColors.waveCyan,
+                        color: AppColors.isLight
+                            ? AppColors.primary
+                            : AppColors.waveCyan,
                       ),
                       const SizedBox(width: 6),
                       Text(
                         'Made by — Krish Thakur',
                         style: AppTextStyles.caption.copyWith(
-                          color: AppColors.isLight ? AppColors.primary : AppColors.waveCyan,
+                          color: AppColors.isLight
+                              ? AppColors.primary
+                              : AppColors.waveCyan,
                           fontWeight: FontWeight.w600,
                           letterSpacing: 0.3,
                         ),

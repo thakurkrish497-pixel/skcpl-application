@@ -3,7 +3,8 @@ import 'package:skcpl_app/models/site_staff_model.dart';
 
 void main() {
   group('Site Staff Permissions & Module Access Verification', () {
-    test('Staff without stock module has hasModule(StaffModule.stock) == false', () {
+    test('Staff without stock module has hasModule(StaffModule.stock) == false',
+        () {
       final staff = SiteStaffModel(
         id: 'staff-daksh-1',
         siteId: 'site-hatpipliya',
@@ -39,7 +40,9 @@ void main() {
       expect(staff.hasModule(StaffModule.stock), isFalse);
     });
 
-    test('SiteStaffModel.fromJson preserves empty modules without injecting stock', () {
+    test(
+        'SiteStaffModel.fromJson preserves empty modules without injecting stock',
+        () {
       final json = {
         'id': 'staff-nomodules-1',
         'site_id': 'site-1',
@@ -56,7 +59,9 @@ void main() {
       expect(staff.hasModule(StaffModule.attendance), isFalse);
     });
 
-    test('SiteStaffModel.fromJson correctly parses multiple modules without stock', () {
+    test(
+        'SiteStaffModel.fromJson correctly parses multiple modules without stock',
+        () {
       final json = {
         'id': 'd8116fc6-4b30-43c0-98d7-d9058c44abe9',
         'site_id': '25f0ef60-ddb2-43fd-b82f-ead3c17a8d5c',

@@ -118,12 +118,18 @@ class _AllStaffManagementScreenState
     final nameController = TextEditingController(text: existing?.name ?? '');
     final pinController = TextEditingController(text: existing?.pin ?? '1234');
     final phoneController = TextEditingController(text: existing?.phone ?? '');
-    final empCodeController = TextEditingController(text: existing?.employeeCode ?? '');
-    final designationController = TextEditingController(text: existing?.designation ?? '');
-    final fatherNameController = TextEditingController(text: existing?.fatherName ?? '');
-    final descController = TextEditingController(text: existing?.description ?? '');
-    final aadharController = TextEditingController(text: existing?.aadharNumber ?? '');
-    final panController = TextEditingController(text: existing?.panNumber ?? '');
+    final empCodeController =
+        TextEditingController(text: existing?.employeeCode ?? '');
+    final designationController =
+        TextEditingController(text: existing?.designation ?? '');
+    final fatherNameController =
+        TextEditingController(text: existing?.fatherName ?? '');
+    final descController =
+        TextEditingController(text: existing?.description ?? '');
+    final aadharController =
+        TextEditingController(text: existing?.aadharNumber ?? '');
+    final panController =
+        TextEditingController(text: existing?.panNumber ?? '');
 
     DateTime? selectedDob = existing?.dateOfBirth;
 
@@ -160,13 +166,17 @@ class _AllStaffManagementScreenState
               ),
               const SizedBox(height: 14),
               ListTile(
-                leading: const Icon(Icons.camera_alt_rounded, color: AppColors.primary),
-                title: const Text('Take Photo with Camera', style: TextStyle(color: Colors.white)),
+                leading: const Icon(Icons.camera_alt_rounded,
+                    color: AppColors.primary),
+                title: const Text('Take Photo with Camera',
+                    style: TextStyle(color: Colors.white)),
                 onTap: () => Navigator.pop(bCtx, ImageSource.camera),
               ),
               ListTile(
-                leading: const Icon(Icons.photo_library_rounded, color: AppColors.secondary),
-                title: const Text('Choose from Gallery / Files', style: TextStyle(color: Colors.white)),
+                leading: const Icon(Icons.photo_library_rounded,
+                    color: AppColors.secondary),
+                title: const Text('Choose from Gallery / Files',
+                    style: TextStyle(color: Colors.white)),
                 onTap: () => Navigator.pop(bCtx, ImageSource.gallery),
               ),
             ],
@@ -196,7 +206,11 @@ class _AllStaffManagementScreenState
         ? existing.modules.toSet()
         : (_activeModuleFilter != null
             ? {_activeModuleFilter!}
-            : {StaffModule.attendance, StaffModule.cashbook, StaffModule.report});
+            : {
+                StaffModule.attendance,
+                StaffModule.cashbook,
+                StaffModule.report
+              });
 
     showDialog(
       context: context,
@@ -210,7 +224,8 @@ class _AllStaffManagementScreenState
 
           return AlertDialog(
             backgroundColor: AppColors.surfaceDark,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             title: Row(
               children: [
                 Icon(
@@ -234,7 +249,7 @@ class _AllStaffManagementScreenState
                     // Location / Site Dropdown
                     if (!isEditing) ...[
                       DropdownButtonFormField<String>(
-                        value: selectedSiteId,
+                        initialValue: selectedSiteId,
                         dropdownColor: AppColors.cardDark,
                         decoration: const InputDecoration(
                           labelText: 'Assigned Site / Head Office *',
@@ -246,13 +261,19 @@ class _AllStaffManagementScreenState
                             child: Row(
                               children: [
                                 Icon(
-                                  s.isHeadOffice ? Icons.apartment_rounded : Icons.construction_rounded,
+                                  s.isHeadOffice
+                                      ? Icons.apartment_rounded
+                                      : Icons.construction_rounded,
                                   size: 16,
-                                  color: s.isHeadOffice ? AppColors.primary : AppColors.secondary,
+                                  color: s.isHeadOffice
+                                      ? AppColors.primary
+                                      : AppColors.secondary,
                                 ),
                                 const SizedBox(width: 8),
                                 Text(
-                                  s.isHeadOffice ? '${s.name} (Office Attendance)' : s.name,
+                                  s.isHeadOffice
+                                      ? '${s.name} (Office Attendance)'
+                                      : s.name,
                                   style: AppTextStyles.bodyMedium,
                                 ),
                               ],
@@ -263,9 +284,13 @@ class _AllStaffManagementScreenState
                           if (val != null) {
                             setDialogState(() {
                               selectedSiteId = val;
-                              final newSite = allSites.firstWhere((s) => s.id == val);
+                              final newSite =
+                                  allSites.firstWhere((s) => s.id == val);
                               if (newSite.isHeadOffice) {
-                                selectedModules = {StaffModule.attendance, StaffModule.report};
+                                selectedModules = {
+                                  StaffModule.attendance,
+                                  StaffModule.report
+                                };
                               }
                             });
                           }
@@ -286,7 +311,6 @@ class _AllStaffManagementScreenState
                     ),
                     const SizedBox(height: 16),
 
-
                     // Multi-Module Authorization Checkboxes
                     Container(
                       padding: const EdgeInsets.all(12),
@@ -300,11 +324,13 @@ class _AllStaffManagementScreenState
                         children: [
                           Row(
                             children: [
-                              const Icon(Icons.checklist_rounded, size: 18, color: AppColors.primary),
+                              const Icon(Icons.checklist_rounded,
+                                  size: 18, color: AppColors.primary),
                               const SizedBox(width: 6),
                               Text(
                                 'Authorized Modules (Tick all that apply) *',
-                                style: AppTextStyles.bodyMedium.copyWith(fontWeight: FontWeight.bold),
+                                style: AppTextStyles.bodyMedium
+                                    .copyWith(fontWeight: FontWeight.bold),
                               ),
                             ],
                           ),
@@ -313,12 +339,15 @@ class _AllStaffManagementScreenState
                             isOffice
                                 ? 'Indore Head Office supports Attendance and Daily Work Reports.'
                                 : 'Unticked modules will hide this person from that feature\'s login list.',
-                            style: AppTextStyles.bodySmall.copyWith(color: AppColors.textTertiary, fontSize: 11),
+                            style: AppTextStyles.bodySmall.copyWith(
+                                color: AppColors.textTertiary, fontSize: 11),
                           ),
                           const Divider(height: 16),
                           ...StaffModule.values.map((mod) {
                             // If Head Office, allow attendance and daily report
-                            if (isOffice && mod != StaffModule.attendance && mod != StaffModule.report) {
+                            if (isOffice &&
+                                mod != StaffModule.attendance &&
+                                mod != StaffModule.report) {
                               return const SizedBox.shrink();
                             }
                             final isChecked = selectedModules.contains(mod);
@@ -329,8 +358,12 @@ class _AllStaffManagementScreenState
                               title: Text(
                                 mod.displayName,
                                 style: AppTextStyles.bodyMedium.copyWith(
-                                  color: isChecked ? AppColors.textPrimary : AppColors.textSecondary,
-                                  fontWeight: isChecked ? FontWeight.w600 : FontWeight.normal,
+                                  color: isChecked
+                                      ? AppColors.textPrimary
+                                      : AppColors.textSecondary,
+                                  fontWeight: isChecked
+                                      ? FontWeight.w600
+                                      : FontWeight.normal,
                                 ),
                               ),
                               value: isChecked,
@@ -358,7 +391,8 @@ class _AllStaffManagementScreenState
                       decoration: const InputDecoration(
                         labelText: 'Login Password / PIN *',
                         hintText: 'e.g. 9826011223 or ram@123',
-                        helperText: 'Admin can set letters or numbers of any length',
+                        helperText:
+                            'Admin can set letters or numbers of any length',
                         prefixIcon: Icon(Icons.lock_outline),
                       ),
                     ),
@@ -379,7 +413,8 @@ class _AllStaffManagementScreenState
                         Expanded(
                           child: TextField(
                             controller: empCodeController,
-                            style: const TextStyle(color: AppColors.textPrimary),
+                            style:
+                                const TextStyle(color: AppColors.textPrimary),
                             decoration: const InputDecoration(
                               labelText: 'Employee ID',
                               hintText: 'e.g. SK-01',
@@ -391,7 +426,8 @@ class _AllStaffManagementScreenState
                         Expanded(
                           child: TextField(
                             controller: designationController,
-                            style: const TextStyle(color: AppColors.textPrimary),
+                            style:
+                                const TextStyle(color: AppColors.textPrimary),
                             decoration: const InputDecoration(
                               labelText: 'Designation / Trade',
                               hintText: 'e.g. Senior Mason',
@@ -408,7 +444,8 @@ class _AllStaffManagementScreenState
                         Expanded(
                           child: TextField(
                             controller: fatherNameController,
-                            style: const TextStyle(color: AppColors.textPrimary),
+                            style:
+                                const TextStyle(color: AppColors.textPrimary),
                             decoration: const InputDecoration(
                               labelText: "Father's Name",
                               hintText: 'e.g. S/o Rameshwar',
@@ -421,7 +458,8 @@ class _AllStaffManagementScreenState
                           child: TextField(
                             controller: phoneController,
                             keyboardType: TextInputType.phone,
-                            style: const TextStyle(color: AppColors.textPrimary),
+                            style:
+                                const TextStyle(color: AppColors.textPrimary),
                             decoration: const InputDecoration(
                               labelText: 'Contact Phone',
                               hintText: 'e.g. 9826011223',
@@ -447,7 +485,8 @@ class _AllStaffManagementScreenState
                     // ── Verification & KYC Documents ──
                     Row(
                       children: [
-                        const Icon(Icons.verified_user_outlined, color: AppColors.waveCyan, size: 16),
+                        const Icon(Icons.verified_user_outlined,
+                            color: AppColors.waveCyan, size: 16),
                         const SizedBox(width: 6),
                         Text(
                           'Birth Date & KYC Verification Documents:',
@@ -462,7 +501,8 @@ class _AllStaffManagementScreenState
 
                     // Date of Birth Field
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 10),
                       decoration: BoxDecoration(
                         color: AppColors.cardDark,
                         borderRadius: BorderRadius.circular(10),
@@ -470,7 +510,8 @@ class _AllStaffManagementScreenState
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.cake_outlined, color: AppColors.goldAccent, size: 20),
+                          const Icon(Icons.cake_outlined,
+                              color: AppColors.goldAccent, size: 20),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Column(
@@ -478,15 +519,21 @@ class _AllStaffManagementScreenState
                               children: [
                                 const Text(
                                   'Date of Birth',
-                                  style: TextStyle(color: AppColors.textTertiary, fontSize: 10),
+                                  style: TextStyle(
+                                      color: AppColors.textTertiary,
+                                      fontSize: 10),
                                 ),
                                 Text(
                                   selectedDob != null
                                       ? '${DateFormat('dd MMM yyyy').format(selectedDob!)}${selectedDob != null ? ' (${DateTime.now().year - selectedDob!.year} yrs old)' : ''}'
                                       : 'Tap to select Birth Date',
                                   style: TextStyle(
-                                    color: selectedDob != null ? Colors.white : AppColors.textSecondary,
-                                    fontWeight: selectedDob != null ? FontWeight.bold : FontWeight.normal,
+                                    color: selectedDob != null
+                                        ? Colors.white
+                                        : AppColors.textSecondary,
+                                    fontWeight: selectedDob != null
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
                                     fontSize: 13,
                                   ),
                                 ),
@@ -495,26 +542,31 @@ class _AllStaffManagementScreenState
                           ),
                           if (selectedDob != null)
                             IconButton(
-                              icon: const Icon(Icons.clear, size: 16, color: AppColors.textTertiary),
-                              onPressed: () => setDialogState(() => selectedDob = null),
+                              icon: const Icon(Icons.clear,
+                                  size: 16, color: AppColors.textTertiary),
+                              onPressed: () =>
+                                  setDialogState(() => selectedDob = null),
                             ),
                           ElevatedButton.icon(
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppColors.surfaceDark,
                               foregroundColor: AppColors.waveCyan,
                               elevation: 0,
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 10, vertical: 6),
                               minimumSize: Size.zero,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8),
-                                side: const BorderSide(color: AppColors.divider),
+                                side:
+                                    const BorderSide(color: AppColors.divider),
                               ),
                             ),
                             onPressed: () async {
                               final now = DateTime.now();
                               final picked = await showDatePicker(
                                 context: context,
-                                initialDate: selectedDob ?? DateTime(1995, 1, 1),
+                                initialDate:
+                                    selectedDob ?? DateTime(1995, 1, 1),
                                 firstDate: DateTime(1940),
                                 lastDate: now,
                                 builder: (context, child) {
@@ -535,8 +587,10 @@ class _AllStaffManagementScreenState
                                 setDialogState(() => selectedDob = picked);
                               }
                             },
-                            icon: const Icon(Icons.calendar_month_rounded, size: 14),
-                            label: const Text('Pick Date', style: TextStyle(fontSize: 11)),
+                            icon: const Icon(Icons.calendar_month_rounded,
+                                size: 14),
+                            label: const Text('Pick Date',
+                                style: TextStyle(fontSize: 11)),
                           ),
                         ],
                       ),
@@ -556,25 +610,38 @@ class _AllStaffManagementScreenState
                         children: [
                           Row(
                             children: [
-                              const Icon(Icons.badge_outlined, color: AppColors.waveCyan, size: 18),
+                              const Icon(Icons.badge_outlined,
+                                  color: AppColors.waveCyan, size: 18),
                               const SizedBox(width: 8),
                               const Text(
                                 'Aadhar Card Details',
-                                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13),
                               ),
                               const Spacer(),
-                              if (aadharBytes != null || (currentAadharUrl != null && currentAadharUrl!.isNotEmpty))
+                              if (aadharBytes != null ||
+                                  (currentAadharUrl != null &&
+                                      currentAadharUrl!.isNotEmpty))
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(
-                                    color: AppColors.approved.withValues(alpha: 0.2),
+                                    color: AppColors.approved
+                                        .withValues(alpha: 0.2),
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: const Row(
                                     children: [
-                                      Icon(Icons.check_circle, color: AppColors.approved, size: 12),
+                                      Icon(Icons.check_circle,
+                                          color: AppColors.approved, size: 12),
                                       SizedBox(width: 4),
-                                      Text('Card Attached', style: TextStyle(color: AppColors.approved, fontSize: 10, fontWeight: FontWeight.bold)),
+                                      Text('Card Attached',
+                                          style: TextStyle(
+                                              color: AppColors.approved,
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold)),
                                     ],
                                   ),
                                 ),
@@ -584,7 +651,8 @@ class _AllStaffManagementScreenState
                           TextField(
                             controller: aadharController,
                             keyboardType: TextInputType.number,
-                            style: const TextStyle(color: AppColors.textPrimary),
+                            style:
+                                const TextStyle(color: AppColors.textPrimary),
                             decoration: const InputDecoration(
                               labelText: 'Aadhar Number (12 Digits)',
                               hintText: 'e.g. 5421 8976 1234',
@@ -598,15 +666,21 @@ class _AllStaffManagementScreenState
                               if (aadharBytes != null) ...[
                                 ClipRRect(
                                   borderRadius: BorderRadius.circular(6),
-                                  child: Image.memory(aadharBytes!, width: 44, height: 44, fit: BoxFit.cover),
+                                  child: Image.memory(aadharBytes!,
+                                      width: 44, height: 44, fit: BoxFit.cover),
                                 ),
                                 const SizedBox(width: 8),
-                              ] else if (currentAadharUrl != null && currentAadharUrl!.isNotEmpty) ...[
+                              ] else if (currentAadharUrl != null &&
+                                  currentAadharUrl!.isNotEmpty) ...[
                                 InkWell(
-                                  onTap: () => PhotoViewerDialog.show(context, [currentAadharUrl!]),
+                                  onTap: () => PhotoViewerDialog.show(
+                                      context, [currentAadharUrl!]),
                                   child: ClipRRect(
                                     borderRadius: BorderRadius.circular(6),
-                                    child: Image.network(currentAadharUrl!, width: 44, height: 44, fit: BoxFit.cover),
+                                    child: Image.network(currentAadharUrl!,
+                                        width: 44,
+                                        height: 44,
+                                        fit: BoxFit.cover),
                                   ),
                                 ),
                                 const SizedBox(width: 8),
@@ -615,9 +689,12 @@ class _AllStaffManagementScreenState
                                 child: OutlinedButton.icon(
                                   style: OutlinedButton.styleFrom(
                                     foregroundColor: AppColors.waveCyan,
-                                    side: const BorderSide(color: AppColors.waveCyan),
-                                    padding: const EdgeInsets.symmetric(vertical: 8),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                    side: const BorderSide(
+                                        color: AppColors.waveCyan),
+                                    padding:
+                                        const EdgeInsets.symmetric(vertical: 8),
+                                    shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8)),
                                   ),
                                   onPressed: () => pickDocPhoto(
                                     docCtx: context,
@@ -628,18 +705,24 @@ class _AllStaffManagementScreenState
                                       });
                                     },
                                   ),
-                                  icon: const Icon(Icons.upload_file_rounded, size: 16),
+                                  icon: const Icon(Icons.upload_file_rounded,
+                                      size: 16),
                                   label: Text(
-                                    aadharBytes != null || (currentAadharUrl != null && currentAadharUrl!.isNotEmpty)
+                                    aadharBytes != null ||
+                                            (currentAadharUrl != null &&
+                                                currentAadharUrl!.isNotEmpty)
                                         ? 'Change Aadhar Photo / Scan'
                                         : 'Attach Aadhar Card Photo / Scan',
                                     style: const TextStyle(fontSize: 11),
                                   ),
                                 ),
                               ),
-                              if (aadharBytes != null || (currentAadharUrl != null && currentAadharUrl!.isNotEmpty))
+                              if (aadharBytes != null ||
+                                  (currentAadharUrl != null &&
+                                      currentAadharUrl!.isNotEmpty))
                                 IconButton(
-                                  icon: const Icon(Icons.delete_outline, color: AppColors.rejected, size: 18),
+                                  icon: const Icon(Icons.delete_outline,
+                                      color: AppColors.rejected, size: 18),
                                   tooltip: 'Remove Card',
                                   onPressed: () => setDialogState(() {
                                     aadharBytes = null;
@@ -666,25 +749,38 @@ class _AllStaffManagementScreenState
                         children: [
                           Row(
                             children: [
-                              const Icon(Icons.credit_card_rounded, color: AppColors.goldAccent, size: 18),
+                              const Icon(Icons.credit_card_rounded,
+                                  color: AppColors.goldAccent, size: 18),
                               const SizedBox(width: 8),
                               const Text(
                                 'PAN Card Details',
-                                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                                style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13),
                               ),
                               const Spacer(),
-                              if (panBytes != null || (currentPanUrl != null && currentPanUrl!.isNotEmpty))
+                              if (panBytes != null ||
+                                  (currentPanUrl != null &&
+                                      currentPanUrl!.isNotEmpty))
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(
-                                    color: AppColors.approved.withValues(alpha: 0.2),
+                                    color: AppColors.approved
+                                        .withValues(alpha: 0.2),
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: const Row(
                                     children: [
-                                      Icon(Icons.check_circle, color: AppColors.approved, size: 12),
+                                      Icon(Icons.check_circle,
+                                          color: AppColors.approved, size: 12),
                                       SizedBox(width: 4),
-                                      Text('Card Attached', style: TextStyle(color: AppColors.approved, fontSize: 10, fontWeight: FontWeight.bold)),
+                                      Text('Card Attached',
+                                          style: TextStyle(
+                                              color: AppColors.approved,
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold)),
                                     ],
                                   ),
                                 ),
@@ -694,7 +790,8 @@ class _AllStaffManagementScreenState
                           TextField(
                             controller: panController,
                             textCapitalization: TextCapitalization.characters,
-                            style: const TextStyle(color: AppColors.textPrimary),
+                            style:
+                                const TextStyle(color: AppColors.textPrimary),
                             decoration: const InputDecoration(
                               labelText: 'PAN Number (10 Characters)',
                               hintText: 'e.g. ABCDE1234F',
@@ -708,15 +805,21 @@ class _AllStaffManagementScreenState
                               if (panBytes != null) ...[
                                 ClipRRect(
                                   borderRadius: BorderRadius.circular(6),
-                                  child: Image.memory(panBytes!, width: 44, height: 44, fit: BoxFit.cover),
+                                  child: Image.memory(panBytes!,
+                                      width: 44, height: 44, fit: BoxFit.cover),
                                 ),
                                 const SizedBox(width: 8),
-                              ] else if (currentPanUrl != null && currentPanUrl!.isNotEmpty) ...[
+                              ] else if (currentPanUrl != null &&
+                                  currentPanUrl!.isNotEmpty) ...[
                                 InkWell(
-                                  onTap: () => PhotoViewerDialog.show(context, [currentPanUrl!]),
+                                  onTap: () => PhotoViewerDialog.show(
+                                      context, [currentPanUrl!]),
                                   child: ClipRRect(
                                     borderRadius: BorderRadius.circular(6),
-                                    child: Image.network(currentPanUrl!, width: 44, height: 44, fit: BoxFit.cover),
+                                    child: Image.network(currentPanUrl!,
+                                        width: 44,
+                                        height: 44,
+                                        fit: BoxFit.cover),
                                   ),
                                 ),
                                 const SizedBox(width: 8),
@@ -725,9 +828,12 @@ class _AllStaffManagementScreenState
                                 child: OutlinedButton.icon(
                                   style: OutlinedButton.styleFrom(
                                     foregroundColor: AppColors.goldAccent,
-                                    side: const BorderSide(color: AppColors.goldAccent),
-                                    padding: const EdgeInsets.symmetric(vertical: 8),
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                    side: const BorderSide(
+                                        color: AppColors.goldAccent),
+                                    padding:
+                                        const EdgeInsets.symmetric(vertical: 8),
+                                    shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8)),
                                   ),
                                   onPressed: () => pickDocPhoto(
                                     docCtx: context,
@@ -738,18 +844,24 @@ class _AllStaffManagementScreenState
                                       });
                                     },
                                   ),
-                                  icon: const Icon(Icons.upload_file_rounded, size: 16),
+                                  icon: const Icon(Icons.upload_file_rounded,
+                                      size: 16),
                                   label: Text(
-                                    panBytes != null || (currentPanUrl != null && currentPanUrl!.isNotEmpty)
+                                    panBytes != null ||
+                                            (currentPanUrl != null &&
+                                                currentPanUrl!.isNotEmpty)
                                         ? 'Change PAN Photo / Scan'
                                         : 'Attach PAN Card Photo / Scan',
                                     style: const TextStyle(fontSize: 11),
                                   ),
                                 ),
                               ),
-                              if (panBytes != null || (currentPanUrl != null && currentPanUrl!.isNotEmpty))
+                              if (panBytes != null ||
+                                  (currentPanUrl != null &&
+                                      currentPanUrl!.isNotEmpty))
                                 IconButton(
-                                  icon: const Icon(Icons.delete_outline, color: AppColors.rejected, size: 18),
+                                  icon: const Icon(Icons.delete_outline,
+                                      color: AppColors.rejected, size: 18),
                                   tooltip: 'Remove Card',
                                   onPressed: () => setDialogState(() {
                                     panBytes = null;
@@ -771,14 +883,16 @@ class _AllStaffManagementScreenState
                 child: const Text('Cancel'),
               ),
               ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary),
                 onPressed: () async {
                   final name = nameController.text.trim();
                   final pin = pinController.text.trim();
                   if (name.isEmpty || pin.isEmpty) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('Please enter Full Name and Login Password'),
+                        content:
+                            Text('Please enter Full Name and Login Password'),
                         backgroundColor: AppColors.rejected,
                       ),
                     );
@@ -797,13 +911,27 @@ class _AllStaffManagementScreenState
 
                   Navigator.pop(ctx);
 
-                  final phone = phoneController.text.trim().isEmpty ? null : phoneController.text.trim();
-                  final code = empCodeController.text.trim().isEmpty ? null : empCodeController.text.trim();
-                  final designation = designationController.text.trim().isEmpty ? null : designationController.text.trim();
-                  final father = fatherNameController.text.trim().isEmpty ? null : fatherNameController.text.trim();
-                  final desc = descController.text.trim().isEmpty ? null : descController.text.trim();
-                  final aadharNum = aadharController.text.trim().isEmpty ? null : aadharController.text.trim();
-                  final panNum = panController.text.trim().isEmpty ? null : panController.text.trim().toUpperCase();
+                  final phone = phoneController.text.trim().isEmpty
+                      ? null
+                      : phoneController.text.trim();
+                  final code = empCodeController.text.trim().isEmpty
+                      ? null
+                      : empCodeController.text.trim();
+                  final designation = designationController.text.trim().isEmpty
+                      ? null
+                      : designationController.text.trim();
+                  final father = fatherNameController.text.trim().isEmpty
+                      ? null
+                      : fatherNameController.text.trim();
+                  final desc = descController.text.trim().isEmpty
+                      ? null
+                      : descController.text.trim();
+                  final aadharNum = aadharController.text.trim().isEmpty
+                      ? null
+                      : aadharController.text.trim();
+                  final panNum = panController.text.trim().isEmpty
+                      ? null
+                      : panController.text.trim().toUpperCase();
 
                   try {
                     // Upload Aadhar card photo if a new file was chosen
@@ -886,7 +1014,8 @@ class _AllStaffManagementScreenState
                     await _loadAllStaff();
 
                     if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(this.context).showSnackBar(
                         SnackBar(
                           content: Text(isEditing
                               ? 'Staff profile updated!'
@@ -897,8 +1026,11 @@ class _AllStaffManagementScreenState
                     }
                   } catch (e) {
                     if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.rejected),
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(this.context).showSnackBar(
+                        SnackBar(
+                            content: Text('Error: $e'),
+                            backgroundColor: AppColors.rejected),
                       );
                     }
                   }
@@ -928,10 +1060,13 @@ class _AllStaffManagementScreenState
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.rejected),
+            style:
+                ElevatedButton.styleFrom(backgroundColor: AppColors.rejected),
             onPressed: () async {
               Navigator.pop(ctx);
-              await ref.read(siteStaffServiceProvider).deleteStaff(staff.id, staff.siteId);
+              await ref
+                  .read(siteStaffServiceProvider)
+                  .deleteStaff(staff.id, staff.siteId);
               ref.invalidate(siteStaffProvider(staff.siteId));
               ref.invalidate(allStaffProvider);
               await _loadAllStaff();
@@ -968,21 +1103,26 @@ class _AllStaffManagementScreenState
         ],
       ),
       body: sitesAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator(color: AppColors.primary)),
+        loading: () => const Center(
+            child: CircularProgressIndicator(color: AppColors.primary)),
         error: (err, _) => Center(
-          child: Text('Error loading sites: $err', style: const TextStyle(color: AppColors.rejected)),
+          child: Text('Error loading sites: $err',
+              style: const TextStyle(color: AppColors.rejected)),
         ),
         data: (sites) {
           // Flatten all staff according to current filters
-          final filteredStaffWithSite = <({SiteStaffModel staff, SiteModel site})>[];
+          final filteredStaffWithSite =
+              <({SiteStaffModel staff, SiteModel site})>[];
 
           for (final site in sites) {
-            if (_selectedLocationFilter != 'all' && site.id != _selectedLocationFilter) {
+            if (_selectedLocationFilter != 'all' &&
+                site.id != _selectedLocationFilter) {
               continue;
             }
             final staffList = _staffBySite[site.id] ?? [];
             for (final staff in staffList) {
-              if (_activeModuleFilter == null || staff.hasModule(_activeModuleFilter!)) {
+              if (_activeModuleFilter == null ||
+                  staff.hasModule(_activeModuleFilter!)) {
                 filteredStaffWithSite.add((staff: staff, site: site));
               }
             }
@@ -993,13 +1133,15 @@ class _AllStaffManagementScreenState
               // ── Location Filter Bar ──
               Container(
                 color: AppColors.surfaceDark,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.place_rounded, size: 16, color: AppColors.primary),
+                        const Icon(Icons.place_rounded,
+                            size: 16, color: AppColors.primary),
                         const SizedBox(width: 6),
                         Text(
                           'FILTER BY LOCATION:',
@@ -1021,11 +1163,17 @@ class _AllStaffManagementScreenState
                             selectedColor: AppColors.primary,
                             backgroundColor: AppColors.cardDark,
                             labelStyle: TextStyle(
-                              color: _selectedLocationFilter == 'all' ? Colors.white : AppColors.textSecondary,
-                              fontWeight: _selectedLocationFilter == 'all' ? FontWeight.bold : FontWeight.normal,
+                              color: _selectedLocationFilter == 'all'
+                                  ? Colors.white
+                                  : AppColors.textSecondary,
+                              fontWeight: _selectedLocationFilter == 'all'
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
                             ),
                             onSelected: (val) {
-                              if (val) setState(() => _selectedLocationFilter = 'all');
+                              if (val) {
+                                setState(() => _selectedLocationFilter = 'all');
+                              }
                             },
                           ),
                           ...sites.map((site) {
@@ -1035,22 +1183,37 @@ class _AllStaffManagementScreenState
                               padding: const EdgeInsets.only(left: 8),
                               child: ChoiceChip(
                                 avatar: Icon(
-                                  isOffice ? Icons.apartment_rounded : Icons.construction_rounded,
+                                  isOffice
+                                      ? Icons.apartment_rounded
+                                      : Icons.construction_rounded,
                                   size: 14,
                                   color: isSel
                                       ? Colors.white
-                                      : (isOffice ? AppColors.primary : AppColors.secondary),
+                                      : (isOffice
+                                          ? AppColors.primary
+                                          : AppColors.secondary),
                                 ),
-                                label: Text(isOffice ? 'Indore Head Office' : site.name),
+                                label: Text(isOffice
+                                    ? 'Indore Head Office'
+                                    : site.name),
                                 selected: isSel,
-                                selectedColor: isOffice ? AppColors.primary : AppColors.secondary,
+                                selectedColor: isOffice
+                                    ? AppColors.primary
+                                    : AppColors.secondary,
                                 backgroundColor: AppColors.cardDark,
                                 labelStyle: TextStyle(
-                                  color: isSel ? Colors.white : AppColors.textSecondary,
-                                  fontWeight: isSel ? FontWeight.bold : FontWeight.normal,
+                                  color: isSel
+                                      ? Colors.white
+                                      : AppColors.textSecondary,
+                                  fontWeight: isSel
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
                                 ),
                                 onSelected: (val) {
-                                  if (val) setState(() => _selectedLocationFilter = site.id);
+                                  if (val) {
+                                    setState(() =>
+                                        _selectedLocationFilter = site.id);
+                                  }
                                 },
                               ),
                             );
@@ -1077,7 +1240,8 @@ class _AllStaffManagementScreenState
 
               // ── Staff Count Bar & Add Button ──
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -1091,14 +1255,19 @@ class _AllStaffManagementScreenState
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
                       ),
-                      icon: const Icon(Icons.person_add_rounded, size: 16, color: Colors.white),
-                      label: const Text('Add Employee', style: TextStyle(color: Colors.white)),
+                      icon: const Icon(Icons.person_add_rounded,
+                          size: 16, color: Colors.white),
+                      label: const Text('Add Employee',
+                          style: TextStyle(color: Colors.white)),
                       onPressed: () {
                         _showAddEditStaffDialog(
                           allSites: sites,
-                          defaultSiteId: _selectedLocationFilter != 'all' ? _selectedLocationFilter : null,
+                          defaultSiteId: _selectedLocationFilter != 'all'
+                              ? _selectedLocationFilter
+                              : null,
                         );
                       },
                     ),
@@ -1109,7 +1278,9 @@ class _AllStaffManagementScreenState
               // ── Staff List ──
               Expanded(
                 child: _isLoading
-                    ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+                    ? const Center(
+                        child:
+                            CircularProgressIndicator(color: AppColors.primary))
                     : _errorMessage != null
                         ? Center(
                             child: Text(
@@ -1120,9 +1291,11 @@ class _AllStaffManagementScreenState
                         : filteredStaffWithSite.isEmpty
                             ? _buildEmptyState(sites)
                             : ListView.separated(
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 8),
                                 itemCount: filteredStaffWithSite.length,
-                                separatorBuilder: (_, __) => const SizedBox(height: 10),
+                                separatorBuilder: (_, __) =>
+                                    const SizedBox(height: 10),
                                 itemBuilder: (context, index) {
                                   final item = filteredStaffWithSite[index];
                                   return _buildStaffItemCard(
@@ -1154,7 +1327,9 @@ class _AllStaffManagementScreenState
         color: AppColors.cardDark,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: isSupervisor ? AppColors.primary.withOpacity(0.35) : AppColors.divider,
+          color: isSupervisor
+              ? AppColors.primary.withValues(alpha: 0.35)
+              : AppColors.divider,
         ),
       ),
       child: Column(
@@ -1165,10 +1340,12 @@ class _AllStaffManagementScreenState
               CircleAvatar(
                 radius: 22,
                 backgroundColor: isSupervisor
-                    ? AppColors.primary.withOpacity(0.15)
-                    : AppColors.secondary.withOpacity(0.15),
+                    ? AppColors.primary.withValues(alpha: 0.15)
+                    : AppColors.secondary.withValues(alpha: 0.15),
                 child: Icon(
-                  isSupervisor ? Icons.admin_panel_settings_rounded : Icons.person_rounded,
+                  isSupervisor
+                      ? Icons.admin_panel_settings_rounded
+                      : Icons.person_rounded,
                   color: isSupervisor ? AppColors.primary : AppColors.secondary,
                 ),
               ),
@@ -1192,11 +1369,12 @@ class _AllStaffManagementScreenState
                         ),
                         const SizedBox(width: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
                             color: isSupervisor
-                                ? AppColors.primary.withOpacity(0.15)
-                                : AppColors.secondary.withOpacity(0.15),
+                                ? AppColors.primary.withValues(alpha: 0.15)
+                                : AppColors.secondary.withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
@@ -1204,7 +1382,9 @@ class _AllStaffManagementScreenState
                             style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.bold,
-                              color: isSupervisor ? AppColors.primary : AppColors.secondary,
+                              color: isSupervisor
+                                  ? AppColors.primary
+                                  : AppColors.secondary,
                             ),
                           ),
                         ),
@@ -1214,15 +1394,21 @@ class _AllStaffManagementScreenState
                     Row(
                       children: [
                         Icon(
-                          isOffice ? Icons.apartment_rounded : Icons.construction_rounded,
+                          isOffice
+                              ? Icons.apartment_rounded
+                              : Icons.construction_rounded,
                           size: 13,
-                          color: isOffice ? AppColors.primary : AppColors.textTertiary,
+                          color: isOffice
+                              ? AppColors.primary
+                              : AppColors.textTertiary,
                         ),
                         const SizedBox(width: 4),
                         Text(
                           isOffice ? 'Indore Head Office' : site.name,
                           style: AppTextStyles.bodySmall.copyWith(
-                            color: isOffice ? AppColors.primary : AppColors.textSecondary,
+                            color: isOffice
+                                ? AppColors.primary
+                                : AppColors.textSecondary,
                             fontWeight: FontWeight.w600,
                             fontSize: 11,
                           ),
@@ -1243,7 +1429,8 @@ class _AllStaffManagementScreenState
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        const Icon(Icons.lock_outline, size: 13, color: AppColors.textTertiary),
+                        const Icon(Icons.lock_outline,
+                            size: 13, color: AppColors.textTertiary),
                         const SizedBox(width: 4),
                         Text(
                           'Pass: ${staff.pin}',
@@ -1260,26 +1447,30 @@ class _AllStaffManagementScreenState
               ),
               // Action Buttons
               IconButton(
-                icon: const Icon(Icons.analytics_outlined, size: 20, color: AppColors.secondary),
+                icon: const Icon(Icons.analytics_outlined,
+                    size: 20, color: AppColors.secondary),
                 tooltip: 'Performance 360° Report',
                 onPressed: () {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => EmployeePerformanceScreen(staff: staff, site: site),
+                      builder: (_) =>
+                          EmployeePerformanceScreen(staff: staff, site: site),
                     ),
                   );
                 },
               ),
               IconButton(
-                icon: const Icon(Icons.edit_outlined, size: 20, color: AppColors.primary),
+                icon: const Icon(Icons.edit_outlined,
+                    size: 20, color: AppColors.primary),
                 tooltip: 'Edit Profile',
                 onPressed: () {
                   _showAddEditStaffDialog(existing: staff, allSites: allSites);
                 },
               ),
               IconButton(
-                icon: const Icon(Icons.delete_outline, size: 20, color: AppColors.rejected),
+                icon: const Icon(Icons.delete_outline,
+                    size: 20, color: AppColors.rejected),
                 tooltip: 'Delete Profile',
                 onPressed: () => _confirmDeleteStaff(staff, site.name),
               ),
@@ -1295,9 +1486,10 @@ class _AllStaffManagementScreenState
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               decoration: BoxDecoration(
-                color: AppColors.surfaceDark.withOpacity(0.5),
+                color: AppColors.surfaceDark.withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppColors.divider.withOpacity(0.5)),
+                border:
+                    Border.all(color: AppColors.divider.withValues(alpha: 0.5)),
               ),
               child: Wrap(
                 spacing: 12,
@@ -1308,7 +1500,8 @@ class _AllStaffManagementScreenState
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.cake_outlined, size: 14, color: AppColors.goldAccent),
+                        const Icon(Icons.cake_outlined,
+                            size: 14, color: AppColors.goldAccent),
                         const SizedBox(width: 4),
                         Text(
                           'DOB: ${DateFormat('dd MMM yyyy').format(staff.dateOfBirth!)}${staff.age != null ? ' (${staff.age} yrs)' : ''}',
@@ -1320,11 +1513,14 @@ class _AllStaffManagementScreenState
                         ),
                       ],
                     ),
-                  if ((staff.aadharNumber != null && staff.aadharNumber!.isNotEmpty) || staff.hasAadharCard)
+                  if ((staff.aadharNumber != null &&
+                          staff.aadharNumber!.isNotEmpty) ||
+                      staff.hasAadharCard)
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.badge_outlined, size: 14, color: AppColors.primary),
+                        const Icon(Icons.badge_outlined,
+                            size: 14, color: AppColors.primary),
                         const SizedBox(width: 4),
                         Text(
                           'Aadhar: ${(staff.maskedAadhar != null && staff.maskedAadhar!.isNotEmpty) ? staff.maskedAadhar! : 'Attached'}',
@@ -1346,16 +1542,21 @@ class _AllStaffManagementScreenState
                             },
                             borderRadius: BorderRadius.circular(4),
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
-                                color: AppColors.primary.withOpacity(0.18),
+                                color:
+                                    AppColors.primary.withValues(alpha: 0.18),
                                 borderRadius: BorderRadius.circular(4),
-                                border: Border.all(color: AppColors.primary.withOpacity(0.4)),
+                                border: Border.all(
+                                    color: AppColors.primary
+                                        .withValues(alpha: 0.4)),
                               ),
                               child: const Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.remove_red_eye_rounded, size: 11, color: AppColors.primary),
+                                  Icon(Icons.remove_red_eye_rounded,
+                                      size: 11, color: AppColors.primary),
                                   SizedBox(width: 3),
                                   Text(
                                     'View Card',
@@ -1372,11 +1573,14 @@ class _AllStaffManagementScreenState
                         ],
                       ],
                     ),
-                  if ((staff.panNumber != null && staff.panNumber!.isNotEmpty) || staff.hasPanCard)
+                  if ((staff.panNumber != null &&
+                          staff.panNumber!.isNotEmpty) ||
+                      staff.hasPanCard)
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.credit_card_rounded, size: 14, color: AppColors.secondary),
+                        const Icon(Icons.credit_card_rounded,
+                            size: 14, color: AppColors.secondary),
                         const SizedBox(width: 4),
                         Text(
                           'PAN: ${staff.panNumber ?? 'Attached'}',
@@ -1398,16 +1602,21 @@ class _AllStaffManagementScreenState
                             },
                             borderRadius: BorderRadius.circular(4),
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
-                                color: AppColors.secondary.withOpacity(0.18),
+                                color:
+                                    AppColors.secondary.withValues(alpha: 0.18),
                                 borderRadius: BorderRadius.circular(4),
-                                border: Border.all(color: AppColors.secondary.withOpacity(0.4)),
+                                border: Border.all(
+                                    color: AppColors.secondary
+                                        .withValues(alpha: 0.4)),
                               ),
                               child: const Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.remove_red_eye_rounded, size: 11, color: AppColors.secondary),
+                                  Icon(Icons.remove_red_eye_rounded,
+                                      size: 11, color: AppColors.secondary),
                                   SizedBox(width: 3),
                                   Text(
                                     'View Card',
@@ -1464,20 +1673,24 @@ class _AllStaffManagementScreenState
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.people_outline, size: 56, color: AppColors.textTertiary),
+            const Icon(Icons.people_outline,
+                size: 56, color: AppColors.textTertiary),
             const SizedBox(height: 16),
             Text('No Employees Found', style: AppTextStyles.h4),
             const SizedBox(height: 8),
             Text(
               'No staff members match the selected location or role filter.',
               textAlign: TextAlign.center,
-              style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
+              style: AppTextStyles.bodySmall
+                  .copyWith(color: AppColors.textSecondary),
             ),
             const SizedBox(height: 16),
             ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+              style:
+                  ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
               icon: const Icon(Icons.person_add_rounded, color: Colors.white),
-              label: const Text('Add First Employee', style: TextStyle(color: Colors.white)),
+              label: const Text('Add First Employee',
+                  style: TextStyle(color: Colors.white)),
               onPressed: () {
                 _showAddEditStaffDialog(allSites: sites);
               },

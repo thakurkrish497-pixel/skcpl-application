@@ -1,28 +1,25 @@
 import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
-import '../core/constants/supabase_constants.dart';
 
 class StorageService {
   static const String _bucketName = 'transaction_photos';
 
-  // Dedicated client with service role key to ensure workers without auth session can upload photos
+  // Share the real authenticated session and respect Storage policies.
   late final SupabaseClient _storageClient;
 
   StorageService([SupabaseClient? client]) {
-    _storageClient = SupabaseClient(
-      SupabaseConstants.supabaseUrl,
-      SupabaseConstants.supabaseServiceRoleKey,
-    );
+    _storageClient = client ?? Supabase.instance.client;
   }
 
   /// Uploads photo bytes directly (cross-platform: Web, iOS, Android, macOS)
-  Future<String> uploadPhotoBytes(Uint8List bytes, {String? fileName}) async {
+  Future<String> uploadPhotoBytes(Uint8List bytes,
+      {String? fileName, String? submissionPath}) async {
     final cleanName = fileName != null && fileName.isNotEmpty
         ? fileName.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_')
         : 'photo.jpg';
     final uniqueName = '${const Uuid().v4()}_$cleanName';
-    final path = 'photos/$uniqueName';
+    final path = submissionPath ?? 'photos/$uniqueName';
 
     await _storageClient.storage.from(_bucketName).uploadBinary(
           path,

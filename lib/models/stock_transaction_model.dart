@@ -1,3 +1,5 @@
+import '../services/submission_support.dart';
+
 /// Transaction approval status
 enum TransactionStatus {
   pendingAccounts,
@@ -63,12 +65,15 @@ enum TransactionType {
   }
 
   static TransactionType fromString(String value) {
-    return value == 'outbound' ? TransactionType.outbound : TransactionType.inbound;
+    return value == 'outbound'
+        ? TransactionType.outbound
+        : TransactionType.inbound;
   }
 }
 
 /// Model for stock transactions (inbound/outbound)
 class StockTransactionModel {
+  final List<PendingPhoto> pendingPhotos;
   final String? id;
   final String siteId;
   final String? submittedBy;
@@ -109,6 +114,7 @@ class StockTransactionModel {
   final String? siteName;
 
   const StockTransactionModel({
+    this.pendingPhotos = const [],
     this.id,
     required this.siteId,
     this.submittedBy,
@@ -231,7 +237,8 @@ class StockTransactionModel {
 
   /// Extracts Project Head / Supervisor review note if any (e.g., "Approved by Vikas", "Edited & Approved by Vikas")
   String? get supervisorReviewNote {
-    final match = RegExp(r'\[(?:Project Head|Supervisor):\s*(.+?)\]').firstMatch(remarks ?? '');
+    final match = RegExp(r'\[(?:Project Head|Supervisor):\s*(.+?)\]')
+        .firstMatch(remarks ?? '');
     return match?.group(1)?.trim();
   }
 
@@ -255,14 +262,14 @@ class StockTransactionModel {
 
   /// Whether this transaction is currently waiting for Project Head / Supervisor review
   bool get isPendingSupervisorReview =>
-      status != TransactionStatus.rejected &&
-      status != TransactionStatus.approved &&
+      status == TransactionStatus.pendingAccounts &&
       !isSupervisorApproved &&
       !isSupervisorRejected &&
-      (remarks?.contains('[Project Head Review: Pending]') == true ||
-      remarks?.contains('[Project Head: Review Pending]') == true ||
-      remarks?.contains('[Supervisor Review: Pending]') == true ||
-      remarks?.contains('[Supervisor: Review Pending]') == true);
+      (remarks?.contains('[PENDING SUPERVISOR REVIEW]') == true ||
+          remarks?.contains('[Project Head Review: Pending]') == true ||
+          remarks?.contains('[Project Head: Review Pending]') == true ||
+          remarks?.contains('[Supervisor Review: Pending]') == true ||
+          remarks?.contains('[Supervisor: Review Pending]') == true);
 
   bool get isPendingProjectHeadReview => isPendingSupervisorReview;
 
@@ -270,13 +277,16 @@ class StockTransactionModel {
   String? get cleanRemarks {
     if (remarks == null) return null;
     final cleaned = remarks!
+        .replaceAll('[PENDING SUPERVISOR REVIEW]', '')
         .replaceAll(RegExp(r'\[Batch:\s*.+?\]\s*'), '')
         .replaceAll(RegExp(r'\[Material:\s*.+?\]\s*'), '')
         .replaceAll(RegExp(r'\[Unit:\s*.+?\]\s*'), '')
         .replaceAll(RegExp(r'\[Bill:\s*.+?\]\s*'), '')
         .replaceAll(RegExp(r'\[Party:\s*.+?\]\s*'), '')
         .replaceAll(RegExp(r'\[By:\s*.+?\]\s*'), '')
-        .replaceAll(RegExp(r'\[(?:Project Head|Supervisor)(?:\s+Review)?:\s*.+?\]\s*'), '')
+        .replaceAll(
+            RegExp(r'\[(?:Project Head|Supervisor)(?:\s+Review)?:\s*.+?\]\s*'),
+            '')
         .trim();
     return cleaned.isEmpty ? null : cleaned;
   }
@@ -285,7 +295,9 @@ class StockTransactionModel {
     String? prodName = json['product_name'] as String?;
     if (prodName == null && json['product'] != null && json['product'] is Map) {
       prodName = json['product']['value'] as String?;
-    } else if (prodName == null && json['dropdowns'] != null && json['dropdowns'] is Map) {
+    } else if (prodName == null &&
+        json['dropdowns'] != null &&
+        json['dropdowns'] is Map) {
       prodName = json['dropdowns']['value'] as String?;
     }
 
@@ -305,6 +317,9 @@ class StockTransactionModel {
     }
 
     return StockTransactionModel(
+      pendingPhotos: (json['local_pending_photos'] as List? ?? [])
+          .map((p) => PendingPhoto.fromJson(Map<String, dynamic>.from(p)))
+          .toList(),
       id: json['id'] as String?,
       siteId: json['site_id'] as String,
       submittedBy: json['submitted_by'] as String?,
@@ -346,6 +361,9 @@ class StockTransactionModel {
 
   Map<String, dynamic> toJson() {
     return {
+      if (id != null) 'id': id,
+      if (pendingPhotos.isNotEmpty)
+        'local_pending_photos': pendingPhotos.map((p) => p.toJson()).toList(),
       'site_id': siteId,
       'submitted_by': submittedBy,
       'type': type.name,
@@ -366,6 +384,7 @@ class StockTransactionModel {
   }
 
   StockTransactionModel copyWith({
+    List<PendingPhoto>? pendingPhotos,
     String? id,
     String? siteId,
     String? submittedBy,
@@ -396,6 +415,7 @@ class StockTransactionModel {
     String? siteName,
   }) {
     return StockTransactionModel(
+      pendingPhotos: pendingPhotos ?? this.pendingPhotos,
       id: id ?? this.id,
       siteId: siteId ?? this.siteId,
       submittedBy: submittedBy ?? this.submittedBy,

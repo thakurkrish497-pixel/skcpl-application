@@ -1,11 +1,11 @@
+import 'cash_service.dart';
+import 'stock_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:excel/excel.dart';
 import 'package:intl/intl.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/cash_transaction_model.dart';
 import '../models/stock_transaction_model.dart';
 import '../models/daily_site_report_model.dart';
-import '../core/constants/supabase_constants.dart';
 import 'file_saver_helper.dart';
 
 /// Comprehensive Excel workbook generator matching SKCPL standards
@@ -71,7 +71,8 @@ class ExcelService {
     final brandBlueHeaderStyle = CellStyle(
       bold: true,
       fontColorHex: ExcelColor.fromHexString('#FFFFFF'),
-      backgroundColorHex: ExcelColor.fromHexString('#1E3A8A'), // SKCPL Brand Blue
+      backgroundColorHex:
+          ExcelColor.fromHexString('#1E3A8A'), // SKCPL Brand Blue
       horizontalAlign: HorizontalAlign.Center,
       verticalAlign: VerticalAlign.Center,
     );
@@ -106,7 +107,9 @@ class ExcelService {
     ]);
 
     for (int col = 0; col < 6; col++) {
-      cashSheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: 0)).cellStyle = brandBlueHeaderStyle;
+      cashSheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: 0))
+          .cellStyle = brandBlueHeaderStyle;
     }
 
     int cashRowIndex = 1;
@@ -127,7 +130,8 @@ class ExcelService {
             : 'Indore Office';
         final rawDesc = tx.cleanRemarks;
         if (rawDesc != null && rawDesc.isNotEmpty) {
-          desc = rawDesc.toLowerCase().contains('cash') || rawDesc.toLowerCase().contains('received')
+          desc = rawDesc.toLowerCase().contains('cash') ||
+                  rawDesc.toLowerCase().contains('received')
               ? rawDesc
               : 'Cash Received - $rawDesc';
         } else {
@@ -142,7 +146,8 @@ class ExcelService {
           if (tx.partyName != null && tx.partyName!.isNotEmpty) tx.partyName!,
           if (billClean.isNotEmpty) 'Bill: #$billClean',
         ].join(', ');
-        desc = extraDetails.isNotEmpty ? '$narration ($extraDetails)' : narration;
+        desc =
+            extraDetails.isNotEmpty ? '$narration ($extraDetails)' : narration;
       }
 
       // Account Head (selected from dropdown for expenses, or source for top-ups)
@@ -175,7 +180,8 @@ class ExcelService {
 
     if (cashRowIndex == 1) {
       cashSheet.appendRow([
-        TextCellValue(DateFormat('dd-MM-yyyy').format(filterDate ?? DateTime.now())),
+        TextCellValue(
+            DateFormat('dd-MM-yyyy').format(filterDate ?? DateTime.now())),
         TextCellValue('Opening Balance'),
         TextCellValue('Opening Balance'),
         const DoubleCellValue(0.0),
@@ -199,7 +205,10 @@ class ExcelService {
     ]);
 
     for (int col = 0; col < 6; col++) {
-      cashSheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: cashRowIndex)).cellStyle = totalStyle;
+      cashSheet
+          .cell(CellIndex.indexByColumnRow(
+              columnIndex: col, rowIndex: cashRowIndex))
+          .cellStyle = totalStyle;
     }
 
     cashSheet.setColumnWidth(0, 16.0);
@@ -249,7 +258,10 @@ class ExcelService {
       TextCellValue('Balance in Hand (₹)'),
     ]);
     for (int col = 0; col < 4; col++) {
-      summarySheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: summaryRowIndex)).cellStyle = brandBlueHeaderStyle;
+      summarySheet
+          .cell(CellIndex.indexByColumnRow(
+              columnIndex: col, rowIndex: summaryRowIndex))
+          .cellStyle = brandBlueHeaderStyle;
     }
     summaryRowIndex++;
 
@@ -286,7 +298,10 @@ class ExcelService {
     ]);
 
     for (int col = 0; col < 4; col++) {
-      summarySheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: summaryRowIndex)).cellStyle = totalStyle;
+      summarySheet
+          .cell(CellIndex.indexByColumnRow(
+              columnIndex: col, rowIndex: summaryRowIndex))
+          .cellStyle = totalStyle;
     }
 
     summarySheet.setColumnWidth(0, 32.0);
@@ -315,7 +330,9 @@ class ExcelService {
     ]);
 
     for (int col = 0; col < 12; col++) {
-      stockSheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: 0)).cellStyle = tealHeaderStyle;
+      stockSheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: 0))
+          .cellStyle = tealHeaderStyle;
     }
 
     int stockRowIndex = 1;
@@ -358,7 +375,8 @@ class ExcelService {
 
     if (stockRowIndex == 1) {
       stockSheet.appendRow([
-        TextCellValue(DateFormat('dd-MM-yyyy').format(filterDate ?? DateTime.now())),
+        TextCellValue(
+            DateFormat('dd-MM-yyyy').format(filterDate ?? DateTime.now())),
         TextCellValue('NO TRANSACTIONS'),
         TextCellValue('-'),
         const DoubleCellValue(0.0),
@@ -392,7 +410,10 @@ class ExcelService {
     ]);
 
     for (int col = 0; col < 12; col++) {
-      stockSheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: stockRowIndex)).cellStyle = totalStyle;
+      stockSheet
+          .cell(CellIndex.indexByColumnRow(
+              columnIndex: col, rowIndex: stockRowIndex))
+          .cellStyle = totalStyle;
     }
 
     stockSheet.setColumnWidth(0, 15.0); // Date
@@ -423,7 +444,9 @@ class ExcelService {
     ]);
 
     for (int col = 0; col < 6; col++) {
-      balanceSheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: 0)).cellStyle = tealHeaderStyle;
+      balanceSheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: 0))
+          .cellStyle = tealHeaderStyle;
     }
 
     // Aggregate by material
@@ -494,7 +517,10 @@ class ExcelService {
     ]);
 
     for (int col = 0; col < 6; col++) {
-      balanceSheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: balanceRowIndex)).cellStyle = totalStyle;
+      balanceSheet
+          .cell(CellIndex.indexByColumnRow(
+              columnIndex: col, rowIndex: balanceRowIndex))
+          .cellStyle = totalStyle;
     }
 
     balanceSheet.setColumnWidth(0, 30.0);
@@ -521,34 +547,10 @@ class ExcelService {
 
     // If siteId is provided, query fresh live approved data directly from Supabase
     if (siteId != null && siteId.isNotEmpty) {
-      try {
-        final client = SupabaseClient(
-          SupabaseConstants.supabaseUrl,
-          SupabaseConstants.supabaseServiceRoleKey,
-        );
-        final cashData = await client
-            .from('cash_transactions')
-            .select('*, dropdown_items:expense_type_id(value)')
-            .eq('site_id', siteId)
-            .eq('status', 'approved')
-            .order('date', ascending: true);
-        effectiveCash = (cashData as List)
-            .map((j) => CashTransactionModel.fromJson(j))
-            .toList();
-
-        final stockData = await client
-            .from('stock_transactions')
-            .select(
-                '*, sites(name), product:dropdowns!stock_transactions_product_id_fkey(value), unit:dropdowns!stock_transactions_metric_unit_id_fkey(value), vendor:dropdowns!stock_transactions_vendor_id_fkey(value)')
-            .eq('site_id', siteId)
-            .eq('status', 'approved')
-            .order('date', ascending: true);
-        effectiveStock = (stockData as List)
-            .map((j) => StockTransactionModel.fromJson(j))
-            .toList();
-      } catch (e) {
-        debugPrint('ExcelService: live Supabase query error ($e), fallback to passed in lists');
-      }
+      effectiveCash = await CashService()
+          .getTransactionsForSite(siteId, status: TransactionStatus.approved);
+      effectiveStock = await StockService()
+          .getTransactionsForSite(siteId, status: TransactionStatus.approved);
     }
 
     final bytes = generateComprehensiveWorkbookBytes(
@@ -622,7 +624,8 @@ class ExcelService {
     sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0)).value =
         TextCellValue('SKCPL — DAILY SITE REPORTS');
     sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 1)).value =
-        TextCellValue('Site: $siteName | Generated: ${DateFormat('dd-MMM-yyyy').format(DateTime.now())}');
+        TextCellValue(
+            'Site: $siteName | Generated: ${DateFormat('dd-MMM-yyyy').format(DateTime.now())}');
 
     // Headers (Col A to E)
     final headers = [
@@ -634,7 +637,8 @@ class ExcelService {
     ];
 
     for (int col = 0; col < headers.length; col++) {
-      final cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: 3));
+      final cell =
+          sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: 3));
       cell.value = TextCellValue(headers[col]);
       cell.cellStyle = CellStyle(
         bold: true,
@@ -650,21 +654,32 @@ class ExcelService {
 
     int rowIdx = 4;
     for (final report in sortedReports) {
-      final dateStr = '${DateFormat('dd-MM-yyyy').format(report.date)} (${DateFormat('hh:mm a').format(report.createdAt)})';
+      final dateStr =
+          '${DateFormat('dd-MM-yyyy').format(report.date)} (${DateFormat('hh:mm a').format(report.createdAt)})';
       final notesStr = (report.notes != null && report.notes!.trim().isNotEmpty)
           ? report.notes!.trim()
-          : (report.audioUrl != null ? 'Voice note recorded on site' : 'Daily report');
+          : (report.audioUrl != null
+              ? 'Voice note recorded on site'
+              : 'Daily report');
 
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: rowIdx)).value =
-          TextCellValue(dateStr);
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: rowIdx)).value =
-          TextCellValue(report.submittedBy ?? 'Site Team');
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: rowIdx)).value =
-          TextCellValue(notesStr);
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: rowIdx)).value =
-          TextCellValue(report.photoUrls.isNotEmpty ? '${report.photoUrls.length} photos' : 'None');
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: rowIdx)).value =
-          TextCellValue(report.audioUrl ?? '-');
+      sheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: rowIdx))
+          .value = TextCellValue(dateStr);
+      sheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: rowIdx))
+          .value = TextCellValue(report.submittedBy ?? 'Site Team');
+      sheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: rowIdx))
+          .value = TextCellValue(notesStr);
+      sheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: rowIdx))
+          .value = TextCellValue(report
+              .photoUrls.isNotEmpty
+          ? '${report.photoUrls.length} photos'
+          : 'None');
+      sheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: rowIdx))
+          .value = TextCellValue(report.audioUrl ?? '-');
 
       rowIdx++;
     }
@@ -726,4 +741,3 @@ class _HeadSummary {
   double received = 0.0;
   double spent = 0.0;
 }
-

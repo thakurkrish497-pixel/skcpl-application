@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:skcpl_app/models/daily_site_report_model.dart';
 import 'package:skcpl_app/services/site_report_service.dart';
@@ -17,7 +18,8 @@ void main() {
       submittedBy: 'Ramesh Supervisor',
       audioUrl: 'https://example.com/audio/voice_123.m4a',
       photoUrls: ['https://example.com/p1.jpg', 'https://example.com/p2.jpg'],
-      notes: 'Footing excavation done on grid 2. Shuttering ready for tomorrow.',
+      notes:
+          'Footing excavation done on grid 2. Shuttering ready for tomorrow.',
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
     );
@@ -42,7 +44,8 @@ void main() {
       siteName: testSiteName,
       date: DateTime.now(),
       submittedBy: 'Nissarpur Team',
-      audioUrl: 'https://buqonyuojtvxanuautan.supabase.co/storage/v1/object/public/site_reports/sample_voice.m4a',
+      audioUrl:
+          'https://buqonyuojtvxanuautan.supabase.co/storage/v1/object/public/site_reports/sample_voice.m4a',
       photoUrls: ['https://example.com/p1.jpg'],
       notes: 'Aaj grid 2 pe kaam hua. 45 bag cement use hua.',
       createdAt: DateTime.now(),
@@ -54,7 +57,8 @@ void main() {
 
     final fetched = await service.getReportsForSite(testSiteId);
     expect(fetched, isNotEmpty);
-    print('Successfully verified SiteReportService report: notes="${testReport.notes}"');
+    debugPrint(
+        'Successfully verified SiteReportService report: notes="${testReport.notes}"');
   });
 
   test('Step 3: Test Dad\'s Excel Daily Work Report Generation', () async {
@@ -65,7 +69,8 @@ void main() {
         siteName: testSiteName,
         date: DateTime.now(),
         submittedBy: 'Ramesh Supervisor',
-        audioUrl: 'https://buqonyuojtvxanuautan.supabase.co/storage/v1/object/public/site_reports/sample_voice.m4a',
+        audioUrl:
+            'https://buqonyuojtvxanuautan.supabase.co/storage/v1/object/public/site_reports/sample_voice.m4a',
         photoUrls: ['https://example.com/p1.jpg', 'https://example.com/p2.jpg'],
         notes: 'Casting 8 footings (grid 2). Shuttering ready for tomorrow.',
         createdAt: DateTime.now(),
@@ -81,14 +86,18 @@ void main() {
     );
 
     expect(bytes, isNotEmpty);
-    print('SUCCESS: Generated Dad\'s Daily Work Report Excel (${bytes.length} bytes)');
+    debugPrint(
+        'SUCCESS: Generated Dad\'s Daily Work Report Excel (${bytes.length} bytes)');
 
     final excel = Excel.decodeBytes(bytes);
     expect(excel.tables.containsKey('DAILY WORK REPORT'), isTrue);
-    print('Sheet 1: DAILY WORK REPORT (Rows: ${excel.tables['DAILY WORK REPORT']!.rows.length})');
+    debugPrint(
+        'Sheet 1: DAILY WORK REPORT (Rows: ${excel.tables['DAILY WORK REPORT']!.rows.length})');
   });
 
-  test('Step 4: Test Project Head review status getters and rejection reason parsing', () {
+  test(
+      'Step 4: Test Project Head review status getters and rejection reason parsing',
+      () {
     // Unreviewed / null remarks -> should be pending review
     final unreviewedReport = DailySiteReportModel(
       id: 'r-0',
@@ -129,13 +138,15 @@ void main() {
       id: 'r-3',
       siteId: testSiteId,
       date: DateTime.now(),
-      remarks: '[Project Head: Rejected - Missing mandatory photo evidence by Vikas]',
+      remarks:
+          '[Project Head: Rejected - Missing mandatory photo evidence by Vikas]',
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
     );
     expect(rejectedReport.isProjectHeadRejected, isTrue);
     expect(rejectedReport.isPendingProjectHeadReview, isFalse);
-    expect(rejectedReport.projectHeadRejectionReason, equals('Missing mandatory photo evidence'));
+    expect(rejectedReport.projectHeadRejectionReason,
+        equals('Missing mandatory photo evidence'));
 
     // Backward compatibility with legacy supervisor approved / rejected tags
     final legacyApproved = DailySiteReportModel(
@@ -158,7 +169,8 @@ void main() {
       updatedAt: DateTime.now(),
     );
     expect(legacyRejected.isProjectHeadRejected, isTrue);
-    expect(legacyRejected.projectHeadRejectionReason, equals('Incomplete measurements'));
+    expect(legacyRejected.projectHeadRejectionReason,
+        equals('Incomplete measurements'));
   });
 
   test('Step 5: Test SiteReportService.getReportsForSite("all")', () async {
@@ -166,6 +178,7 @@ void main() {
     final allReports = await service.getReportsForSite('all');
     // Ensure getReportsForSite('all') runs successfully without error and fetches reports across all sites
     expect(allReports, isA<List<DailySiteReportModel>>());
-    print('SUCCESS: getReportsForSite("all") returned ${allReports.length} reports');
+    debugPrint(
+        'SUCCESS: getReportsForSite("all") returned ${allReports.length} reports');
   });
 }

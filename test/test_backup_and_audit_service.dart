@@ -38,7 +38,8 @@ void main() {
       expect(vaulted.first['data']['remarks'], 'Cement transport');
     });
 
-    test('AuditService purges single vault entry and clears vault cleanly', () async {
+    test('AuditService purges single vault entry and clears vault cleanly',
+        () async {
       await AuditService.captureDeletedRecord(
         entity: 'stock',
         entityId: 'stock-1',
@@ -83,9 +84,12 @@ void main() {
           {'id': '2', 'name': 'Hatpipliya'},
           {'id': '3', 'name': 'Pipalrawa'},
         ],
-        'site_staff': List.generate(15, (i) => {'id': 'staff-$i', 'name': 'Worker $i'}),
-        'cash_transactions': List.generate(120, (i) => {'id': 'cash-$i', 'amount': 1000}),
-        'stock_transactions': List.generate(85, (i) => {'id': 'stock-$i', 'qty': 50}),
+        'site_staff':
+            List.generate(15, (i) => {'id': 'staff-$i', 'name': 'Worker $i'}),
+        'cash_transactions':
+            List.generate(120, (i) => {'id': 'cash-$i', 'amount': 1000}),
+        'stock_transactions':
+            List.generate(85, (i) => {'id': 'stock-$i', 'qty': 50}),
         'attendance': List.generate(340, (i) => {'id': 'att-$i'}),
         'daily_site_reports': List.generate(42, (i) => {'id': 'dsr-$i'}),
       };
@@ -103,7 +107,8 @@ void main() {
     });
 
     test('BackupService rejects invalid JSON content gracefully', () {
-      final validation = BackupService.validateBackup('invalid corrupt json string');
+      final validation =
+          BackupService.validateBackup('invalid corrupt json string');
       expect(validation['isValid'], isFalse);
       expect(validation['error'], isNotNull);
     });

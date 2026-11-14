@@ -56,7 +56,8 @@ class CacheService {
       try {
         final tempDir = await getTemporaryDirectory();
         if (tempDir.existsSync()) {
-          await for (final file in tempDir.list(recursive: true, followLinks: false)) {
+          await for (final file
+              in tempDir.list(recursive: true, followLinks: false)) {
             if (file is File) {
               diskBytes += await file.length();
             }
@@ -66,8 +67,12 @@ class CacheService {
     }
 
     final prefs = await SharedPreferences.getInstance();
-    final stockQueue = prefs.getStringList('offline_stock_queue_v1') ?? prefs.getStringList('offline_queue_stock') ?? [];
-    final cashQueue = prefs.getStringList('offline_cash_queue_v1') ?? prefs.getStringList('offline_queue_cash') ?? [];
+    final stockQueue = prefs.getStringList('offline_stock_queue_v1') ??
+        prefs.getStringList('offline_queue_stock') ??
+        [];
+    final cashQueue = prefs.getStringList('offline_cash_queue_v1') ??
+        prefs.getStringList('offline_queue_cash') ??
+        [];
     final allKeys = prefs.getKeys().length;
 
     return CacheStats(
@@ -115,7 +120,8 @@ class CacheService {
     clearImageCache();
     await clearDiskCache();
     final prefs = await SharedPreferences.getInstance();
-    final keysToRemove = prefs.getKeys().where((k) => k.startsWith('cached_dropdown_')).toList();
+    final keysToRemove =
+        prefs.getKeys().where((k) => k.startsWith('cached_dropdown_')).toList();
     for (var key in keysToRemove) {
       await prefs.remove(key);
     }
@@ -152,7 +158,9 @@ class CacheService {
       if (k.startsWith('cached_site_staff')) continue;
 
       // Only delete temporary cached items
-      if (k.startsWith('cached_') || k.startsWith('temp_') || k.startsWith('preview_')) {
+      if (k.startsWith('cached_') ||
+          k.startsWith('temp_') ||
+          k.startsWith('preview_')) {
         await prefs.remove(k);
       }
     }

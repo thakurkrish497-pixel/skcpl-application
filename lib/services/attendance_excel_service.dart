@@ -27,7 +27,8 @@ class AttendanceExcelService {
     sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 0)).value =
         TextCellValue('SKCPL — STAFF ATTENDANCE REGISTER');
     sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: 1)).value =
-        TextCellValue('Month: $monthStr | Filter: ${siteFilterName ?? "All Sites & Indore Office"} | Generated: ${DateFormat('dd-MMM-yyyy').format(DateTime.now())}');
+        TextCellValue(
+            'Month: $monthStr | Filter: ${siteFilterName ?? "All Sites & Indore Office"} | Generated: ${DateFormat('dd-MMM-yyyy').format(DateTime.now())}');
 
     // Headers
     final baseHeaders = [
@@ -50,7 +51,8 @@ class AttendanceExcelService {
     final allHeaders = [...baseHeaders, ...dayHeaders, ...summaryHeaders];
 
     for (int col = 0; col < allHeaders.length; col++) {
-      final cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: 3));
+      final cell =
+          sheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: 3));
       cell.value = TextCellValue(allHeaders[col]);
       cell.cellStyle = CellStyle(
         bold: true,
@@ -79,12 +81,15 @@ class AttendanceExcelService {
           siteName.toLowerCase().trim() == 'indore' ||
           siteName.toLowerCase().contains('corporate');
 
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: rowIdx)).value =
-          TextCellValue(empName);
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: rowIdx)).value =
-          TextCellValue(role);
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: rowIdx)).value =
-          TextCellValue(siteName);
+      sheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: rowIdx))
+          .value = TextCellValue(empName);
+      sheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: rowIdx))
+          .value = TextCellValue(role);
+      sheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: rowIdx))
+          .value = TextCellValue(siteName);
 
       int pCount = 0;
       int lCount = 0;
@@ -95,10 +100,12 @@ class AttendanceExcelService {
       // Populate each day
       for (int d = 1; d <= daysInMonth; d++) {
         final colIndex = 3 + (d - 1);
-        final cell = sheet.cell(CellIndex.indexByColumnRow(columnIndex: colIndex, rowIndex: rowIdx));
+        final cell = sheet.cell(CellIndex.indexByColumnRow(
+            columnIndex: colIndex, rowIndex: rowIdx));
 
         // Find record for this day
-        final dayRecord = staffRecords.where((r) => r.date.day == d).firstOrNull;
+        final dayRecord =
+            staffRecords.where((r) => r.date.day == d).firstOrNull;
 
         if (dayRecord == null) {
           // No record for this day
@@ -150,7 +157,8 @@ class AttendanceExcelService {
             code = 'A';
             aCount++;
             colorHex = '#EF4444';
-          } else if (dayRecord.status == AttendanceStatus.regularizationPending) {
+          } else if (dayRecord.status ==
+              AttendanceStatus.regularizationPending) {
             code = 'REQ';
             colorHex = '#8B5CF6';
           }
@@ -172,16 +180,26 @@ class AttendanceExcelService {
 
       // Summary columns
       final summaryStart = 3 + daysInMonth;
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: summaryStart, rowIndex: rowIdx)).value =
-          IntCellValue(pCount);
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: summaryStart + 1, rowIndex: rowIdx)).value =
-          IntCellValue(lCount);
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: summaryStart + 2, rowIndex: rowIdx)).value =
-          IntCellValue(hdCount);
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: summaryStart + 3, rowIndex: rowIdx)).value =
-          IntCellValue(aCount);
-      sheet.cell(CellIndex.indexByColumnRow(columnIndex: summaryStart + 4, rowIndex: rowIdx)).value =
-          DoubleCellValue(double.parse(totalHours.toStringAsFixed(1)));
+      sheet
+          .cell(CellIndex.indexByColumnRow(
+              columnIndex: summaryStart, rowIndex: rowIdx))
+          .value = IntCellValue(pCount);
+      sheet
+          .cell(CellIndex.indexByColumnRow(
+              columnIndex: summaryStart + 1, rowIndex: rowIdx))
+          .value = IntCellValue(lCount);
+      sheet
+          .cell(CellIndex.indexByColumnRow(
+              columnIndex: summaryStart + 2, rowIndex: rowIdx))
+          .value = IntCellValue(hdCount);
+      sheet
+          .cell(CellIndex.indexByColumnRow(
+              columnIndex: summaryStart + 3, rowIndex: rowIdx))
+          .value = IntCellValue(aCount);
+      sheet
+          .cell(CellIndex.indexByColumnRow(
+              columnIndex: summaryStart + 4, rowIndex: rowIdx))
+          .value = DoubleCellValue(double.parse(totalHours.toStringAsFixed(1)));
 
       rowIdx++;
     }
@@ -218,7 +236,8 @@ class AttendanceExcelService {
     ];
 
     for (int col = 0; col < logHeaders.length; col++) {
-      final cell = logSheet.cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: 0));
+      final cell = logSheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: col, rowIndex: 0));
       cell.value = TextCellValue(logHeaders[col]);
       cell.cellStyle = CellStyle(
         bold: true,
@@ -235,41 +254,66 @@ class AttendanceExcelService {
     int logRow = 1;
     for (final rec in sortedRecords) {
       final dateStr = DateFormat('dd-MM-yyyy').format(rec.date);
-      final inTimeStr = rec.punchInTime != null ? DateFormat('hh:mm a').format(rec.punchInTime!) : '-';
-      final outTimeStr = rec.punchOutTime != null ? DateFormat('hh:mm a').format(rec.punchOutTime!) : '-';
+      final inTimeStr = rec.punchInTime != null
+          ? DateFormat('hh:mm a').format(rec.punchInTime!)
+          : '-';
+      final outTimeStr = rec.punchOutTime != null
+          ? DateFormat('hh:mm a').format(rec.punchOutTime!)
+          : '-';
       final gpsStr = rec.punchInLatitude != null && rec.punchInLongitude != null
           ? '${rec.punchInLatitude!.toStringAsFixed(4)}, ${rec.punchInLongitude!.toStringAsFixed(4)}'
           : 'No GPS';
       final geofenceStr = rec.isWithinSite
           ? 'On-Site'
-          : (rec.distanceMeters != null ? 'Off-Site (${rec.distanceMeters!.round()}m away)' : 'Off-Site');
+          : (rec.distanceMeters != null
+              ? 'Off-Site (${rec.distanceMeters!.round()}m away)'
+              : 'Off-Site');
 
-      logSheet.cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: logRow)).value =
-          TextCellValue(dateStr);
-      logSheet.cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: logRow)).value =
-          TextCellValue(rec.staffName);
-      logSheet.cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: logRow)).value =
-          TextCellValue(rec.staffRole.toUpperCase());
-      logSheet.cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: logRow)).value =
-          TextCellValue(rec.siteName);
-      logSheet.cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: logRow)).value =
-          TextCellValue(rec.status.displayName);
-      logSheet.cell(CellIndex.indexByColumnRow(columnIndex: 5, rowIndex: logRow)).value =
-          TextCellValue(inTimeStr);
-      logSheet.cell(CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: logRow)).value =
-          TextCellValue(outTimeStr);
-      logSheet.cell(CellIndex.indexByColumnRow(columnIndex: 7, rowIndex: logRow)).value =
-          TextCellValue(rec.totalHoursWorked != null ? '${rec.totalHoursWorked!.toStringAsFixed(1)} hrs' : '-');
-      logSheet.cell(CellIndex.indexByColumnRow(columnIndex: 8, rowIndex: logRow)).value =
-          IntCellValue(rec.lateMinutes);
-      logSheet.cell(CellIndex.indexByColumnRow(columnIndex: 9, rowIndex: logRow)).value =
-          TextCellValue(gpsStr);
-      logSheet.cell(CellIndex.indexByColumnRow(columnIndex: 10, rowIndex: logRow)).value =
-          TextCellValue(geofenceStr);
-      logSheet.cell(CellIndex.indexByColumnRow(columnIndex: 11, rowIndex: logRow)).value =
-          TextCellValue(rec.regularizationReason ?? '-');
-      logSheet.cell(CellIndex.indexByColumnRow(columnIndex: 12, rowIndex: logRow)).value =
-          TextCellValue(rec.reviewedBy != null ? '${rec.reviewedBy} (${rec.adminDecisionNote ?? "OK"})' : '-');
+      logSheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: logRow))
+          .value = TextCellValue(dateStr);
+      logSheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: logRow))
+          .value = TextCellValue(rec.staffName);
+      logSheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: logRow))
+          .value = TextCellValue(rec.staffRole.toUpperCase());
+      logSheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 3, rowIndex: logRow))
+          .value = TextCellValue(rec.siteName);
+      logSheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: logRow))
+          .value = TextCellValue(rec.status.displayName);
+      logSheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 5, rowIndex: logRow))
+          .value = TextCellValue(inTimeStr);
+      logSheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 6, rowIndex: logRow))
+          .value = TextCellValue(outTimeStr);
+      logSheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 7, rowIndex: logRow))
+          .value = TextCellValue(rec.totalHoursWorked !=
+              null
+          ? '${rec.totalHoursWorked!.toStringAsFixed(1)} hrs'
+          : '-');
+      logSheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 8, rowIndex: logRow))
+          .value = IntCellValue(rec.lateMinutes);
+      logSheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 9, rowIndex: logRow))
+          .value = TextCellValue(gpsStr);
+      logSheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 10, rowIndex: logRow))
+          .value = TextCellValue(geofenceStr);
+      logSheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 11, rowIndex: logRow))
+          .value = TextCellValue(rec.regularizationReason ?? '-');
+      logSheet
+          .cell(CellIndex.indexByColumnRow(columnIndex: 12, rowIndex: logRow))
+          .value = TextCellValue(rec.reviewedBy !=
+              null
+          ? '${rec.reviewedBy} (${rec.adminDecisionNote ?? "OK"})'
+          : '-');
 
       logRow++;
     }

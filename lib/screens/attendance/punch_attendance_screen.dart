@@ -57,15 +57,18 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
       final currentSite = _site;
       final currentStaff = _staff;
       if (currentSite != null && currentStaff != null) {
-        ref.read(staffPunchProvider.notifier).loadTodayRecord(
+        ref
+            .read(staffPunchProvider.notifier)
+            .loadTodayRecord(
               siteId: currentSite.id,
               staffId: currentStaff.id,
-            ).then((_) {
-              final rec = ref.read(staffPunchProvider).todayRecord;
-              if (rec?.punchInTime != null && rec?.punchOutTime == null) {
-                _startPeriodicLocationPing(currentSite, currentStaff);
-              }
-            });
+            )
+            .then((_) {
+          final rec = ref.read(staffPunchProvider).todayRecord;
+          if (rec?.punchInTime != null && rec?.punchOutTime == null) {
+            _startPeriodicLocationPing(currentSite, currentStaff);
+          }
+        });
       }
     });
   }
@@ -77,7 +80,8 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
       try {
         final pos = await LocationService.getCurrentLocation();
         if (pos != null) {
-          final policy = await ref.read(attendanceServiceProvider).getShiftPolicy(site.id);
+          final policy =
+              await ref.read(attendanceServiceProvider).getShiftPolicy(site.id);
           double? dist;
           bool isWithin = true;
           if (policy.latitude != null && policy.longitude != null) {
@@ -90,20 +94,20 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
             isWithin = dist <= policy.allowedRadiusMeters;
           }
           await ref.read(attendanceServiceProvider).updateLiveLocation(
-            StaffLiveLocationModel(
-              staffId: staff.id,
-              staffName: staff.name,
-              staffRole: staff.role.displayName,
-              siteId: site.id,
-              siteName: site.name,
-              latitude: pos.latitude,
-              longitude: pos.longitude,
-              accuracyMeters: pos.accuracy,
-              isWithinSite: isWithin,
-              distanceMeters: dist ?? 0,
-              timestamp: DateTime.now(),
-            ),
-          );
+                StaffLiveLocationModel(
+                  staffId: staff.id,
+                  staffName: staff.name,
+                  staffRole: staff.role.displayName,
+                  siteId: site.id,
+                  siteName: site.name,
+                  latitude: pos.latitude,
+                  longitude: pos.longitude,
+                  accuracyMeters: pos.accuracy,
+                  isWithinSite: isWithin,
+                  distanceMeters: dist ?? 0,
+                  timestamp: DateTime.now(),
+                ),
+              );
         }
       } catch (_) {}
     });
@@ -128,7 +132,8 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
         _currentPosition = result.position;
         _isLoadingLocation = false;
         if (result.position == null) {
-          _locationError = result.errorMessage ?? 'GPS signal unavailable or location permission denied';
+          _locationError = result.errorMessage ??
+              'GPS signal unavailable or location permission denied';
         }
       });
     }
@@ -140,11 +145,13 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.surfaceDark,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
+        title: const Row(
           children: [
-            const Icon(Icons.help_outline_rounded, color: AppColors.primary),
-            const SizedBox(width: 8),
-            Text(kIsWeb ? 'Enabling GPS in Browser' : 'Enabling GPS on Your Device'),
+            Icon(Icons.help_outline_rounded, color: AppColors.primary),
+            SizedBox(width: 8),
+            Text(kIsWeb
+                ? 'Enabling GPS in Browser'
+                : 'Enabling GPS on Your Device'),
           ],
         ),
         content: Column(
@@ -153,7 +160,8 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
           children: [
             const Text(
               'To enable live GPS verification for attendance:',
-              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+              style:
+                  TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
             ),
             const SizedBox(height: 12),
             if (kIsWeb) ...[
@@ -231,12 +239,18 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
       children: [
         CircleAvatar(
           radius: 10,
-          backgroundColor: AppColors.primary.withOpacity(0.2),
-          child: Text(num, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primary)),
+          backgroundColor: AppColors.primary.withValues(alpha: 0.2),
+          child: Text(num,
+              style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: AppColors.primary)),
         ),
         const SizedBox(width: 8),
         Expanded(
-          child: Text(text, style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary)),
+          child: Text(text,
+              style: AppTextStyles.bodySmall
+                  .copyWith(color: AppColors.textSecondary)),
         ),
       ],
     );
@@ -263,7 +277,8 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
           children: [
             Text(
               'You arrived more than 40 minutes after shift start time and were marked Absent.\n\nPlease enter the reason for your delay for Admin approval:',
-              style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
+              style: AppTextStyles.bodySmall
+                  .copyWith(color: AppColors.textSecondary),
             ),
             const SizedBox(height: 14),
             TextField(
@@ -271,7 +286,8 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
               maxLines: 3,
               style: const TextStyle(color: AppColors.textPrimary),
               decoration: const InputDecoration(
-                hintText: 'e.g. Site vehicle breakdown, heavy rain on highway...',
+                hintText:
+                    'e.g. Site vehicle breakdown, heavy rain on highway...',
                 labelText: 'Reason for Late Arrival *',
               ),
             ),
@@ -308,7 +324,8 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
-                    content: Text('Late attendance request sent to Admin for review.'),
+                    content: Text(
+                        'Late attendance request sent to Admin for review.'),
                     backgroundColor: AppColors.approved,
                   ),
                 );
@@ -329,7 +346,8 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
     if (!currentStaff.hasModule(StaffModule.attendance)) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Access Denied: Attendance tracking is turned off for ${currentStaff.name}.'),
+          content: Text(
+              'Access Denied: Attendance tracking is turned off for ${currentStaff.name}.'),
           backgroundColor: AppColors.rejected,
         ),
       );
@@ -337,10 +355,12 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
     }
 
     // 1. Validate Geofence before Punch-In
-    if (_currentPosition == null) {
+    if (_currentPosition == null ||
+        !LocationService.isUsableAttendancePosition(_currentPosition!)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('GPS Signal Required: Please allow Location Services and tap "Retry GPS" to verify you are on site before punching in.'),
+          content: Text(
+              'GPS Signal Required: Please allow Location Services and tap "Retry GPS" to verify you are on site before punching in.'),
           backgroundColor: AppColors.rejected,
           duration: Duration(seconds: 4),
         ),
@@ -350,20 +370,38 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
     }
 
     try {
-      final policy = await ref.read(attendanceServiceProvider).getShiftPolicy(currentSite.id);
+      final policy = await ref
+          .read(attendanceServiceProvider)
+          .getShiftPolicy(currentSite.id);
       final isHeadOffice = currentSite.isHeadOffice ||
           currentSite.name.toLowerCase().contains('head office') ||
           currentSite.name.toLowerCase().contains('indore office') ||
           currentSite.name.toLowerCase().trim() == 'indore';
 
-      final double? siteLat = policy.latitude ?? (isHeadOffice ? 22.719600 : null);
-      final double? siteLng = policy.longitude ?? (isHeadOffice ? 75.857700 : null);
-      final double allowedRadius = policy.allowedRadiusMeters > 0 ? policy.allowedRadiusMeters : 10000.0;
+      final double? siteLat =
+          policy.latitude ?? (isHeadOffice ? 22.719600 : null);
+      final double? siteLng =
+          policy.longitude ?? (isHeadOffice ? 75.857700 : null);
+      final double allowedRadius = policy.allowedRadiusMeters;
+      if (!allowedRadius.isFinite || allowedRadius <= 0) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text(
+                'The site attendance radius must be configured before punching in.')));
+        return;
+      }
 
-      if (siteLat == null || siteLng == null) {
+      if (siteLat == null ||
+          siteLng == null ||
+          !siteLat.isFinite ||
+          !siteLng.isFinite ||
+          siteLat.abs() > 90 ||
+          siteLng.abs() > 180) {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Site Location Not Configured: Admin must set GPS coordinates or Google Maps link for "${currentSite.name}" in Manage Sites before staff can punch attendance.'),
+            content: Text(
+                'Site Location Not Configured: Admin must set GPS coordinates or Google Maps link for "${currentSite.name}" in Manage Sites before staff can punch attendance.'),
             backgroundColor: AppColors.rejected,
             duration: const Duration(seconds: 5),
           ),
@@ -385,9 +423,11 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
         final radStr = allowedRadius >= 1000
             ? '${(allowedRadius / 1000).toStringAsFixed(0)} km'
             : '${allowedRadius.toStringAsFixed(0)}m';
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Cannot Punch In: You are $distStr away from ${currentSite.name}. Attendance requires you to be within $radStr of the site location.'),
+            content: Text(
+                'Cannot Punch In: You are $distStr away from ${currentSite.name}. Attendance requires you to be within $radStr of the site location.'),
             backgroundColor: AppColors.rejected,
             duration: const Duration(seconds: 5),
           ),
@@ -395,6 +435,7 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
         return;
       }
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Geofence verification error: $e'),
@@ -441,7 +482,8 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
         if (record.status == AttendanceStatus.absentLateLockout) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Punched in >40m late. Marked as Absent. Please request regularization.'),
+              content: Text(
+                  'Punched in >40m late. Marked as Absent. Please request regularization.'),
               backgroundColor: AppColors.rejected,
               duration: Duration(seconds: 4),
             ),
@@ -460,7 +502,8 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.rejected),
+          SnackBar(
+              content: Text('Error: $e'), backgroundColor: AppColors.rejected),
         );
       }
     }
@@ -487,7 +530,8 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.rejected),
+          SnackBar(
+              content: Text('Error: $e'), backgroundColor: AppColors.rejected),
         );
       }
     }
@@ -506,13 +550,15 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.person_off_rounded, size: 48, color: AppColors.textTertiary),
+              const Icon(Icons.person_off_rounded,
+                  size: 48, color: AppColors.textTertiary),
               const SizedBox(height: 16),
               const Text('No Site or Staff Member Selected',
                   style: TextStyle(color: Colors.white, fontSize: 16)),
               const SizedBox(height: 12),
               ElevatedButton(
-                onPressed: () => Navigator.pushReplacementNamed(context, '/role-login'),
+                onPressed: () =>
+                    Navigator.pushReplacementNamed(context, '/role-login'),
                 child: const Text('Go to Login'),
               ),
             ],
@@ -531,7 +577,9 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
     final isSundayOff = _now.weekday == DateTime.sunday && isHeadOffice;
     HolidayModel? declaredHoliday;
     for (final h in holidays) {
-      if (h.date.year == _now.year && h.date.month == _now.month && h.date.day == _now.day) {
+      if (h.date.year == _now.year &&
+          h.date.month == _now.month &&
+          h.date.day == _now.day) {
         if (h.appliesTo(currentSite.id, isHeadOffice: isHeadOffice)) {
           declaredHoliday = h;
           break;
@@ -539,7 +587,9 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
       }
     }
     final isHolidayToday = isSundayOff || declaredHoliday != null;
-    final holidayName = isSundayOff ? 'Sunday Off (Head Office)' : (declaredHoliday?.title ?? 'Holiday');
+    final holidayName = isSundayOff
+        ? 'Sunday Off (Head Office)'
+        : (declaredHoliday?.title ?? 'Holiday');
 
     return Scaffold(
       backgroundColor: AppColors.scaffoldDark,
@@ -588,15 +638,18 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
               // Holiday Announcement Banner
               if (isHolidayToday) ...[
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF0284C7).withOpacity(0.12),
+                    color: const Color(0xFF0284C7).withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: const Color(0xFF0284C7).withOpacity(0.4)),
+                    border: Border.all(
+                        color: const Color(0xFF0284C7).withValues(alpha: 0.4)),
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.beach_access_rounded, color: Color(0xFF38BDF8), size: 28),
+                      const Icon(Icons.beach_access_rounded,
+                          color: Color(0xFF38BDF8), size: 28),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
@@ -604,12 +657,16 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
                           children: [
                             Text(
                               'Today is a Holiday — $holidayName',
-                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13),
                             ),
                             const SizedBox(height: 2),
                             const Text(
                               'Attendance is optional today. You are not marked absent. If you are working today, you may still punch in below.',
-                              style: TextStyle(color: Color(0xFFBAE6FD), fontSize: 11),
+                              style: TextStyle(
+                                  color: Color(0xFFBAE6FD), fontSize: 11),
                             ),
                           ],
                         ),
@@ -637,7 +694,8 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
 
               // Attendance Status & Big Action Button
               if (punchState.isLoading)
-                const Center(child: CircularProgressIndicator(color: AppColors.primary))
+                const Center(
+                    child: CircularProgressIndicator(color: AppColors.primary))
               else
                 _buildPunchActionButton(todayRecord, policy),
 
@@ -662,13 +720,14 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
           CircleAvatar(
             radius: 24,
             backgroundColor: staff.isSupervisor
-                ? AppColors.primary.withOpacity(0.2)
-                : AppColors.secondary.withOpacity(0.2),
+                ? AppColors.primary.withValues(alpha: 0.2)
+                : AppColors.secondary.withValues(alpha: 0.2),
             child: Icon(
               staff.isSupervisor
                   ? Icons.admin_panel_settings_rounded
                   : Icons.person_rounded,
-              color: staff.isSupervisor ? AppColors.primary : AppColors.secondary,
+              color:
+                  staff.isSupervisor ? AppColors.primary : AppColors.secondary,
             ),
           ),
           const SizedBox(width: 14),
@@ -683,7 +742,8 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
                 const SizedBox(height: 2),
                 Text(
                   '${staff.role.displayName} • ${site.name}',
-                  style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
+                  style: AppTextStyles.bodySmall
+                      .copyWith(color: AppColors.textSecondary),
                 ),
               ],
             ),
@@ -702,14 +762,14 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            AppColors.primary.withOpacity(0.18),
+            AppColors.primary.withValues(alpha: 0.18),
             AppColors.cardDark,
           ],
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
         ),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
       ),
       child: Column(
         children: [
@@ -725,7 +785,8 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
           const SizedBox(height: 4),
           Text(
             dateStr,
-            style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
+            style: AppTextStyles.bodySmall
+                .copyWith(color: AppColors.textSecondary),
           ),
         ],
       ),
@@ -768,7 +829,8 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
     );
   }
 
-  Widget _buildPolicyItem(String label, String value, IconData icon, Color color) {
+  Widget _buildPolicyItem(
+      String label, String value, IconData icon, Color color) {
     return Column(
       children: [
         Row(
@@ -776,11 +838,17 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
           children: [
             Icon(icon, size: 14, color: color),
             const SizedBox(width: 4),
-            Text(value, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 13)),
+            Text(value,
+                style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    fontSize: 13)),
           ],
         ),
         const SizedBox(height: 2),
-        Text(label, style: AppTextStyles.caption.copyWith(color: AppColors.textTertiary)),
+        Text(label,
+            style:
+                AppTextStyles.caption.copyWith(color: AppColors.textTertiary)),
       ],
     );
   }
@@ -792,9 +860,13 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
         _site?.name.toLowerCase().contains('indore office') == true ||
         _site?.name.toLowerCase().trim() == 'indore';
 
-    final double? siteLat = policy?.latitude ?? (isHeadOffice ? 22.719600 : null);
-    final double? siteLng = policy?.longitude ?? (isHeadOffice ? 75.857700 : null);
-    final double allowedRadius = (policy?.allowedRadiusMeters ?? 0) > 0 ? policy!.allowedRadiusMeters : 10000.0;
+    final double? siteLat =
+        policy?.latitude ?? (isHeadOffice ? 22.719600 : null);
+    final double? siteLng =
+        policy?.longitude ?? (isHeadOffice ? 75.857700 : null);
+    final double allowedRadius = (policy?.allowedRadiusMeters ?? 0) > 0
+        ? policy!.allowedRadiusMeters
+        : 10000.0;
     final hasSitePin = siteLat != null && siteLng != null;
 
     bool isInside = false;
@@ -820,15 +892,18 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
       statusText = _locationError ?? 'Location Unavailable (Tap Retry GPS)';
       statusColor = AppColors.rejected;
     } else if (!hasSitePin) {
-      statusText = 'Site Pin Not Set (Admin must configure coordinates in Manage Sites)';
+      statusText =
+          'Site Pin Not Set (Admin must configure coordinates in Manage Sites)';
       statusColor = AppColors.pending;
     } else if (isInside) {
-      statusText = 'Inside Geofence (${distance?.toStringAsFixed(0)}m from site center)';
+      statusText =
+          'Inside Geofence (${distance?.toStringAsFixed(0)}m from site center)';
       statusColor = AppColors.approved;
     } else {
       final distKm = (distance! / 1000).toStringAsFixed(1);
       final maxKm = (allowedRadius / 1000).toStringAsFixed(0);
-      statusText = 'Outside Boundary ($distKm km away — Max allowed: $maxKm km)';
+      statusText =
+          'Outside Boundary ($distKm km away — Max allowed: $maxKm km)';
       statusColor = AppColors.rejected;
     }
 
@@ -838,17 +913,19 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
         color: AppColors.cardDark,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: statusColor.withOpacity(0.4),
+          color: statusColor.withValues(alpha: 0.4),
         ),
       ),
       child: Row(
         children: [
           CircleAvatar(
             radius: 18,
-            backgroundColor: statusColor.withOpacity(0.15),
+            backgroundColor: statusColor.withValues(alpha: 0.15),
             child: Icon(
               hasPos
-                  ? (isInside ? Icons.my_location_rounded : Icons.location_off_rounded)
+                  ? (isInside
+                      ? Icons.my_location_rounded
+                      : Icons.location_off_rounded)
                   : Icons.location_disabled_rounded,
               size: 18,
               color: statusColor,
@@ -870,13 +947,15 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
                   const SizedBox(height: 2),
                   Text(
                     'Your GPS: ${_currentPosition!.latitude.toStringAsFixed(5)}, ${_currentPosition!.longitude.toStringAsFixed(5)} (±${_currentPosition!.accuracy.toStringAsFixed(0)}m)',
-                    style: AppTextStyles.caption.copyWith(color: AppColors.textTertiary),
+                    style: AppTextStyles.caption
+                        .copyWith(color: AppColors.textTertiary),
                   ),
                   if (hasSitePin) ...[
                     const SizedBox(height: 2),
                     Text(
                       'Site Pin: ${siteLat.toStringAsFixed(5)}, ${siteLng.toStringAsFixed(5)} • Radius: ${(allowedRadius / 1000).toStringAsFixed(0)} km',
-                      style: AppTextStyles.caption.copyWith(color: AppColors.primary, fontSize: 11),
+                      style: AppTextStyles.caption
+                          .copyWith(color: AppColors.primary, fontSize: 11),
                     ),
                   ],
                 ],
@@ -885,13 +964,15 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
           ),
           if (!hasPos && !_isLoadingLocation) ...[
             IconButton(
-              icon: const Icon(Icons.help_outline_rounded, size: 20, color: AppColors.secondary),
+              icon: const Icon(Icons.help_outline_rounded,
+                  size: 20, color: AppColors.secondary),
               tooltip: 'How to enable GPS in browser',
               onPressed: _showGpsHelpDialog,
             ),
           ],
           IconButton(
-            icon: const Icon(Icons.refresh_rounded, size: 20, color: AppColors.primary),
+            icon: const Icon(Icons.refresh_rounded,
+                size: 20, color: AppColors.primary),
             onPressed: _fetchLocation,
             tooltip: 'Retry GPS',
           ),
@@ -900,7 +981,8 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
     );
   }
 
-  Widget _buildPunchActionButton(AttendanceRecordModel? record, SiteShiftPolicyModel? policy) {
+  Widget _buildPunchActionButton(
+      AttendanceRecordModel? record, SiteShiftPolicyModel? policy) {
     if (record == null) {
       // Not punched in yet
       final isHeadOffice = _site?.isHeadOffice == true ||
@@ -908,9 +990,13 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
           _site?.name.toLowerCase().contains('indore office') == true ||
           _site?.name.toLowerCase().trim() == 'indore';
 
-      final double? siteLat = policy?.latitude ?? (isHeadOffice ? 22.719600 : null);
-      final double? siteLng = policy?.longitude ?? (isHeadOffice ? 75.857700 : null);
-      final double allowedRadius = (policy?.allowedRadiusMeters ?? 0) > 0 ? policy!.allowedRadiusMeters : 10000.0;
+      final double? siteLat =
+          policy?.latitude ?? (isHeadOffice ? 22.719600 : null);
+      final double? siteLng =
+          policy?.longitude ?? (isHeadOffice ? 75.857700 : null);
+      final double allowedRadius = (policy?.allowedRadiusMeters ?? 0) > 0
+          ? policy!.allowedRadiusMeters
+          : 10000.0;
       final hasSitePin = siteLat != null && siteLng != null;
       final hasPos = _currentPosition != null;
 
@@ -933,16 +1019,16 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
       if (!hasPos) {
         buttonText = 'GPS SIGNAL REQUIRED (TAP TO RETRY)';
         buttonIcon = Icons.location_disabled_rounded;
-        buttonBg = AppColors.rejected.withOpacity(0.85);
+        buttonBg = AppColors.rejected.withValues(alpha: 0.85);
       } else if (!hasSitePin) {
         buttonText = 'SITE LOCATION NOT CONFIGURED';
         buttonIcon = Icons.map_rounded;
-        buttonBg = AppColors.rejected.withOpacity(0.85);
+        buttonBg = AppColors.rejected.withValues(alpha: 0.85);
       } else if (isOutside) {
         final distKm = (distance! / 1000).toStringAsFixed(1);
         buttonText = 'OUTSIDE SITE BOUNDARY ($distKm KM AWAY)';
         buttonIcon = Icons.location_off_rounded;
-        buttonBg = AppColors.rejected.withOpacity(0.85);
+        buttonBg = AppColors.rejected.withValues(alpha: 0.85);
       } else {
         buttonText = 'PUNCH IN NOW';
         buttonIcon = Icons.fingerprint_rounded;
@@ -953,7 +1039,8 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
         style: ElevatedButton.styleFrom(
           backgroundColor: buttonBg,
           padding: const EdgeInsets.symmetric(vertical: 18),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         ),
         onPressed: _handlePunchIn,
         child: Row(
@@ -963,7 +1050,10 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
             const SizedBox(width: 10),
             Text(
               buttonText,
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
+              style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white),
             ),
           ],
         ),
@@ -979,7 +1069,8 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
         : null;
 
     final isLockout = record.status == AttendanceStatus.absentLateLockout;
-    final isRegularizationPending = record.status == AttendanceStatus.regularizationPending;
+    final isRegularizationPending =
+        record.status == AttendanceStatus.regularizationPending;
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -997,15 +1088,17 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Today\'s Attendance Status', style: AppTextStyles.bodyMedium),
+              Text('Today\'s Attendance Status',
+                  style: AppTextStyles.bodyMedium),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
                   color: isLockout
-                      ? AppColors.rejected.withOpacity(0.18)
+                      ? AppColors.rejected.withValues(alpha: 0.18)
                       : (isRegularizationPending
-                          ? AppColors.pending.withOpacity(0.18)
-                          : AppColors.approved.withOpacity(0.18)),
+                          ? AppColors.pending.withValues(alpha: 0.18)
+                          : AppColors.approved.withValues(alpha: 0.18)),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -1015,7 +1108,9 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
                     fontWeight: FontWeight.bold,
                     color: isLockout
                         ? AppColors.rejected
-                        : (isRegularizationPending ? AppColors.pending : AppColors.approved),
+                        : (isRegularizationPending
+                            ? AppColors.pending
+                            : AppColors.approved),
                   ),
                 ),
               ),
@@ -1029,17 +1124,31 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
             children: [
               Column(
                 children: [
-                  const Text('Punched In', style: TextStyle(color: AppColors.textTertiary, fontSize: 11)),
+                  const Text('Punched In',
+                      style: TextStyle(
+                          color: AppColors.textTertiary, fontSize: 11)),
                   const SizedBox(height: 2),
-                  Text(inTimeStr, style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
+                  Text(inTimeStr,
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold)),
                 ],
               ),
               Container(width: 1, height: 25, color: AppColors.divider),
               Column(
                 children: [
-                  const Text('Punched Out', style: TextStyle(color: AppColors.textTertiary, fontSize: 11)),
+                  const Text('Punched Out',
+                      style: TextStyle(
+                          color: AppColors.textTertiary, fontSize: 11)),
                   const SizedBox(height: 2),
-                  Text(outTimeStr ?? 'Shift Active', style: TextStyle(color: outTimeStr != null ? Colors.white : AppColors.primary, fontSize: 15, fontWeight: FontWeight.bold)),
+                  Text(outTimeStr ?? 'Shift Active',
+                      style: TextStyle(
+                          color: outTimeStr != null
+                              ? Colors.white
+                              : AppColors.primary,
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold)),
                 ],
               ),
             ],
@@ -1050,34 +1159,44 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: AppColors.rejected.withOpacity(0.1),
+                color: AppColors.rejected.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: AppColors.rejected.withOpacity(0.3)),
+                border: Border.all(
+                    color: AppColors.rejected.withValues(alpha: 0.3)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Row(
                     children: [
-                      Icon(Icons.warning_amber_rounded, color: AppColors.rejected, size: 18),
+                      Icon(Icons.warning_amber_rounded,
+                          color: AppColors.rejected, size: 18),
                       SizedBox(width: 6),
-                      Text('Late Arrival (>40 min late)', style: TextStyle(color: AppColors.rejected, fontWeight: FontWeight.bold)),
+                      Text('Late Arrival (>40 min late)',
+                          style: TextStyle(
+                              color: AppColors.rejected,
+                              fontWeight: FontWeight.bold)),
                     ],
                   ),
                   const SizedBox(height: 4),
                   const Text(
                     'You arrived more than 40 minutes late and have been marked Absent. You can submit an attendance regularization request to Admin.',
-                    style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
+                    style:
+                        TextStyle(color: AppColors.textSecondary, fontSize: 11),
                   ),
                   const SizedBox(height: 10),
                   ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.pending,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8)),
                     ),
                     onPressed: () => _showRegularizationDialog(record),
-                    icon: const Icon(Icons.send_rounded, size: 16, color: Colors.white),
-                    label: const Text('Send Request to Admin', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    icon: const Icon(Icons.send_rounded,
+                        size: 16, color: Colors.white),
+                    label: const Text('Send Request to Admin',
+                        style: TextStyle(
+                            color: Colors.white, fontWeight: FontWeight.bold)),
                   ),
                 ],
               ),
@@ -1087,7 +1206,7 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: AppColors.pending.withOpacity(0.1),
+                color: AppColors.pending.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
@@ -1103,7 +1222,8 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.secondary,
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
               ),
               onPressed: () => _handlePunchOut(record),
               child: const Row(
@@ -1111,7 +1231,9 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
                 children: [
                   Icon(Icons.logout_rounded, color: Colors.white),
                   SizedBox(width: 8),
-                  Text('PUNCH OUT (END SHIFT)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  Text('PUNCH OUT (END SHIFT)',
+                      style: TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.bold)),
                 ],
               ),
             ),

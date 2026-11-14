@@ -1,49 +1,28 @@
-import 'dart:convert';
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
-
-Future<String> transcribe({
-  required List<int> audioBytes,
-  String? language,
-  String? prompt,
-}) async {
-  final apiKey = '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';
-  final uri = Uri.parse('https://api.groq.com/openai/v1/audio/transcriptions');
-
-  final req = http.MultipartRequest('POST', uri);
-  req.headers['Authorization'] = 'Bearer $apiKey';
-  req.fields['model'] = 'whisper-large-v3-turbo';
-  req.fields['response_format'] = 'json';
-  if (language != null) {
-    req.fields['language'] = language;
-  }
-  if (prompt != null) {
-    req.fields['prompt'] = prompt;
-  }
-  req.files.add(http.MultipartFile.fromBytes('file', audioBytes, filename: 'test.m4a'));
-
-  final sResp = await req.send();
-  final resp = await http.Response.fromStream(sResp);
-  final body = jsonDecode(resp.body);
-  return body['text'] as String;
-}
+import 'package:http/testing.dart';
+import 'package:skcpl_app/services/whisper_service.dart';
 
 void main() {
-  test('Groq Whisper Language Modes on English Audio', () async {
-    final enBytes = await File('/Users/saketkumar/.gemini/antigravity-ide/brain/a43d21d5-fcc3-45a8-94bf-5a99cab6f508/scratch/english_test.m4a').readAsBytes();
-
-    final resHinglish = await transcribe(
-      audioBytes: enBytes,
-      prompt: 'Aaj site par 50 bag cement laga hai, footing complete hua. Shuttering, sariya, labour.',
-    );
-    print('English Audio transcribed in Hinglish mode: $resHinglish');
-
-    final resEnglish = await transcribe(
-      audioBytes: enBytes,
-      language: 'en',
-      prompt: 'Today site work report: cement bags, concrete, footing, shuttering, labour.',
-    );
-    print('English Audio transcribed in English mode: $resEnglish');
-  });
+  for (final mode in ['english', 'hindi', 'hinglish', 'auto']) {
+    test('Whisper language mode: $mode', () async {
+      final service = WhisperService(MockClient((request) async {
+        if (mode == 'english' || mode == 'hindi') {
+          expect(request.body, contains('name="language"'));
+        }
+        if (mode == 'auto' || mode == 'hinglish') {
+          expect(request.body, isNot(contains('name="language"')));
+        }
+        return http.Response('{"text":"fixture transcription"}', 200);
+      }));
+      await service.saveApiKey('fixture-key');
+      expect(
+          await service.transcribeAudio(
+              audioBytes: Uint8List.fromList([1]),
+              fileName: 'fixture.m4a',
+              lang: mode),
+          'fixture transcription');
+    });
+  }
 }

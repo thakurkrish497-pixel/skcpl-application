@@ -1,3 +1,5 @@
+import 'package:intl/intl.dart';
+import '../../widgets/responsive_toolbar_actions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -42,115 +44,121 @@ class AdminDashboard extends ConsumerWidget {
     final pendingCashAsync = ref.watch(pendingCashAdminProvider);
     final sitesAsync = ref.watch(activeSitesProvider);
     final staffAsync = ref.watch(allStaffProvider);
-    final todayAttendanceAsync = ref.watch(todayAttendanceForSiteProvider('all'));
+    final todayAttendanceAsync =
+        ref.watch(todayAttendanceForSiteProvider('all'));
     final authState = ref.watch(authProvider);
+    final finance = ref.watch(allSitesFinanceSummaryProvider);
+    final inventory = ref.watch(allSitesStockSummaryProvider);
+    final activity = ref.watch(recentTransactionActivityProvider);
+    final approvedCash = finance.valueOrNull?.fold<double>(
+        0, (sum, row) => sum + (row['balance'] as num).toDouble());
 
     final pendingStockCount = pendingStockAsync.valueOrNull?.length ?? 0;
     final pendingCashCount = pendingCashAsync.valueOrNull?.length ?? 0;
     final totalPendingApprovals = pendingStockCount + pendingCashCount;
+    final pendingUnavailable =
+        pendingStockAsync.hasError || pendingCashAsync.hasError;
+    final pendingLoading =
+        pendingStockAsync.isLoading || pendingCashAsync.isLoading;
     final sitesCount = sitesAsync.valueOrNull?.length ?? 0;
     final staffCount = staffAsync.valueOrNull?.length ?? 0;
-    final todayAttendanceCount = todayAttendanceAsync.valueOrNull?.length ?? 0;
+    final todayAttendanceCount = todayAttendanceAsync.valueOrNull
+            ?.where((record) => record.isPresent)
+            .length ??
+        0;
 
     return Scaffold(
       backgroundColor: AppColors.scaffoldDark,
       drawer: AppDrawer(
         user: authState.user,
         onManageSites: () => Navigator.pushNamed(context, '/manage-sites'),
-        onSignOut: () async {
-          await ref.read(authProvider.notifier).signOut();
-          if (context.mounted) {
-            Navigator.of(context).pushAndRemoveUntil(
-              MaterialPageRoute(builder: (_) => const HomeScreen()),
-              (route) => false,
-            );
-          }
-        },
+        onSignOut: () => _showSignOutDialog(context, ref),
       ),
       appBar: AppBar(
         backgroundColor: AppColors.surfaceDark,
         elevation: 0,
         titleSpacing: 0,
-        title: Row(
-          children: [
-            const SkcplBrandLogo(variant: LogoVariant.compact, customSize: 34),
-            const SizedBox(width: 10),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
+        title: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Row(
               children: [
-                Row(
+                const SkcplBrandLogo(
+                    variant: LogoVariant.compact, customSize: 34),
+                const SizedBox(width: 10),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      'SKCPL',
-                      style: AppTextStyles.h4.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 1.0,
-                      ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'SKCPL',
+                          style: AppTextStyles.h4.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 1.0,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          '• Dashboard',
+                          style: AppTextStyles.h4.copyWith(
+                            color: AppColors.waveCyan,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 6),
                     Text(
-                      '• Dashboard',
-                      style: AppTextStyles.h4.copyWith(
-                        color: AppColors.waveCyan,
-                        fontWeight: FontWeight.w600,
+                      'Connect to Waves • Operations Command',
+                      style: AppTextStyles.caption.copyWith(
+                        color: AppColors.textTertiary,
+                        fontSize: 10,
                       ),
                     ),
                   ],
                 ),
-                Text(
-                  'Connect to Waves • Operations Command',
-                  style: AppTextStyles.caption.copyWith(
-                    color: AppColors.textTertiary,
-                    fontSize: 10,
-                  ),
-                ),
               ],
-            ),
-          ],
-        ),
+            )),
         actions: [
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8, horizontal: 2),
-            child: ThemeToggleButton(isCompact: true),
-          ),
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-            child: LanguageToggleButton(isCompact: true),
-          ),
-          const NotificationBellButton(),
-          IconButton(
-            icon: const Icon(Icons.campaign_rounded, color: AppColors.waveCyan),
-            tooltip: 'Notice Board & Broadcast Announcements',
-            onPressed: () => NoticeBoardDialog.show(context),
-          ),
-          IconButton(
-            icon: const Icon(Icons.shield_rounded, color: AppColors.waveCyan),
-            tooltip: 'Data Loss Protection & Backups',
-            onPressed: () => Navigator.pushNamed(context, '/admin-backup'),
-          ),
-          IconButton(
-            icon: const Icon(Icons.admin_panel_settings_rounded, color: AppColors.goldAccent),
-            tooltip: 'Role Access & Approval Powers',
-            onPressed: () => Navigator.pushNamed(context, '/admin-role-access'),
-          ),
-          const UniversalSyncButton(),
-          IconButton(
-            icon: const Icon(Icons.logout_rounded, color: AppColors.rejected),
-            tooltip: context.tr('logout'),
-            onPressed: () async {
-              await ref.read(authProvider.notifier).signOut();
-              if (context.mounted) {
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (_) => const HomeScreen()),
-                  (route) => false,
-                );
-              }
-            },
-          ),
-          const SizedBox(width: 6),
+          ResponsiveToolbarActions(actions: [
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8, horizontal: 2),
+              child: ThemeToggleButton(isCompact: true),
+            ),
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+              child: LanguageToggleButton(isCompact: true),
+            ),
+            const NotificationBellButton(),
+            IconButton(
+              icon:
+                  const Icon(Icons.campaign_rounded, color: AppColors.waveCyan),
+              tooltip: 'Notice Board & Broadcast Announcements',
+              onPressed: () => NoticeBoardDialog.show(context),
+            ),
+            IconButton(
+              icon: const Icon(Icons.shield_rounded, color: AppColors.waveCyan),
+              tooltip: 'Data Loss Protection & Backups',
+              onPressed: () => Navigator.pushNamed(context, '/admin-backup'),
+            ),
+            IconButton(
+              icon: const Icon(Icons.admin_panel_settings_rounded,
+                  color: AppColors.goldAccent),
+              tooltip: 'Role Access & Approval Powers',
+              onPressed: () =>
+                  Navigator.pushNamed(context, '/admin-role-access'),
+            ),
+            const UniversalSyncButton(),
+            IconButton(
+              icon: const Icon(Icons.logout_rounded, color: AppColors.rejected),
+              tooltip: context.tr('logout'),
+              onPressed: () => _showSignOutDialog(context, ref),
+            ),
+            const SizedBox(width: 6),
+          ])
         ],
       ),
       body: ResponsiveContainer(
@@ -169,7 +177,8 @@ class AdminDashboard extends ConsumerWidget {
 
               // ── Live System Status & Greeting ──
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
                   color: AppColors.cardDark,
                   borderRadius: BorderRadius.circular(16),
@@ -205,14 +214,14 @@ class AdminDashboard extends ConsumerWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'System Status: All Services Live & Connected',
+                            'Operations overview',
                             style: AppTextStyles.bodySmall.copyWith(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                           Text(
-                            'Cloud Sync Active • Geofencing Enforced',
+                            'Review approvals, site activity and balances',
                             style: AppTextStyles.caption.copyWith(
                               color: AppColors.textTertiary,
                               fontSize: 11,
@@ -222,7 +231,8 @@ class AdminDashboard extends ConsumerWidget {
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
                         color: AppColors.waveCyan.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(20),
@@ -231,7 +241,7 @@ class AdminDashboard extends ConsumerWidget {
                           width: 0.8,
                         ),
                       ),
-                      child: Text(
+                      child: const Text(
                         'ADMIN',
                         style: TextStyle(
                           color: AppColors.waveCyan,
@@ -257,16 +267,29 @@ class AdminDashboard extends ConsumerWidget {
                     physics: const NeverScrollableScrollPhysics(),
                     crossAxisSpacing: 12,
                     mainAxisSpacing: 12,
-                    childAspectRatio: isWide ? 1.5 : 1.35,
+                    childAspectRatio: isWide
+                        ? 1.5
+                        : constraints.maxWidth < 350
+                            ? 0.95
+                            : 1.35,
                     children: [
                       // Metric 1: Pending Approvals
                       _SaaSMetricCard(
                         label: 'Pending Approvals',
-                        value: '$totalPendingApprovals',
-                        subtext: totalPendingApprovals > 0 ? 'Action Needed' : 'All Clear',
+                        value: pendingUnavailable || pendingLoading
+                            ? '—'
+                            : '$totalPendingApprovals',
+                        subtext: pendingUnavailable
+                            ? 'Unable to load'
+                            : pendingLoading
+                                ? 'Loading'
+                                : totalPendingApprovals > 0
+                                    ? 'Action Needed'
+                                    : 'All Clear',
                         icon: Icons.approval_rounded,
                         accentColor: AppColors.goldAccent,
-                        onTap: () => Navigator.pushNamed(context, '/admin-review'),
+                        onTap: () =>
+                            Navigator.pushNamed(context, '/admin-review'),
                       ),
 
                       // Metric 2: Today's Attendance Pulse
@@ -276,7 +299,8 @@ class AdminDashboard extends ConsumerWidget {
                         subtext: 'Punched In Today',
                         icon: Icons.how_to_reg_rounded,
                         accentColor: AppColors.waveCyan,
-                        onTap: () => Navigator.pushNamed(context, '/admin-attendance'),
+                        onTap: () =>
+                            Navigator.pushNamed(context, '/admin-attendance'),
                       ),
 
                       // Metric 3: Active Locations
@@ -286,8 +310,34 @@ class AdminDashboard extends ConsumerWidget {
                         subtext: 'Including Head Office',
                         icon: Icons.location_city_rounded,
                         accentColor: AppColors.approved,
-                        onTap: () => Navigator.pushNamed(context, '/manage-sites'),
+                        onTap: () =>
+                            Navigator.pushNamed(context, '/manage-sites'),
                       ),
+
+                      _SaaSMetricCard(
+                          label: 'Approved Cash in Hand',
+                          value: finance.hasError
+                              ? 'Unavailable'
+                              : approvedCash == null
+                                  ? '…'
+                                  : NumberFormat.compactCurrency(
+                                          locale: 'en_IN', symbol: '₹')
+                                      .format(approvedCash),
+                          subtext: 'Approved vouchers only',
+                          icon: Icons.account_balance_wallet_rounded,
+                          accentColor: AppColors.approved,
+                          onTap: () =>
+                              Navigator.pushNamed(context, '/admin-cashflow')),
+                      _SaaSMetricCard(
+                          label: 'Site Material Balances',
+                          value: inventory.hasError
+                              ? 'Unavailable'
+                              : inventory.valueOrNull?.length.toString() ?? '…',
+                          subtext: 'Separated by material and unit',
+                          icon: Icons.inventory_2_rounded,
+                          accentColor: AppColors.waveCyan,
+                          onTap: () => Navigator.pushNamed(context, '/sites',
+                              arguments: 'stock')),
 
                       // Metric 4: Total Managed Staff
                       _SaaSMetricCard(
@@ -296,7 +346,8 @@ class AdminDashboard extends ConsumerWidget {
                         subtext: 'Across All Roles',
                         icon: Icons.people_alt_rounded,
                         accentColor: AppColors.primaryLight,
-                        onTap: () => Navigator.pushNamed(context, '/admin-staff'),
+                        onTap: () =>
+                            Navigator.pushNamed(context, '/admin-staff'),
                       ),
                     ],
                   );
@@ -306,10 +357,14 @@ class AdminDashboard extends ConsumerWidget {
               const SizedBox(height: 20),
 
               // ── The Signature "Connectivity & Activity Pulse" Chart ──
-              const SkcplConnectivityWaveChart(
+              SkcplConnectivityWaveChart(
                 height: 140,
-                title: 'Activity Waves & Throughput',
-                subtitle: 'Weekly pulse of inventory movements, expenses & attendance',
+                title: 'Recorded Entries — Last 7 Days',
+                subtitle: activity.hasError
+                    ? 'Activity could not be refreshed'
+                    : 'Daily stock and cash submissions',
+                cyanValues: activity.valueOrNull?.stock,
+                goldValues: activity.valueOrNull?.cash,
               ).animate().fadeIn(delay: 300.ms).slideY(begin: 0.05),
 
               const SizedBox(height: 24),
@@ -328,7 +383,8 @@ class AdminDashboard extends ConsumerWidget {
                   ),
                   Text(
                     '7 Modules Active',
-                    style: AppTextStyles.caption.copyWith(color: AppColors.textTertiary),
+                    style: AppTextStyles.caption
+                        .copyWith(color: AppColors.textTertiary),
                   ),
                 ],
               ),
@@ -345,81 +401,94 @@ class AdminDashboard extends ConsumerWidget {
                   _CommandModuleTile(
                     icon: Icons.campaign_rounded,
                     title: 'Notice Board & Broadcasts',
-                    subtitle: 'Post company-wide announcements, Zoom meeting invites & push alerts',
+                    subtitle:
+                        'Post company-wide announcements, Zoom meeting invites & push alerts',
                     accentColor: AppColors.goldAccent,
                     badgeText: 'Instant Alert',
                     badgeColor: AppColors.primary,
                     onTap: () => NoticeBoardDialog.show(context),
                   ).animate().fadeIn(delay: 300.ms).slideX(begin: -0.04),
-
                   _CommandModuleTile(
                     icon: Icons.badge_rounded,
                     title: context.tr('all_staff'),
-                    subtitle: 'Staff profiles, PIN passwords, module permissions & 360° reports',
+                    subtitle:
+                        'Staff profiles, PIN passwords, module permissions & 360° reports',
                     accentColor: AppColors.primaryLight,
                     badgeText: '$staffCount Staff',
                     onTap: () => Navigator.pushNamed(context, '/admin-staff'),
                   ).animate().fadeIn(delay: 350.ms).slideX(begin: -0.04),
-
                   _CommandModuleTile(
                     icon: Icons.how_to_reg_rounded,
                     title: context.tr('attendance_punch'),
-                    subtitle: 'Today\'s pulse, live GPS radar, late requests queue & monthly Excel',
+                    subtitle:
+                        'Today\'s pulse, live GPS radar, late requests queue & monthly Excel',
                     accentColor: AppColors.waveCyan,
                     badgeText: 'Live GPS',
-                    onTap: () => Navigator.pushNamed(context, '/admin-attendance'),
+                    onTap: () =>
+                        Navigator.pushNamed(context, '/admin-attendance'),
                   ).animate().fadeIn(delay: 400.ms).slideX(begin: -0.04),
-
                   _CommandModuleTile(
                     icon: Icons.fact_check_rounded,
                     title: context.tr('review_approvals'),
-                    subtitle: 'Sign off site worker inward stock and cash expenses',
+                    subtitle:
+                        'Sign off site worker inward stock and cash expenses',
                     accentColor: AppColors.goldAccent,
-                    badgeText: totalPendingApprovals > 0 ? '$totalPendingApprovals Pending' : 'Approved',
-                    badgeColor: totalPendingApprovals > 0 ? AppColors.rejected : AppColors.approved,
+                    badgeText: pendingUnavailable
+                        ? 'Unavailable'
+                        : pendingLoading
+                            ? 'Loading'
+                            : totalPendingApprovals > 0
+                                ? '$totalPendingApprovals Pending'
+                                : 'Approved',
+                    badgeColor: totalPendingApprovals > 0
+                        ? AppColors.rejected
+                        : AppColors.approved,
                     onTap: () => Navigator.pushNamed(context, '/admin-review'),
                   ).animate().fadeIn(delay: 450.ms).slideX(begin: -0.04),
-
                   _CommandModuleTile(
                     icon: Icons.location_city_rounded,
                     title: context.tr('manage_sites'),
-                    subtitle: 'Create sites, set Google Maps attendance area & "Set to My Location"',
+                    subtitle:
+                        'Create sites, set Google Maps attendance area & "Set to My Location"',
                     accentColor: AppColors.approved,
                     badgeText: '$sitesCount Sites',
                     onTap: () => Navigator.pushNamed(context, '/manage-sites'),
                   ).animate().fadeIn(delay: 500.ms).slideX(begin: -0.04),
-
                   _CommandModuleTile(
                     icon: Icons.record_voice_over_rounded,
                     title: context.tr('daily_site_report'),
-                    subtitle: 'Voice-to-text notes, site construction photos & daily progress',
+                    subtitle:
+                        'Voice-to-text notes, site construction photos & daily progress',
                     accentColor: const Color(0xFFF97316),
                     badgeText: 'AI Powered',
-                    onTap: () => Navigator.pushNamed(context, '/daily-site-reports'),
+                    onTap: () =>
+                        Navigator.pushNamed(context, '/daily-site-reports'),
                   ).animate().fadeIn(delay: 550.ms).slideX(begin: -0.04),
-
                   _CommandModuleTile(
                     icon: Icons.account_balance_wallet_rounded,
                     title: context.tr('cashflow_summary'),
-                    subtitle: 'Imprest book, site cash-in-hand, category budgets & audits',
+                    subtitle:
+                        'Imprest book, site cash-in-hand, category budgets & audits',
                     accentColor: const Color(0xFF10B981),
                     badgeText: 'Audit Ready',
-                    onTap: () => Navigator.pushNamed(context, '/admin-cashflow'),
+                    onTap: () =>
+                        Navigator.pushNamed(context, '/admin-cashflow'),
                   ).animate().fadeIn(delay: 600.ms).slideX(begin: -0.04),
-
                   _CommandModuleTile(
                     icon: Icons.admin_panel_settings_rounded,
                     title: 'Role Access & Approval Powers',
-                    subtitle: 'Configure IDs, passwords & granular approval routing (Bypass Accounts/Project Head)',
+                    subtitle:
+                        'Configure IDs, passwords & granular approval routing (Bypass Accounts/Project Head)',
                     accentColor: AppColors.goldAccent,
                     badgeText: 'Admin Power',
-                    onTap: () => Navigator.pushNamed(context, '/admin-role-access'),
+                    onTap: () =>
+                        Navigator.pushNamed(context, '/admin-role-access'),
                   ).animate().fadeIn(delay: 700.ms).slideX(begin: -0.04),
-
                   _CommandModuleTile(
                     icon: Icons.shield_rounded,
                     title: 'Data Protection & Master Backups',
-                    subtitle: '1-Click Master Excel & JSON backup, media catalog, automated cloud sync & emergency vault',
+                    subtitle:
+                        '1-Click Master Excel & JSON backup, media catalog, automated cloud sync & emergency vault',
                     accentColor: AppColors.waveCyan,
                     badgeText: 'Zero Loss',
                     onTap: () => Navigator.pushNamed(context, '/admin-backup'),
@@ -444,7 +513,8 @@ class AdminDashboard extends ConsumerWidget {
                 loading: () => const Center(
                   child: Padding(
                     padding: EdgeInsets.all(16),
-                    child: CircularProgressIndicator(color: AppColors.waveCyan, strokeWidth: 2),
+                    child: CircularProgressIndicator(
+                        color: AppColors.waveCyan, strokeWidth: 2),
                   ),
                 ),
                 error: (_, __) => const SizedBox(),
@@ -456,7 +526,9 @@ class AdminDashboard extends ConsumerWidget {
                     desktopColumns: 3,
                     spacing: 12,
                     runSpacing: 12,
-                    children: sites.map((site) => _SiteQuickPulseCard(site: site)).toList(),
+                    children: sites
+                        .map((site) => _SiteQuickPulseCard(site: site))
+                        .toList(),
                   );
                 },
               ),
@@ -465,6 +537,42 @@ class AdminDashboard extends ConsumerWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  void _showSignOutDialog(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.surfaceDark,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Sign Out', style: TextStyle(color: Colors.white)),
+        content: const Text(
+          'Are you sure you want to sign out from the Super Admin dashboard?',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style:
+                ElevatedButton.styleFrom(backgroundColor: AppColors.rejected),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await ref.read(authProvider.notifier).signOut();
+              if (context.mounted) {
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (_) => const HomeScreen()),
+                  (route) => false,
+                );
+              }
+            },
+            child: const Text('Sign Out'),
+          ),
+        ],
       ),
     );
   }
@@ -667,12 +775,15 @@ class _CommandModuleTile extends StatelessWidget {
                           if (badgeText != null) ...[
                             const SizedBox(width: 8),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 7, vertical: 2),
                               decoration: BoxDecoration(
-                                color: (badgeColor ?? accentColor).withValues(alpha: 0.18),
+                                color: (badgeColor ?? accentColor)
+                                    .withValues(alpha: 0.18),
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(
-                                  color: (badgeColor ?? accentColor).withValues(alpha: 0.4),
+                                  color: (badgeColor ?? accentColor)
+                                      .withValues(alpha: 0.4),
                                   width: 0.8,
                                 ),
                               ),
@@ -705,11 +816,11 @@ class _CommandModuleTile extends StatelessWidget {
                 const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
+                  decoration: const BoxDecoration(
                     color: AppColors.surfaceDark,
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(
+                  child: const Icon(
                     Icons.chevron_right_rounded,
                     color: AppColors.textTertiary,
                     size: 18,
@@ -747,8 +858,11 @@ class _SiteQuickPulseCard extends ConsumerWidget {
       child: Row(
         children: [
           Icon(
-            site.isHeadOffice ? Icons.apartment_rounded : Icons.construction_rounded,
-            color: site.isHeadOffice ? AppColors.waveCyan : AppColors.goldAccent,
+            site.isHeadOffice
+                ? Icons.apartment_rounded
+                : Icons.construction_rounded,
+            color:
+                site.isHeadOffice ? AppColors.waveCyan : AppColors.goldAccent,
             size: 18,
           ),
           const SizedBox(width: 10),
@@ -794,13 +908,17 @@ class _SiteQuickPulseCard extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  hasArea ? Icons.gps_fixed_rounded : Icons.gps_not_fixed_rounded,
+                  hasArea
+                      ? Icons.gps_fixed_rounded
+                      : Icons.gps_not_fixed_rounded,
                   size: 11,
                   color: hasArea ? AppColors.approved : AppColors.pending,
                 ),
                 const SizedBox(width: 4),
                 Text(
-                  hasArea ? '${policy!.allowedRadiusMeters.toInt()}m Geofence' : 'Area Not Set',
+                  hasArea
+                      ? '${policy!.allowedRadiusMeters.toInt()}m Geofence'
+                      : 'Area Not Set',
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.bold,

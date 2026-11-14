@@ -34,7 +34,8 @@ class ThemeNotifier extends StateNotifier<ThemeMode> {
     AppColors.isLight = (mode == ThemeMode.light);
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_kThemePrefKey, mode == ThemeMode.light ? 'light' : 'dark');
+      await prefs.setString(
+          _kThemePrefKey, mode == ThemeMode.light ? 'light' : 'dark');
     } catch (e) {
       debugPrint('Error saving theme: $e');
     }
@@ -42,7 +43,8 @@ class ThemeNotifier extends StateNotifier<ThemeMode> {
 
   /// Toggle between Dark Mode and Light Mode
   Future<void> toggleTheme() async {
-    final nextMode = (state == ThemeMode.dark) ? ThemeMode.light : ThemeMode.dark;
+    final nextMode =
+        (state == ThemeMode.dark) ? ThemeMode.light : ThemeMode.dark;
     await setTheme(nextMode);
   }
 

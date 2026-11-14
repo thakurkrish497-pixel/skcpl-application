@@ -1,7 +1,8 @@
+import 'package:flutter/foundation.dart';
+import 'support/erp_test_backend.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:excel/excel.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:skcpl_app/core/constants/supabase_constants.dart';
 import 'package:skcpl_app/models/cash_transaction_model.dart';
 import 'package:skcpl_app/models/stock_transaction_model.dart';
 import 'package:skcpl_app/services/excel_service.dart';
@@ -33,7 +34,8 @@ void main() {
         amountReceived: 0,
         expenseAmount: 2500,
         cashInHand: 47500,
-        remarks: 'mattresses for room 4 no [Party: Bombay Dyeing] [Bill: #1024]',
+        remarks:
+            'mattresses for room 4 no [Party: Bombay Dyeing] [Bill: #1024]',
         status: TransactionStatus.approved,
       ),
       // 3. Approved Expense with Dropdown Account Head
@@ -107,10 +109,11 @@ void main() {
     // Verify PROJECT SUMMARY (Sheet 1)
     // ──────────────────────────────────────────────
     final summarySheet = excel.tables['PROJECT SUMMARY']!;
-    print('PROJECT SUMMARY rows: ${summarySheet.maxRows}');
+    debugPrint('PROJECT SUMMARY rows: ${summarySheet.maxRows}');
 
     // Header row
-    final headerRow = summarySheet.rows[0].map((c) => c?.value?.toString()).toList();
+    final headerRow =
+        summarySheet.rows[0].map((c) => c?.value?.toString()).toList();
     expect(headerRow[0], 'Account Head');
     expect(headerRow[1], 'Amount Received (₹)');
     expect(headerRow[2], 'Expenses Amount (₹)');
@@ -121,29 +124,33 @@ void main() {
     for (int r = 1; r < summarySheet.maxRows - 1; r++) {
       final head = summarySheet.rows[r][0]?.value?.toString() ?? '';
       headsInSummary.add(head);
-      print('Summary Row $r: ${summarySheet.rows[r].map((c) => c?.value?.toString()).join(" | ")}');
+      debugPrint(
+          'Summary Row $r: ${summarySheet.rows[r].map((c) => c?.value?.toString()).join(" | ")}');
     }
 
     expect(headsInSummary.contains('Indore Office'), true);
     expect(headsInSummary.contains('Mess Exp'), true);
     expect(headsInSummary.contains('Purchase'), true);
-    expect(headsInSummary.contains('Electricity Exp'), false); // pendingAccounts
+    expect(
+        headsInSummary.contains('Electricity Exp'), false); // pendingAccounts
     expect(headsInSummary.contains('JCB & Mech Exp'), false); // pendingAdmin
     expect(headsInSummary.contains('Room Rent'), false); // rejected
 
     // Grand Total row
-    final grandTotalRow = summarySheet.rows.last.map((c) => c?.value?.toString()).toList();
+    final grandTotalRow =
+        summarySheet.rows.last.map((c) => c?.value?.toString()).toList();
     expect(grandTotalRow[0], 'Grand Total');
-    print('Summary Grand Total: ${grandTotalRow.join(" | ")}');
+    debugPrint('Summary Grand Total: ${grandTotalRow.join(" | ")}');
 
     // ──────────────────────────────────────────────
     // Verify CASH (Sheet 2)
     // ──────────────────────────────────────────────
     final cashSheet = excel.tables['CASH']!;
-    print('\nCASH rows: ${cashSheet.maxRows}');
+    debugPrint('\nCASH rows: ${cashSheet.maxRows}');
 
     // Cash Header
-    final cashHeader = cashSheet.rows[0].map((c) => c?.value?.toString()).toList();
+    final cashHeader =
+        cashSheet.rows[0].map((c) => c?.value?.toString()).toList();
     expect(cashHeader[0], 'Date');
     expect(cashHeader[1], 'Description of Expenses');
     expect(cashHeader[2], 'Account Head');
@@ -155,16 +162,18 @@ void main() {
     expect(cashSheet.maxRows, 5);
 
     // Row 1 (Indore Office Top-up)
-    final cashRow1 = cashSheet.rows[1].map((c) => c?.value?.toString()).toList();
-    print('Cash Row 1: ${cashRow1.join(" | ")}');
+    final cashRow1 =
+        cashSheet.rows[1].map((c) => c?.value?.toString()).toList();
+    debugPrint('Cash Row 1: ${cashRow1.join(" | ")}');
     expect(cashRow1[2], 'Indore Office');
     expect(cashRow1[3], '50000');
     expect(cashRow1[4], '0');
     expect(cashRow1[5], 'D2-E2');
 
     // Row 2 (Purchase)
-    final cashRow2 = cashSheet.rows[2].map((c) => c?.value?.toString()).toList();
-    print('Cash Row 2: ${cashRow2.join(" | ")}');
+    final cashRow2 =
+        cashSheet.rows[2].map((c) => c?.value?.toString()).toList();
+    debugPrint('Cash Row 2: ${cashRow2.join(" | ")}');
     expect(cashRow2[1], contains('mattresses for room 4 no'));
     expect(cashRow2[1], contains('Bombay Dyeing'));
     expect(cashRow2[2], 'Purchase');
@@ -173,8 +182,9 @@ void main() {
     expect(cashRow2[5], 'F2+D3-E3');
 
     // Row 3 (Mess Exp)
-    final cashRow3 = cashSheet.rows[3].map((c) => c?.value?.toString()).toList();
-    print('Cash Row 3: ${cashRow3.join(" | ")}');
+    final cashRow3 =
+        cashSheet.rows[3].map((c) => c?.value?.toString()).toList();
+    debugPrint('Cash Row 3: ${cashRow3.join(" | ")}');
     expect(cashRow3[1], contains('kirana samaan'));
     expect(cashRow3[1], contains('Sharma Store'));
     expect(cashRow3[2], 'Mess Exp');
@@ -183,8 +193,9 @@ void main() {
     expect(cashRow3[5], 'F3+D4-E4');
 
     // Row 4 (Grand Total)
-    final cashTotalRow = cashSheet.rows[4].map((c) => c?.value?.toString()).toList();
-    print('Cash Total Row: ${cashTotalRow.join(" | ")}');
+    final cashTotalRow =
+        cashSheet.rows[4].map((c) => c?.value?.toString()).toList();
+    debugPrint('Cash Total Row: ${cashTotalRow.join(" | ")}');
     expect(cashTotalRow[0], 'Total');
     expect(cashTotalRow[1], 'Cumulative Totals');
     expect(cashTotalRow[3], 'SUM(D2:D4)');
@@ -194,16 +205,17 @@ void main() {
 
   test('Print live cash transactions from Supabase for Nissarpur', () async {
     final client = SupabaseClient(
-      SupabaseConstants.supabaseUrl,
-      SupabaseConstants.supabaseServiceRoleKey,
+      'http://erp.test.invalid',
+      'fixture-public-key',
+      httpClient: ErpTestBackend.instance.client,
     );
     final sites = await client.from('sites').select().eq('name', 'Nissarpur');
     if (sites.isEmpty) {
-      print('Nissarpur site not found');
+      debugPrint('Nissarpur site not found');
       return;
     }
     final siteId = sites.first['id'] as String;
-    print('Nissarpur Site ID: $siteId');
+    debugPrint('Nissarpur Site ID: $siteId');
 
     final cashData = await client
         .from('cash_transactions')
@@ -211,12 +223,13 @@ void main() {
         .eq('site_id', siteId)
         .eq('status', 'approved')
         .order('date', ascending: true);
+    expect(cashData, isA<List>());
 
     try {
       final res = await client.rpc('exec_sql', params: {'sql': 'SELECT 1;'});
-      print('exec_sql exists! $res');
+      debugPrint('exec_sql exists! $res');
     } catch (e) {
-      print('exec_sql error: $e');
+      debugPrint('exec_sql error: $e');
     }
   });
 }

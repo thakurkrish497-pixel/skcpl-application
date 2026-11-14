@@ -1,3 +1,6 @@
+import '../../services/inventory_math.dart';
+import '../../services/draft_store.dart';
+import '../../services/submission_support.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -57,6 +60,38 @@ class CashEntryDraft {
     this.photos = const [],
     required this.date,
   });
+  Map<String, dynamic> toLocalJson() => {
+        'id': id,
+        'mode': mode.name,
+        'expenseTypeId': expenseTypeId,
+        'customExpenseType': customExpenseType,
+        'expenseTypeName': expenseTypeName,
+        'amount': amount,
+        'remarks': remarks,
+        'billNo': billNo,
+        'partyName': partyName,
+        'photos': photos
+            .map((p) => PendingPhoto(bytes: p.bytes, name: p.name).toJson())
+            .toList(),
+        'date': date.toIso8601String(),
+      };
+  factory CashEntryDraft.fromLocalJson(Map<String, dynamic> json) =>
+      CashEntryDraft(
+        id: json['id'] as String,
+        mode: CashEntryMode.values.byName(json['mode'] as String),
+        expenseTypeId: json['expenseTypeId'] as String?,
+        customExpenseType: json['customExpenseType'] as String?,
+        expenseTypeName: json['expenseTypeName'] as String,
+        amount: (json['amount'] as num).toDouble(),
+        remarks: json['remarks'] as String?,
+        billNo: json['billNo'] as String?,
+        partyName: json['partyName'] as String?,
+        photos: (json['photos'] as List? ?? []).map((p) {
+          final photo = PendingPhoto.fromJson(Map<String, dynamic>.from(p));
+          return PickedPhoto(bytes: photo.bytes, name: photo.name);
+        }).toList(),
+        date: DateTime.parse(json['date'] as String),
+      );
 }
 
 /// Cash Book — Imprest cash entry form matching the Excel cashbook structure
@@ -91,10 +126,15 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
   bool get isLocked {
     final user = ref.read(authProvider);
     // Admin ALWAYS has full edit privileges on ANY transaction, including approved historical entries
+    if (widget.existingTransaction?.status == TransactionStatus.approved) {
+      return true;
+    }
     if (user.isAdmin) return false;
 
     // For non-admin users, approved records are permanently locked
-    if (widget.existingTransaction?.status == TransactionStatus.approved) return true;
+    if (widget.existingTransaction?.status == TransactionStatus.approved) {
+      return true;
+    }
 
     // Accounts has edit privileges for pending and rejected records
     if (user.isAccounts) return false;
@@ -102,18 +142,57 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     // Project Head can edit transactions pending supervisor review or rejected
     if (user.isProjectHead &&
         (widget.existingTransaction == null ||
-         widget.existingTransaction!.isPendingSupervisorReview ||
-         widget.existingTransaction!.status == TransactionStatus.pendingAccounts ||
-         widget.existingTransaction!.status == TransactionStatus.rejected)) {
+            widget.existingTransaction!.isPendingSupervisorReview ||
+            widget.existingTransaction!.status ==
+                TransactionStatus.pendingAccounts ||
+            widget.existingTransaction!.status == TransactionStatus.rejected)) {
       return false;
     }
 
     // Only apply staff module restrictions if the user is a worker/site staff
     final activeStaff = ref.read(activeStaffProvider);
-    if (activeStaff != null && !activeStaff.hasModule(StaffModule.cashbook)) return true;
+    if (activeStaff != null && !activeStaff.hasModule(StaffModule.cashbook)) {
+      return true;
+    }
 
     if (widget.existingTransaction == null) return false;
     return !widget.existingTransaction!.isEditable;
+  }
+
+  String get _draftKey {
+    final site = ref.read(authProvider).activeSite?.id ?? 'none';
+    final owner = ref.read(authProvider).user?.id ??
+        ref.read(activeStaffProvider)?.id ??
+        'site-session';
+    return 'staged_CashEntryDraft_v1_${site}_$owner';
+  }
+
+  Future<void> _saveDrafts(List<CashEntryDraft> drafts) =>
+      DraftStore.save(_draftKey, {
+        'entries': drafts.map((d) => d.toLocalJson()).toList(),
+      });
+  Future<void> _restoreDrafts() async {
+    if (widget.existingTransaction != null) return;
+    setState(() => _isSubmitting = true);
+    try {
+      final saved = await DraftStore.load(_draftKey);
+      if (saved == null || !mounted) return;
+      final drafts = (saved['entries'] as List)
+          .map(
+              (d) => CashEntryDraft.fromLocalJson(Map<String, dynamic>.from(d)))
+          .toList();
+      setState(() {
+        _stagedEntries.clear();
+        _stagedEntries.addAll(drafts);
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Staged entries could not be restored: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
   }
 
   @override
@@ -123,7 +202,9 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     _amountReceivedController.addListener(() => setState(() {}));
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final siteId = widget.existingTransaction?.siteId ?? ref.read(authProvider).activeSite?.id;
+      _restoreDrafts();
+      final siteId = widget.existingTransaction?.siteId ??
+          ref.read(authProvider).activeSite?.id;
       if (siteId != null) {
         ref.read(cashProvider.notifier).loadTransactions(siteId);
       }
@@ -131,6 +212,9 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
 
     final tx = widget.existingTransaction;
     if (tx != null) {
+      _selectedPhotos = tx.pendingPhotos
+          .map((p) => PickedPhoto(bytes: p.bytes, name: p.name))
+          .toList();
       if (tx.amountReceived > 0 && tx.expenseAmount == 0) {
         _entryMode = CashEntryMode.received;
       } else {
@@ -139,23 +223,29 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
 
       _selectedExpenseTypeId = tx.expenseTypeId;
       _selectedDate = tx.date;
-      _expenseAmountController.text = tx.expenseAmount > 0 ? tx.expenseAmount.toString() : '';
-      _amountReceivedController.text = tx.amountReceived > 0 ? tx.amountReceived.toString() : '';
+      _expenseAmountController.text =
+          tx.expenseAmount > 0 ? tx.expenseAmount.toString() : '';
+      _amountReceivedController.text =
+          tx.amountReceived > 0 ? tx.amountReceived.toString() : '';
       _remarksController.text = tx.cleanRemarks ?? '';
       _billNoController.text = tx.billNo ?? '';
       _partyNameController.text = tx.partyName ?? '';
 
-      if (tx.customExpenseType != null || tx.expenseTypeId == DropdownService.otherExpensePlaceholderId) {
+      if (tx.customExpenseType != null ||
+          tx.expenseTypeId == DropdownService.otherExpensePlaceholderId) {
         _selectedExpenseTypeId = 'OTHER';
         _customExpenseTypeController.text = tx.customExpenseType ?? '';
       }
     }
   }
 
-  double _getCurrentSiteBalance([List<CashTransactionModel>? txList, String? targetSiteId]) {
+  double _getCurrentSiteBalance(
+      [List<CashTransactionModel>? txList, String? targetSiteId]) {
     final transactions = txList ?? ref.read(cashProvider).transactions;
     final currentTxId = widget.existingTransaction?.id;
-    final sId = targetSiteId ?? widget.existingTransaction?.siteId ?? ref.read(authProvider).activeSite?.id;
+    final sId = targetSiteId ??
+        widget.existingTransaction?.siteId ??
+        ref.read(authProvider).activeSite?.id;
     double balance = 0.0;
     for (final t in transactions) {
       if (sId != null && t.siteId != sId) continue;
@@ -169,10 +259,10 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
   double _getProjectedBalance([double? currentBal]) {
     final current = currentBal ?? _getCurrentSiteBalance();
     if (_entryMode == CashEntryMode.expense) {
-      final exp = double.tryParse(_expenseAmountController.text) ?? 0;
+      final exp = parseFiniteNumber(_expenseAmountController.text) ?? 0;
       return current - exp;
     } else {
-      final rec = double.tryParse(_amountReceivedController.text) ?? 0;
+      final rec = parseFiniteNumber(_amountReceivedController.text) ?? 0;
       return current + rec;
     }
   }
@@ -200,8 +290,8 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
   }
 
   bool get _hasCurrentDraftData {
-    final exp = double.tryParse(_expenseAmountController.text) ?? 0;
-    final rec = double.tryParse(_amountReceivedController.text) ?? 0;
+    final exp = parseFiniteNumber(_expenseAmountController.text) ?? 0;
+    final rec = parseFiniteNumber(_amountReceivedController.text) ?? 0;
     return (_entryMode == CashEntryMode.expense ? exp > 0 : rec > 0);
   }
 
@@ -221,12 +311,14 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     return match?.value ?? 'General Expense';
   }
 
-  bool _stageCurrentEntry({bool silent = false, List<DropdownItemModel> types = const []}) {
-    final exp = double.tryParse(_expenseAmountController.text) ?? 0;
-    final rec = double.tryParse(_amountReceivedController.text) ?? 0;
+  Future<bool> _stageCurrentEntry(
+      {bool silent = false, List<DropdownItemModel> types = const []}) async {
+    if (_isSubmitting || isLocked) return false;
+    final exp = parseFiniteNumber(_expenseAmountController.text) ?? 0;
+    final rec = parseFiniteNumber(_amountReceivedController.text) ?? 0;
     final amount = _entryMode == CashEntryMode.expense ? exp : rec;
 
-    if (amount <= 0) {
+    if (!amount.isFinite || amount <= 0) {
       if (!silent) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -250,7 +342,8 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
         }
         return false;
       }
-      if (_selectedExpenseTypeId == 'OTHER' && _customExpenseTypeController.text.trim().isEmpty) {
+      if (_selectedExpenseTypeId == 'OTHER' &&
+          _customExpenseTypeController.text.trim().isEmpty) {
         if (!silent) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -263,23 +356,52 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       }
     }
 
+    if (_entryMode == CashEntryMode.expense && _selectedPhotos.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content:
+                Text('Attach a receipt photo before staging this expense.')));
+      }
+      return false;
+    }
     final catName = _getCategoryDisplayName(_selectedExpenseTypeId, types);
 
     final draft = CashEntryDraft(
-      id: 'DRAFT-${DateTime.now().microsecondsSinceEpoch}',
+      id: submissionId(null),
       mode: _entryMode,
       expenseTypeId: _selectedExpenseTypeId,
-      customExpenseType: _customExpenseTypeController.text.trim().isNotEmpty ? _customExpenseTypeController.text.trim() : null,
+      customExpenseType: _customExpenseTypeController.text.trim().isNotEmpty
+          ? _customExpenseTypeController.text.trim()
+          : null,
       expenseTypeName: catName,
       amount: amount,
-      remarks: _remarksController.text.trim().isNotEmpty ? _remarksController.text.trim() : null,
-      billNo: _billNoController.text.trim().isNotEmpty ? _billNoController.text.trim() : null,
-      partyName: _partyNameController.text.trim().isNotEmpty ? _partyNameController.text.trim() : null,
+      remarks: _remarksController.text.trim().isNotEmpty
+          ? _remarksController.text.trim()
+          : null,
+      billNo: _billNoController.text.trim().isNotEmpty
+          ? _billNoController.text.trim()
+          : null,
+      partyName: _partyNameController.text.trim().isNotEmpty
+          ? _partyNameController.text.trim()
+          : null,
       photos: List.from(_selectedPhotos),
       date: _selectedDate,
     );
 
+    setState(() => _isSubmitting = true);
+    try {
+      await _saveDrafts([..._stagedEntries, draft]);
+    } catch (e) {
+      if (mounted) setState(() => _isSubmitting = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('$e')));
+      }
+      return false;
+    }
+    if (!mounted) return false;
     setState(() {
+      _isSubmitting = false;
       _stagedEntries.add(draft);
       _expenseAmountController.clear();
       _amountReceivedController.clear();
@@ -295,7 +417,8 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     if (!silent) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Added to batch! (${_stagedEntries.length} items staged)'),
+          content:
+              Text('Added to batch! (${_stagedEntries.length} items staged)'),
           backgroundColor: AppColors.approved,
           duration: const Duration(seconds: 2),
         ),
@@ -304,110 +427,31 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     return true;
   }
 
-  void _showBatchSuccessDialog(int count, double total) {
-    final currencyFmt = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 2);
-    showModalBottomSheet(
-      context: context,
-      isDismissible: false,
-      enableDrag: false,
-      backgroundColor: AppColors.surfaceDark,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 60,
-                height: 60,
-                decoration: BoxDecoration(
-                  color: AppColors.approved.withOpacity(0.15),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.check_circle_rounded, color: AppColors.approved, size: 36),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Batch Submitted Successfully!',
-                style: AppTextStyles.h4.copyWith(color: AppColors.textPrimary),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                '$count ${count == 1 ? "entry" : "entries"} recorded • Total: ${currencyFmt.format(total)}',
-                style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textSecondary),
-              ),
-              const SizedBox(height: 24),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      icon: const Icon(Icons.history_rounded, size: 18),
-                      label: const Text('View History'),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        side: const BorderSide(color: AppColors.divider),
-                      ),
-                      onPressed: () {
-                        Navigator.pop(ctx);
-                        Navigator.pushNamed(context, '/cash-history');
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      icon: const Icon(Icons.add_rounded, size: 18),
-                      label: const Text('+ Enter More'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                      ),
-                      onPressed: () {
-                        Navigator.pop(ctx);
-                        // Stays right in screen with site & staff session intact!
-                      },
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  if (Navigator.canPop(context)) {
-                    Navigator.pop(context, true);
-                  }
-                },
-                child: const Text('Done & Return to Menu', style: TextStyle(color: AppColors.textTertiary)),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _handleSubmit([List<DropdownItemModel> currentTypes = const []]) async {
+  Future<void> _handleSubmit(
+      [List<DropdownItemModel> currentTypes = const []]) async {
+    if (_isSubmitting || isLocked) return;
     final authState = ref.read(authProvider);
-    final siteId = widget.existingTransaction?.siteId ?? authState.activeSite?.id;
+    final siteId =
+        widget.existingTransaction?.siteId ?? authState.activeSite?.id;
     final userId = authState.user?.id;
 
     if (siteId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Error: No site associated with this transaction')),
+        const SnackBar(
+            content: Text('Error: No site associated with this transaction')),
       );
       return;
     }
 
     final isPrivileged = authState.isAdmin || authState.isAccounts;
     final activeStaff = ref.read(activeStaffProvider);
-    if (!isPrivileged && activeStaff != null && !activeStaff.hasModule(StaffModule.cashbook)) {
+    if (!isPrivileged &&
+        activeStaff != null &&
+        !activeStaff.hasModule(StaffModule.cashbook)) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Access Denied: Cashbook entries are turned off for ${activeStaff.name}.'),
+          content: Text(
+              'Access Denied: Cashbook entries are turned off for ${activeStaff.name}.'),
           backgroundColor: AppColors.rejected,
         ),
       );
@@ -428,7 +472,9 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       if (!_formKey.currentState!.validate()) return;
 
       String effectiveExpenseTypeId;
-      String? encodedRemarks = _remarksController.text.trim().isEmpty ? null : _remarksController.text.trim();
+      String? encodedRemarks = _remarksController.text.trim().isEmpty
+          ? null
+          : _remarksController.text.trim();
 
       if (_entryMode == CashEntryMode.expense) {
         if (_selectedExpenseTypeId == null) {
@@ -440,23 +486,27 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
         if (_selectedExpenseTypeId == 'OTHER') {
           if (_customExpenseTypeController.text.trim().isEmpty) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Please enter custom expense type name')),
+              const SnackBar(
+                  content: Text('Please enter custom expense type name')),
             );
             return;
           }
           final tag = '[Expense: ${_customExpenseTypeController.text.trim()}]';
-          encodedRemarks = encodedRemarks == null ? tag : '$tag $encodedRemarks';
+          encodedRemarks =
+              encodedRemarks == null ? tag : '$tag $encodedRemarks';
           effectiveExpenseTypeId = DropdownService.otherExpensePlaceholderId;
         } else {
           effectiveExpenseTypeId = _selectedExpenseTypeId!;
         }
       } else {
-        if (_selectedExpenseTypeId == null || _selectedExpenseTypeId == 'OTHER') {
+        if (_selectedExpenseTypeId == null ||
+            _selectedExpenseTypeId == 'OTHER') {
           final headName = _customExpenseTypeController.text.trim().isNotEmpty
               ? _customExpenseTypeController.text.trim()
               : 'Indore Office';
           final tag = '[Expense: $headName]';
-          encodedRemarks = encodedRemarks == null ? tag : '$tag $encodedRemarks';
+          encodedRemarks =
+              encodedRemarks == null ? tag : '$tag $encodedRemarks';
           effectiveExpenseTypeId = DropdownService.otherExpensePlaceholderId;
         } else {
           effectiveExpenseTypeId = _selectedExpenseTypeId!;
@@ -466,8 +516,10 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       final bill = _billNoController.text.trim();
       final party = _partyNameController.text.trim();
       if (activeStaff != null) {
-        final staffTag = '[By: ${activeStaff.name} (${activeStaff.designation ?? activeStaff.role.displayName})]';
-        encodedRemarks = encodedRemarks == null ? staffTag : '$staffTag $encodedRemarks';
+        final staffTag =
+            '[By: ${activeStaff.name} (${activeStaff.designation ?? activeStaff.role.displayName})]';
+        encodedRemarks =
+            encodedRemarks == null ? staffTag : '$staffTag $encodedRemarks';
       }
       if (party.isNotEmpty) {
         final tag = '[Party: $party]';
@@ -479,12 +531,13 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       }
 
       final double expenseAmt = _entryMode == CashEntryMode.expense
-          ? (double.tryParse(_expenseAmountController.text) ?? 0)
+          ? (parseFiniteNumber(_expenseAmountController.text) ?? 0)
           : 0;
       final double receivedAmt = _entryMode == CashEntryMode.received
-          ? (double.tryParse(_amountReceivedController.text) ?? 0)
+          ? (parseFiniteNumber(_amountReceivedController.text) ?? 0)
           : 0;
-      final currentBal = _getCurrentSiteBalance(ref.read(cashProvider).transactions, siteId);
+      final currentBal =
+          _getCurrentSiteBalance(ref.read(cashProvider).transactions, siteId);
       final cashInHand = _getProjectedBalance(currentBal);
 
       var transaction = CashTransactionModel(
@@ -499,32 +552,52 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
         remarks: encodedRemarks,
         status: widget.existingTransaction!.status,
         photoUrls: widget.existingTransaction!.photoUrls,
+        pendingPhotos: widget.existingTransaction!.pendingPhotos,
       );
 
       setState(() => _isSubmitting = true);
       try {
         List<String> uploadedUrls = List.from(transaction.photoUrls);
-        if (_selectedPhotos.isNotEmpty) {
+        if (transaction.id?.startsWith('offline_') == true) {
+          transaction = transaction.copyWith(
+              pendingPhotos: _selectedPhotos.isNotEmpty
+                  ? _selectedPhotos
+                      .map((p) => PendingPhoto(bytes: p.bytes, name: p.name))
+                      .toList()
+                  : transaction.pendingPhotos);
+        }
+        if (_selectedPhotos.isNotEmpty &&
+            transaction.id?.startsWith('offline_') != true) {
           final storageService = ref.read(storageServiceProvider);
           for (var photo in _selectedPhotos) {
             try {
-              final url = await storageService.uploadPhotoBytes(photo.bytes, fileName: photo.name);
+              final url = await storageService.uploadPhotoBytes(photo.bytes,
+                  fileName: photo.name);
               uploadedUrls.add(url);
             } catch (uploadError) {
-              debugPrint('Cash photo upload failed: $uploadError');
+              rethrow;
             }
           }
           transaction = transaction.copyWith(photoUrls: uploadedUrls);
         }
 
-        final success = await ref.read(cashProvider.notifier).updateTransaction(transaction);
+        final success = await ref
+            .read(cashProvider.notifier)
+            .updateTransaction(transaction);
         if (success && mounted) {
           ref.invalidate(siteCashSummaryProvider(siteId));
           ref.read(cashProvider.notifier).loadTransactions(siteId);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Changes saved successfully!'), backgroundColor: AppColors.approved),
+            const SnackBar(
+                content: Text('Changes saved successfully!'),
+                backgroundColor: AppColors.approved),
           );
           Navigator.pop(context, true);
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Changes were not saved: $e')));
         }
       } finally {
         if (mounted) setState(() => _isSubmitting = false);
@@ -535,14 +608,17 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     // ── Batch / Multi-Entry Creation Mode ──
     // If the user filled inputs right now without clicking "+ Add to Batch", auto-stage it
     if (_hasCurrentDraftData) {
-      final staged = _stageCurrentEntry(silent: true, types: currentTypes);
+      final staged =
+          await _stageCurrentEntry(silent: true, types: currentTypes);
       if (!staged) return; // Validation failed
     }
 
     if (_stagedEntries.isEmpty) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please enter an amount or add at least one entry to submit.'),
+          content: Text(
+              'Please enter an amount or add at least one entry to submit.'),
           backgroundColor: AppColors.rejected,
         ),
       );
@@ -553,28 +629,17 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
 
     try {
       final batchId = 'BATCH-${DateTime.now().millisecondsSinceEpoch}';
-      final storageService = ref.read(storageServiceProvider);
+      final acceptedIds = <String>{};
       int successCount = 0;
-      double batchTotal = 0;
+      int queuedCount = 0;
 
       for (final draft in _stagedEntries) {
-        List<String> uploadedUrls = [];
-        if (draft.photos.isNotEmpty) {
-          for (var photo in draft.photos) {
-            try {
-              final url = await storageService.uploadPhotoBytes(photo.bytes, fileName: photo.name);
-              uploadedUrls.add(url);
-            } catch (uploadError) {
-              debugPrint('Batch photo upload failed: $uploadError');
-            }
-          }
-        }
-
         String? encodedRemarks = draft.remarks;
         encodedRemarks = '[Batch: $batchId] ${encodedRemarks ?? ''}'.trim();
 
         if (draft.mode == CashEntryMode.expense) {
-          if (draft.expenseTypeId == 'OTHER' || draft.customExpenseType != null) {
+          if (draft.expenseTypeId == 'OTHER' ||
+              draft.customExpenseType != null) {
             final tag = '[Expense: ${draft.customExpenseType ?? "General"}]';
             encodedRemarks = '$tag $encodedRemarks';
           }
@@ -585,11 +650,13 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
         }
 
         if (activeStaff != null) {
-          final staffTag = '[By: ${activeStaff.name} (${activeStaff.designation ?? activeStaff.role.displayName})]';
+          final staffTag =
+              '[By: ${activeStaff.name} (${activeStaff.designation ?? activeStaff.role.displayName})]';
           encodedRemarks = '$staffTag $encodedRemarks';
         }
         if (phCanApproveCash) {
-          const supTag = '[Project Head Review: Pending] [Supervisor Review: Pending]';
+          const supTag =
+              '[Project Head Review: Pending] [Supervisor Review: Pending]';
           encodedRemarks = '$encodedRemarks $supTag';
         } else {
           const supTag = '[Project Head Review: Bypassed by Admin Policy]';
@@ -604,16 +671,24 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
           encodedRemarks = '$tag $encodedRemarks';
         }
 
-        final double expenseAmt = draft.mode == CashEntryMode.expense ? draft.amount : 0;
-        final double receivedAmt = draft.mode == CashEntryMode.received ? draft.amount : 0;
-        final currentBal = _getCurrentSiteBalance(ref.read(cashProvider).transactions, siteId);
+        final double expenseAmt =
+            draft.mode == CashEntryMode.expense ? draft.amount : 0;
+        final double receivedAmt =
+            draft.mode == CashEntryMode.received ? draft.amount : 0;
+        final currentBal =
+            _getCurrentSiteBalance(ref.read(cashProvider).transactions, siteId);
         final cashInHand = currentBal + (receivedAmt - expenseAmt);
 
-        final effectiveExpenseTypeId = draft.expenseTypeId == null || draft.expenseTypeId == 'OTHER'
-            ? DropdownService.otherExpensePlaceholderId
-            : draft.expenseTypeId!;
+        final effectiveExpenseTypeId =
+            draft.expenseTypeId == null || draft.expenseTypeId == 'OTHER'
+                ? DropdownService.otherExpensePlaceholderId
+                : draft.expenseTypeId!;
 
         final transaction = CashTransactionModel(
+          id: draft.id,
+          pendingPhotos: draft.photos
+              .map((p) => PendingPhoto(bytes: p.bytes, name: p.name))
+              .toList(),
           siteId: siteId,
           submittedBy: userId,
           date: draft.date,
@@ -623,13 +698,16 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
           cashInHand: cashInHand,
           remarks: encodedRemarks.trim(),
           status: initialStatus,
-          photoUrls: uploadedUrls,
+          photoUrls: const [],
         );
 
-        final success = await ref.read(cashProvider.notifier).submitTransaction(transaction);
+        final success = await ref
+            .read(cashProvider.notifier)
+            .submitTransaction(transaction);
         if (success) {
+          acceptedIds.add(draft.id);
+          if (ref.read(cashProvider).error == 'OFFLINE_SAVED') queuedCount++;
           successCount++;
-          batchTotal += draft.amount;
         }
       }
 
@@ -639,13 +717,19 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
 
         if (successCount > 0) {
           setState(() {
-            _stagedEntries.clear();
+            _stagedEntries.removeWhere((d) => acceptedIds.contains(d.id));
           });
-          _showBatchSuccessDialog(successCount, batchTotal);
+          await _saveDrafts(_stagedEntries);
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(
+                '${successCount - queuedCount} uploaded; $queuedCount saved on this device for retry; ${_stagedEntries.length} need correction.'),
+          ));
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(ref.read(cashProvider).error ?? 'Submission failed'),
+              content:
+                  Text(ref.read(cashProvider).error ?? 'Submission failed'),
               backgroundColor: AppColors.rejected,
             ),
           );
@@ -654,7 +738,8 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.rejected),
+          SnackBar(
+              content: Text('Error: $e'), backgroundColor: AppColors.rejected),
         );
       }
     } finally {
@@ -675,15 +760,20 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final siteId = widget.existingTransaction?.siteId ?? ref.watch(authProvider).activeSite?.id;
-    final expenseTypesAsync = ref.watch(dropdownProvider((category: DropdownCategory.expenseType, siteId: siteId)));
+    final siteId = widget.existingTransaction?.siteId ??
+        ref.watch(authProvider).activeSite?.id;
+    final expenseTypesAsync = ref.watch(dropdownProvider(
+        (category: DropdownCategory.expenseType, siteId: siteId)));
     final cashState = ref.watch(cashProvider);
 
-    final currentBalance = _getCurrentSiteBalance(cashState.transactions, siteId);
+    final currentBalance =
+        _getCurrentSiteBalance(cashState.transactions, siteId);
     final projectedBalance = _getProjectedBalance(currentBalance);
-    final currencyFmt = NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 2);
+    final currencyFmt =
+        NumberFormat.currency(locale: 'en_IN', symbol: '₹', decimalDigits: 2);
     final activeSite = ref.watch(authProvider).activeSite;
-    final siteName = widget.existingTransaction?.siteName ?? activeSite?.name ?? 'Site';
+    final siteName =
+        widget.existingTransaction?.siteName ?? activeSite?.name ?? 'Site';
     final isLight = AppColors.isLight;
 
     double siteTotalReceived = 0.0;
@@ -706,8 +796,12 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
             Expanded(
               child: Text(
                 widget.existingTransaction != null
-                    ? (_entryMode == CashEntryMode.expense ? 'Edit Expense' : 'Edit Cash Receipt')
-                    : (_entryMode == CashEntryMode.expense ? 'Record Expense' : 'Record Cash Received'),
+                    ? (_entryMode == CashEntryMode.expense
+                        ? 'Edit Expense'
+                        : 'Edit Cash Receipt')
+                    : (_entryMode == CashEntryMode.expense
+                        ? 'Record Expense'
+                        : 'Record Cash Received'),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -719,14 +813,17 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
             child: LanguageToggleButton(isCompact: true),
           ),
           IconButton(
-            icon: const Icon(Icons.history_rounded, color: AppColors.textPrimary),
+            icon:
+                const Icon(Icons.history_rounded, color: AppColors.textPrimary),
             tooltip: 'Cash Book History',
             onPressed: () => Navigator.pushNamed(context, '/cash-history'),
           ),
           UniversalSyncButton(siteId: siteId),
-          if (ref.watch(authProvider).isAdmin || ref.watch(authProvider).isAccounts)
+          if (ref.watch(authProvider).isAdmin ||
+              ref.watch(authProvider).isAccounts)
             IconButton(
-              icon: const Icon(Icons.table_view_rounded, color: Color(0xFF107C41)),
+              icon: const Icon(Icons.table_view_rounded,
+                  color: Color(0xFF107C41)),
               tooltip: 'Export Excel (.xlsx)',
               onPressed: () async {
                 final activeSite = ref.read(authProvider).activeSite;
@@ -739,11 +836,11 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                 );
               },
             ),
-
           if (isLocked)
             const Padding(
               padding: EdgeInsets.all(16),
-              child: Icon(Icons.lock_rounded, color: AppColors.pending, size: 20),
+              child:
+                  Icon(Icons.lock_rounded, color: AppColors.pending, size: 20),
             ),
           if (widget.existingTransaction != null)
             Padding(
@@ -763,831 +860,951 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
             color: AppColors.waveCyan,
             backgroundColor: AppColors.cardDark,
             onRefresh: () async {
-              final activeSiteId = siteId ?? ref.read(authProvider).activeSite?.id;
+              final activeSiteId =
+                  siteId ?? ref.read(authProvider).activeSite?.id;
               if (activeSiteId != null) {
-                await ref.read(cashProvider.notifier).loadTransactions(activeSiteId);
+                await ref
+                    .read(cashProvider.notifier)
+                    .loadTransactions(activeSiteId);
               }
               await ref.read(autoSyncProvider.notifier).syncNow();
             },
             child: ListView(
               padding: const EdgeInsets.all(20),
               children: [
-            if (isLocked)
-              const LockedFormBanner().animate().fadeIn(),
+                if (isLocked) const LockedFormBanner().animate().fadeIn(),
 
-            // ── Missed Cashbook Entry Warning Banner for Worker ──
-            Builder(
-              builder: (context) {
-                final missedDates = ref.watch(missedCashbookForWorkerProvider);
-                if (missedDates.isEmpty) return const SizedBox.shrink();
+                // ── Missed Cashbook Entry Warning Banner for Worker ──
+                Builder(
+                  builder: (context) {
+                    final missedDates =
+                        ref.watch(missedCashbookForWorkerProvider);
+                    if (missedDates.isEmpty) return const SizedBox.shrink();
 
-                final formattedDates = missedDates
-                    .map((d) => DateFormat('dd MMM yyyy').format(d))
-                    .join(', ');
+                    final formattedDates = missedDates
+                        .map((d) => DateFormat('dd MMM yyyy').format(d))
+                        .join(', ');
 
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 16),
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFEF3C7),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: const Color(0xFFF59E0B), width: 1.2),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Icon(Icons.warning_amber_rounded, color: Color(0xFFB45309), size: 24),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              '⚠️ Action Required: Missed Cashbook Entry',
-                              style: TextStyle(
-                                color: Color(0xFF92400E),
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'No cash transactions recorded for this site on $formattedDates. Please submit daily cash entries or opening balance immediately.',
-                              style: const TextStyle(
-                                color: Color(0xFF78350F),
-                                fontSize: 12,
-                                height: 1.3,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ).animate().shake(duration: 400.ms);
-              },
-            ),
-
-            // ── TOP HERO: Live Site Cash in Hand Balance (Visible Before Entering Inputs) ──
-            Container(
-              padding: const EdgeInsets.all(18),
-              margin: const EdgeInsets.only(bottom: 20),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: isLight
-                      ? [const Color(0xFFE0F2FE), const Color(0xFFBAE6FD)]
-                      : [const Color(0xFF0C1D3B), const Color(0xFF132A54)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: isLight ? const Color(0xFF7DD3FC) : AppColors.primary.withValues(alpha: 0.35),
-                  width: 1.2,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.primary.withValues(alpha: 0.1),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: AppColors.primary.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: const Icon(Icons.account_balance_wallet_rounded,
-                                color: AppColors.primary, size: 20),
-                          ),
-                          const SizedBox(width: 10),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '$siteName Cashbook',
-                                style: AppTextStyles.labelMedium.copyWith(
-                                  color: isLight ? AppColors.textPrimaryLight : AppColors.textPrimaryDark,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              Text(
-                                'Current Balance at Site',
-                                style: AppTextStyles.bodySmall.copyWith(
-                                  color: isLight ? AppColors.textSecondaryLight : AppColors.textTertiaryDark,
-                                  fontSize: 11,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: currentBalance >= 0
-                              ? AppColors.approved.withValues(alpha: 0.15)
-                              : AppColors.rejected.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: currentBalance >= 0 ? AppColors.approved : AppColors.rejected,
-                            width: 0.8,
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            CircleAvatar(
-                              radius: 3,
-                              backgroundColor: currentBalance >= 0 ? AppColors.approved : AppColors.rejected,
-                            ),
-                            const SizedBox(width: 5),
-                            Text(
-                              currentBalance >= 0 ? 'Live Balance' : 'Low / Deficit',
-                              style: TextStyle(
-                                color: currentBalance >= 0 ? AppColors.approved : AppColors.rejected,
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    cashState.isLoading && cashState.transactions.isEmpty
-                        ? 'Syncing live balance...'
-                        : currencyFmt.format(currentBalance),
-                    style: AppTextStyles.h2.copyWith(
-                      color: currentBalance >= 0
-                          ? (isLight ? const Color(0xFF047857) : AppColors.approved)
-                          : AppColors.rejected,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Divider(
-                    color: isLight ? const Color(0xFFBAE6FD) : AppColors.dividerDark,
-                    height: 1,
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.arrow_downward_rounded, color: AppColors.approved, size: 14),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Received: ${currencyFmt.format(siteTotalReceived)}',
-                            style: AppTextStyles.bodySmall.copyWith(
-                              color: isLight ? AppColors.textSecondaryLight : Colors.white70,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                      Row(
-                        children: [
-                          const Icon(Icons.arrow_upward_rounded, color: AppColors.rejected, size: 14),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Spent: ${currencyFmt.format(siteTotalExpense)}',
-                            style: AppTextStyles.bodySmall.copyWith(
-                              color: isLight ? AppColors.textSecondaryLight : Colors.white70,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  if ((_entryMode == CashEntryMode.expense && (double.tryParse(_expenseAmountController.text) ?? 0) > 0) ||
-                      (_entryMode == CashEntryMode.received && (double.tryParse(_amountReceivedController.text) ?? 0) > 0)) ...[
-                    const SizedBox(height: 10),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 16),
+                      padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: isLight ? Colors.white.withValues(alpha: 0.8) : Colors.black.withValues(alpha: 0.3),
-                        borderRadius: BorderRadius.circular(8),
+                        color: const Color(0xFFFEF3C7),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                            color: const Color(0xFFF59E0B), width: 1.2),
                       ),
                       child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            _entryMode == CashEntryMode.expense
-                                ? 'Est. after expense (-${currencyFmt.format(double.tryParse(_expenseAmountController.text) ?? 0)}):'
-                                : 'Est. after inflow (+${currencyFmt.format(double.tryParse(_amountReceivedController.text) ?? 0)}):',
-                            style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                              color: isLight ? AppColors.textPrimaryLight : AppColors.textPrimaryDark,
-                            ),
-                          ),
-                          Text(
-                            currencyFmt.format(projectedBalance),
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                              color: projectedBalance >= 0 ? AppColors.approved : AppColors.rejected,
+                          const Icon(Icons.warning_amber_rounded,
+                              color: Color(0xFFB45309), size: 24),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  '⚠️ Action Required: Missed Cashbook Entry',
+                                  style: TextStyle(
+                                    color: Color(0xFF92400E),
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'No cash transactions recorded for this site on $formattedDates. Please submit daily cash entries or opening balance immediately.',
+                                  style: const TextStyle(
+                                    color: Color(0xFF78350F),
+                                    fontSize: 12,
+                                    height: 1.3,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
                       ),
-                    ),
-                  ],
-                ],
-              ),
-            ).animate().fadeIn(duration: 300.ms).slideY(begin: -0.05),
-
-            // ── Segmented Toggle: Expense vs Cash Received ──
-            if (!isLocked) ...[
-              Container(
-                decoration: BoxDecoration(
-                  color: AppColors.cardDark,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: AppColors.divider),
+                    ).animate().shake(duration: 400.ms);
+                  },
                 ),
-                padding: const EdgeInsets.all(4),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () => setState(() => _entryMode = CashEntryMode.expense),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          decoration: BoxDecoration(
-                            color: _entryMode == CashEntryMode.expense
-                                ? AppColors.rejected.withOpacity(0.2)
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(10),
-                            border: _entryMode == CashEntryMode.expense
-                                ? Border.all(color: AppColors.rejected)
-                                : null,
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
+
+                // ── TOP HERO: Live Site Cash in Hand Balance (Visible Before Entering Inputs) ──
+                Container(
+                  padding: const EdgeInsets.all(18),
+                  margin: const EdgeInsets.only(bottom: 20),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: isLight
+                          ? [const Color(0xFFE0F2FE), const Color(0xFFBAE6FD)]
+                          : [const Color(0xFF0C1D3B), const Color(0xFF132A54)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: isLight
+                          ? const Color(0xFF7DD3FC)
+                          : AppColors.primary.withValues(alpha: 0.35),
+                      width: 1.2,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primary.withValues(alpha: 0.1),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
                             children: [
-                              Icon(
-                                Icons.money_off_rounded,
-                                size: 18,
-                                color: _entryMode == CashEntryMode.expense
-                                    ? AppColors.rejected
-                                    : AppColors.textTertiary,
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Site Expense',
-                                style: AppTextStyles.labelMedium.copyWith(
-                                  color: _entryMode == CashEntryMode.expense
-                                      ? AppColors.rejected
-                                      : AppColors.textSecondary,
-                                  fontWeight: _entryMode == CashEntryMode.expense
-                                      ? FontWeight.bold
-                                      : FontWeight.normal,
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color:
+                                      AppColors.primary.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(10),
                                 ),
+                                child: const Icon(
+                                    Icons.account_balance_wallet_rounded,
+                                    color: AppColors.primary,
+                                    size: 20),
+                              ),
+                              const SizedBox(width: 10),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '$siteName Cashbook',
+                                    style: AppTextStyles.labelMedium.copyWith(
+                                      color: isLight
+                                          ? AppColors.textPrimaryLight
+                                          : AppColors.textPrimaryDark,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  Text(
+                                    'Current Balance at Site',
+                                    style: AppTextStyles.bodySmall.copyWith(
+                                      color: isLight
+                                          ? AppColors.textSecondaryLight
+                                          : AppColors.textTertiaryDark,
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
-                        ),
-                      ),
-                    ),
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () => setState(() => _entryMode = CashEntryMode.received),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          decoration: BoxDecoration(
-                            color: _entryMode == CashEntryMode.received
-                                ? AppColors.approved.withOpacity(0.2)
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(10),
-                            border: _entryMode == CashEntryMode.received
-                                ? Border.all(color: AppColors.approved)
-                                : null,
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.savings_rounded,
-                                size: 18,
-                                color: _entryMode == CashEntryMode.received
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: currentBalance >= 0
+                                  ? AppColors.approved.withValues(alpha: 0.15)
+                                  : AppColors.rejected.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: currentBalance >= 0
                                     ? AppColors.approved
-                                    : AppColors.textTertiary,
+                                    : AppColors.rejected,
+                                width: 0.8,
                               ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Cash Received',
-                                style: AppTextStyles.labelMedium.copyWith(
-                                  color: _entryMode == CashEntryMode.received
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                CircleAvatar(
+                                  radius: 3,
+                                  backgroundColor: currentBalance >= 0
                                       ? AppColors.approved
-                                      : AppColors.textSecondary,
-                                  fontWeight: _entryMode == CashEntryMode.received
-                                      ? FontWeight.bold
-                                      : FontWeight.normal,
+                                      : AppColors.rejected,
                                 ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ).animate().fadeIn(),
-              const SizedBox(height: 18),
-            ],
-
-            // ── 1. Date Field ──
-            GestureDetector(
-              onTap: _pickDate,
-              child: AbsorbPointer(
-                child: TextFormField(
-                  readOnly: true,
-                  controller: TextEditingController(
-                    text: DateFormat('dd MMM yyyy (EEEE)').format(_selectedDate),
-                  ),
-                  style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
-                  decoration: const InputDecoration(
-                    labelText: 'Date (As per Cashbook)',
-                    prefixIcon: Icon(Icons.calendar_today_rounded,
-                        color: AppColors.primary, size: 20),
-                  ),
-                ),
-              ),
-            ).animate().fadeIn(delay: 100.ms),
-
-            const SizedBox(height: 18),
-
-            // ── 2. Expense Type (Dropdown configured by Admin per site) ──
-            if (_entryMode == CashEntryMode.expense) ...[
-              expenseTypesAsync.when(
-                loading: () => _placeholder('Loading expense types...'),
-                error: (_, __) => _placeholder('Failed to load'),
-                data: (types) => Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    DropdownButtonFormField<String>(
-                      value: (types.any((t) => t.id == _selectedExpenseTypeId) || _selectedExpenseTypeId == 'OTHER')
-                          ? _selectedExpenseTypeId
-                          : null,
-                      decoration: const InputDecoration(
-                        labelText: 'Expense Type (Account Head) *',
-                        prefixIcon: Icon(Icons.receipt_long_rounded,
-                            color: AppColors.primary, size: 20),
-                        hintText: 'Select category / contractor',
-                      ),
-                      dropdownColor: AppColors.cardDark,
-                      style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
-                      items: [
-                        ...types.map((t) => DropdownMenuItem(
-                              value: t.id,
-                              child: Text(t.value),
-                            )),
-                        const DropdownMenuItem(
-                          value: 'OTHER',
-                          child: Text(
-                            '+ Other / Enter Manually',
-                            style: TextStyle(
-                              fontStyle: FontStyle.italic,
-                              color: AppColors.primary,
+                                const SizedBox(width: 5),
+                                Text(
+                                  currentBalance >= 0
+                                      ? 'Live Balance'
+                                      : 'Low / Deficit',
+                                  style: TextStyle(
+                                    color: currentBalance >= 0
+                                        ? AppColors.approved
+                                        : AppColors.rejected,
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                        ),
-                      ],
-                      onChanged: isLocked
-                          ? null
-                          : (val) => setState(() => _selectedExpenseTypeId = val),
-                      validator: (v) => Validators.dropdownRequired(v, 'Expense Type'),
-                    ),
-                    if (_selectedExpenseTypeId == 'OTHER') ...[
-                      const SizedBox(height: 14),
-                      TextFormField(
-                        controller: _customExpenseTypeController,
-                        readOnly: isLocked,
-                        validator: (v) => v == null || v.trim().isEmpty
-                            ? 'Please enter custom expense type'
-                            : null,
-                        style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
-                        decoration: InputDecoration(
-                          labelText: 'Enter Custom Expense Type *',
-                          hintText: 'e.g. Indar Civil Cont., Mess Exp, Vehicle Repair',
-                          prefixIcon: const Icon(Icons.edit_note_rounded,
-                              color: AppColors.primary, size: 20),
-                          suffixIcon: isLocked
-                              ? null
-                              : VoiceInputIconButton(
-                                  controller: _customExpenseTypeController,
-                                  fieldLabel: 'Expense Type',
-                                ),
-                        ),
-                      ).animate().fadeIn(),
-                    ],
-                  ],
-                ),
-              ).animate().fadeIn(delay: 200.ms),
-
-              const SizedBox(height: 18),
-
-              // ── Optional: Bill / Voucher No & Party Name ──
-              Row(
-                children: [
-                  Expanded(
-                    child: TextFormField(
-                      controller: _billNoController,
-                      readOnly: isLocked,
-                      style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
-                      decoration: const InputDecoration(
-                        labelText: 'Bill / Voucher No. (Optional)',
-                        hintText: 'e.g. 1042',
-                        prefixIcon: Icon(Icons.receipt_rounded, color: AppColors.textTertiary, size: 20),
+                        ],
                       ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextFormField(
-                      controller: _partyNameController,
-                      readOnly: isLocked,
-                      style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
-                      decoration: InputDecoration(
-                        labelText: 'Party / Vendor (Optional)',
-                        hintText: 'e.g. Sharma Hardware',
-                        prefixIcon: const Icon(Icons.person_outline_rounded, color: AppColors.textTertiary, size: 20),
-                        suffixIcon: isLocked
-                            ? null
-                            : VoiceInputIconButton(
-                                controller: _partyNameController,
-                                fieldLabel: 'Party Name',
-                              ),
-                      ),
-                    ),
-                  ),
-                ],
-              ).animate().fadeIn(delay: 220.ms),
-
-              const SizedBox(height: 18),
-
-              // ── 3. Description of Expenses (Required Narration matching Excel Col B) ──
-              TextFormField(
-                controller: _remarksController,
-                readOnly: isLocked,
-                maxLines: 2,
-                validator: (v) => (v == null || v.trim().isEmpty)
-                    ? 'Please enter description of expense'
-                    : null,
-                style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
-                decoration: InputDecoration(
-                  labelText: 'Description of Expenses *',
-                  hintText: 'e.g. Sabji, oil / JCB 5.18 hr / Tractor diesel 30L / Auto rent',
-                  alignLabelWithHint: true,
-                  prefixIcon: const Padding(
-                    padding: EdgeInsets.only(bottom: 24),
-                    child: Icon(Icons.notes_rounded, color: AppColors.textTertiary, size: 20),
-                  ),
-                  suffixIcon: isLocked
-                      ? null
-                      : VoiceInputIconButton(
-                          controller: _remarksController,
-                          fieldLabel: 'Description of Expense',
-                        ),
-                ),
-              ).animate().fadeIn(delay: 250.ms),
-
-              const SizedBox(height: 18),
-
-              // ── 4. Expense Amount (₹) ──
-              TextFormField(
-                controller: _expenseAmountController,
-                readOnly: isLocked,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                validator: (v) => Validators.positiveNumber(v, 'Expense Amount'),
-                style: AppTextStyles.h4.copyWith(color: AppColors.rejected),
-                decoration: const InputDecoration(
-                  labelText: 'Expense Amount (₹) *',
-                  prefixIcon: Icon(Icons.currency_rupee_rounded,
-                      color: AppColors.rejected, size: 20),
-                ),
-              ).animate().fadeIn(delay: 300.ms),
-            ] else ...[
-              // ── CASH RECEIVED (INFLOW) FIELDS ──
-              // 1. Amount Received
-              TextFormField(
-                controller: _amountReceivedController,
-                readOnly: isLocked,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                validator: (v) => Validators.positiveNumber(v, 'Amount Received'),
-                style: AppTextStyles.h4.copyWith(color: AppColors.approved),
-                decoration: const InputDecoration(
-                  labelText: 'Amount Received (₹) *',
-                  prefixIcon: Icon(Icons.currency_rupee_rounded,
-                      color: AppColors.approved, size: 20),
-                ),
-              ).animate().fadeIn(delay: 200.ms),
-
-              const SizedBox(height: 18),
-
-              // 2. Source / Account Head (defaults to Indore Office)
-              TextFormField(
-                controller: _customExpenseTypeController,
-                readOnly: isLocked,
-                style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
-                decoration: InputDecoration(
-                  labelText: 'Received From / Head',
-                  hintText: 'e.g. Indore Office, Bank Transfer, Head Office Advance',
-                  prefixIcon: const Icon(Icons.account_balance_rounded,
-                      color: AppColors.primary, size: 20),
-                  suffixIcon: isLocked
-                      ? null
-                      : VoiceInputIconButton(
-                          controller: _customExpenseTypeController,
-                          fieldLabel: 'Received From',
-                        ),
-                ),
-              ).animate().fadeIn(delay: 250.ms),
-
-              const SizedBox(height: 18),
-
-              // ── Optional: Slip / Ref No & Party / Depositor ──
-              Row(
-                children: [
-                  Expanded(
-                    child: TextFormField(
-                      controller: _billNoController,
-                      readOnly: isLocked,
-                      style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
-                      decoration: const InputDecoration(
-                        labelText: 'Slip / Ref No. (Optional)',
-                        hintText: 'e.g. TXN-8901',
-                        prefixIcon: Icon(Icons.receipt_rounded, color: AppColors.textTertiary, size: 20),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextFormField(
-                      controller: _partyNameController,
-                      readOnly: isLocked,
-                      style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
-                      decoration: InputDecoration(
-                        labelText: 'Party / Depositor (Optional)',
-                        hintText: 'e.g. Indore Office',
-                        prefixIcon: const Icon(Icons.person_outline_rounded, color: AppColors.textTertiary, size: 20),
-                        suffixIcon: isLocked
-                            ? null
-                            : VoiceInputIconButton(
-                                controller: _partyNameController,
-                                fieldLabel: 'Party / Depositor',
-                              ),
-                      ),
-                    ),
-                  ),
-                ],
-              ).animate().fadeIn(delay: 280.ms),
-
-              const SizedBox(height: 18),
-
-              // 3. Narration / Remarks
-              TextFormField(
-                controller: _remarksController,
-                readOnly: isLocked,
-                maxLines: 2,
-                style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
-                decoration: InputDecoration(
-                  labelText: 'Description / Narration (Optional)',
-                  hintText: 'e.g. Advance cash received for site kickoff / NEFT Ref #1234',
-                  alignLabelWithHint: true,
-                  prefixIcon: const Padding(
-                    padding: EdgeInsets.only(bottom: 24),
-                    child: Icon(Icons.notes_rounded, color: AppColors.textTertiary, size: 20),
-                  ),
-                  suffixIcon: isLocked
-                      ? null
-                      : VoiceInputIconButton(
-                          controller: _remarksController,
-                          fieldLabel: 'Description / Narration',
-                        ),
-                ),
-              ).animate().fadeIn(delay: 300.ms),
-            ],
-
-            const SizedBox(height: 20),
-
-            // ── Live Running Balance Preview Card ──
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceDark,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: AppColors.divider),
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Current Site Balance:',
-                          style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary)),
+                      const SizedBox(height: 12),
                       Text(
                         cashState.isLoading && cashState.transactions.isEmpty
                             ? 'Syncing live balance...'
                             : currencyFmt.format(currentBalance),
-                        style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        _entryMode == CashEntryMode.expense ? 'Deduct Expense:' : 'Add Inflow:',
-                        style: AppTextStyles.bodySmall.copyWith(
-                          color: _entryMode == CashEntryMode.expense ? AppColors.rejected : AppColors.approved,
+                        style: AppTextStyles.h2.copyWith(
+                          color: currentBalance >= 0
+                              ? (isLight
+                                  ? const Color(0xFF047857)
+                                  : AppColors.approved)
+                              : AppColors.rejected,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.5,
                         ),
                       ),
-                      Text(
-                        _entryMode == CashEntryMode.expense
-                            ? '-${currencyFmt.format(double.tryParse(_expenseAmountController.text) ?? 0)}'
-                            : '+${currencyFmt.format(double.tryParse(_amountReceivedController.text) ?? 0)}',
-                        style: AppTextStyles.bodyMedium.copyWith(
-                          color: _entryMode == CashEntryMode.expense ? AppColors.rejected : AppColors.approved,
-                          fontWeight: FontWeight.bold,
-                        ),
+                      const SizedBox(height: 10),
+                      Divider(
+                        color: isLight
+                            ? const Color(0xFFBAE6FD)
+                            : AppColors.dividerDark,
+                        height: 1,
                       ),
-                    ],
-                  ),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 8),
-                    child: Divider(color: AppColors.divider, height: 1),
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
+                      const SizedBox(height: 10),
                       Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Icon(Icons.account_balance_wallet_rounded,
-                              size: 18,
-                              color: projectedBalance >= 0 ? AppColors.approved : AppColors.rejected),
-                          const SizedBox(width: 8),
-                          Text('Estimated Balance in Hand:',
-                              style: AppTextStyles.bodyMedium.copyWith(
-                                  color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
+                          Row(
+                            children: [
+                              const Icon(Icons.arrow_downward_rounded,
+                                  color: AppColors.approved, size: 14),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Received: ${currencyFmt.format(siteTotalReceived)}',
+                                style: AppTextStyles.bodySmall.copyWith(
+                                  color: isLight
+                                      ? AppColors.textSecondaryLight
+                                      : Colors.white70,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Row(
+                            children: [
+                              const Icon(Icons.arrow_upward_rounded,
+                                  color: AppColors.rejected, size: 14),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Spent: ${currencyFmt.format(siteTotalExpense)}',
+                                style: AppTextStyles.bodySmall.copyWith(
+                                  color: isLight
+                                      ? AppColors.textSecondaryLight
+                                      : Colors.white70,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
                         ],
                       ),
-                      Text(
-                        currencyFmt.format(projectedBalance),
-                        style: AppTextStyles.h4.copyWith(
-                          color: projectedBalance >= 0 ? AppColors.approved : AppColors.rejected,
+                      if ((_entryMode == CashEntryMode.expense &&
+                              (parseFiniteNumber(
+                                          _expenseAmountController.text) ??
+                                      0) >
+                                  0) ||
+                          (_entryMode == CashEntryMode.received &&
+                              (parseFiniteNumber(
+                                          _amountReceivedController.text) ??
+                                      0) >
+                                  0)) ...[
+                        const SizedBox(height: 10),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: isLight
+                                ? Colors.white.withValues(alpha: 0.8)
+                                : Colors.black.withValues(alpha: 0.3),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                _entryMode == CashEntryMode.expense
+                                    ? 'Est. after expense (-${currencyFmt.format(parseFiniteNumber(_expenseAmountController.text) ?? 0)}):'
+                                    : 'Est. after inflow (+${currencyFmt.format(parseFiniteNumber(_amountReceivedController.text) ?? 0)}):',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: isLight
+                                      ? AppColors.textPrimaryLight
+                                      : AppColors.textPrimaryDark,
+                                ),
+                              ),
+                              Text(
+                                currencyFmt.format(projectedBalance),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: projectedBalance >= 0
+                                      ? AppColors.approved
+                                      : AppColors.rejected,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
-                ],
-              ),
-            ).animate().fadeIn(delay: 350.ms),
+                ).animate().fadeIn(duration: 300.ms).slideY(begin: -0.05),
 
-            const SizedBox(height: 20),
-
-            // ── Photo Picker (Voucher / Bill) ──
-            PhotoPickerWidget(
-              key: _photoPickerKey,
-              initialPhotoUrls: widget.existingTransaction?.photoUrls ?? [],
-              isReadOnly: isLocked,
-              onPhotosChanged: (photos) {
-                setState(() {
-                  _selectedPhotos = photos;
-                });
-              },
-            ).animate().fadeIn(delay: 400.ms),
-
-            const SizedBox(height: 24),
-
-            // ── Staged Entries Tray (Multi-Entry Batch) ──
-            if (widget.existingTransaction == null)
-              _buildStagedEntriesTray(currencyFmt),
-
-            // ── Action Buttons ──
-            if (!isLocked) ...[
-              if (widget.existingTransaction != null)
-                SizedBox(
-                  width: double.infinity,
-                  height: 54,
-                  child: ElevatedButton.icon(
-                    onPressed: (_isSubmitting || cashState.isLoading)
-                        ? null
-                        : () => _handleSubmit(expenseTypesAsync.valueOrNull ?? []),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _entryMode == CashEntryMode.expense
-                          ? AppColors.primary
-                          : AppColors.approved,
+                // ── Segmented Toggle: Expense vs Cash Received ──
+                if (!isLocked) ...[
+                  Container(
+                    decoration: BoxDecoration(
+                      color: AppColors.cardDark,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppColors.divider),
                     ),
-                    icon: (_isSubmitting || cashState.isLoading)
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                          )
-                        : const Icon(Icons.check_circle_rounded),
-                    label: Text(
-                      (_isSubmitting || cashState.isLoading) ? 'Saving Changes...' : 'Save Changes',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                    ),
-                  ),
-                ).animate().fadeIn(delay: 450.ms)
-              else
-                Row(
-                  children: [
-                    Expanded(
-                      flex: 1,
-                      child: SizedBox(
-                        height: 52,
-                        child: OutlinedButton.icon(
-                          onPressed: (_isSubmitting || isLocked)
-                              ? null
-                              : () => _stageCurrentEntry(types: expenseTypesAsync.valueOrNull ?? []),
-                          style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: AppColors.primary, width: 1.5),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          ),
-                          icon: const Icon(Icons.add_rounded, color: AppColors.primary, size: 20),
-                          label: const Text(
-                            '+ Add Item',
-                            style: TextStyle(
-                              color: AppColors.primary,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
+                    padding: const EdgeInsets.all(4),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => setState(
+                                () => _entryMode = CashEntryMode.expense),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              decoration: BoxDecoration(
+                                color: _entryMode == CashEntryMode.expense
+                                    ? AppColors.rejected.withValues(alpha: 0.2)
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(10),
+                                border: _entryMode == CashEntryMode.expense
+                                    ? Border.all(color: AppColors.rejected)
+                                    : null,
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.money_off_rounded,
+                                    size: 18,
+                                    color: _entryMode == CashEntryMode.expense
+                                        ? AppColors.rejected
+                                        : AppColors.textTertiary,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Site Expense',
+                                    style: AppTextStyles.labelMedium.copyWith(
+                                      color: _entryMode == CashEntryMode.expense
+                                          ? AppColors.rejected
+                                          : AppColors.textSecondary,
+                                      fontWeight:
+                                          _entryMode == CashEntryMode.expense
+                                              ? FontWeight.bold
+                                              : FontWeight.normal,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () => setState(
+                                () => _entryMode = CashEntryMode.received),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              decoration: BoxDecoration(
+                                color: _entryMode == CashEntryMode.received
+                                    ? AppColors.approved.withValues(alpha: 0.2)
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(10),
+                                border: _entryMode == CashEntryMode.received
+                                    ? Border.all(color: AppColors.approved)
+                                    : null,
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.savings_rounded,
+                                    size: 18,
+                                    color: _entryMode == CashEntryMode.received
+                                        ? AppColors.approved
+                                        : AppColors.textTertiary,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Cash Received',
+                                    style: AppTextStyles.labelMedium.copyWith(
+                                      color:
+                                          _entryMode == CashEntryMode.received
+                                              ? AppColors.approved
+                                              : AppColors.textSecondary,
+                                      fontWeight:
+                                          _entryMode == CashEntryMode.received
+                                              ? FontWeight.bold
+                                              : FontWeight.normal,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ).animate().fadeIn(),
+                  const SizedBox(height: 18),
+                ],
+
+                // ── 1. Date Field ──
+                GestureDetector(
+                  onTap: _pickDate,
+                  child: AbsorbPointer(
+                    child: TextFormField(
+                      readOnly: true,
+                      controller: TextEditingController(
+                        text: DateFormat('dd MMM yyyy (EEEE)')
+                            .format(_selectedDate),
+                      ),
+                      style: AppTextStyles.bodyMedium
+                          .copyWith(color: AppColors.textPrimary),
+                      decoration: const InputDecoration(
+                        labelText: 'Date (As per Cashbook)',
+                        prefixIcon: Icon(Icons.calendar_today_rounded,
+                            color: AppColors.primary, size: 20),
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      flex: 2,
-                      child: SizedBox(
-                        height: 52,
-                        child: ElevatedButton.icon(
-                          onPressed: (_isSubmitting || cashState.isLoading || isLocked)
-                              ? null
-                              : () => _handleSubmit(expenseTypesAsync.valueOrNull ?? []),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: _entryMode == CashEntryMode.expense
-                                ? AppColors.primary
-                                : AppColors.approved,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          ),
-                          icon: (_isSubmitting || cashState.isLoading)
-                              ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                                )
-                              : const Icon(Icons.send_rounded, size: 20),
-                          label: Text(
-                            (_isSubmitting || cashState.isLoading)
-                                ? 'Submitting Batch...'
-                                : (_stagedEntries.isNotEmpty
-                                    ? 'Submit Batch (${_stagedEntries.length + (_hasCurrentDraftData ? 1 : 0)})'
-                                    : 'Submit Entry'),
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                  ),
+                ).animate().fadeIn(delay: 100.ms),
+
+                const SizedBox(height: 18),
+
+                // ── 2. Expense Type (Dropdown configured by Admin per site) ──
+                if (_entryMode == CashEntryMode.expense) ...[
+                  expenseTypesAsync
+                      .when(
+                        loading: () => _placeholder('Loading expense types...'),
+                        error: (_, __) => _placeholder('Failed to load'),
+                        data: (types) => Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            DropdownButtonFormField<String>(
+                              initialValue: (types.any((t) =>
+                                          t.id == _selectedExpenseTypeId) ||
+                                      _selectedExpenseTypeId == 'OTHER')
+                                  ? _selectedExpenseTypeId
+                                  : null,
+                              decoration: const InputDecoration(
+                                labelText: 'Expense Type (Account Head) *',
+                                prefixIcon: Icon(Icons.receipt_long_rounded,
+                                    color: AppColors.primary, size: 20),
+                                hintText: 'Select category / contractor',
+                              ),
+                              dropdownColor: AppColors.cardDark,
+                              style: AppTextStyles.bodyMedium
+                                  .copyWith(color: AppColors.textPrimary),
+                              items: [
+                                ...types.map((t) => DropdownMenuItem(
+                                      value: t.id,
+                                      child: Text(t.value),
+                                    )),
+                                const DropdownMenuItem(
+                                  value: 'OTHER',
+                                  child: Text(
+                                    '+ Other / Enter Manually',
+                                    style: TextStyle(
+                                      fontStyle: FontStyle.italic,
+                                      color: AppColors.primary,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                              onChanged: isLocked
+                                  ? null
+                                  : (val) => setState(
+                                      () => _selectedExpenseTypeId = val),
+                              validator: (v) => Validators.dropdownRequired(
+                                  v, 'Expense Type'),
+                            ),
+                            if (_selectedExpenseTypeId == 'OTHER') ...[
+                              const SizedBox(height: 14),
+                              TextFormField(
+                                controller: _customExpenseTypeController,
+                                readOnly: isLocked,
+                                validator: (v) => v == null || v.trim().isEmpty
+                                    ? 'Please enter custom expense type'
+                                    : null,
+                                style: AppTextStyles.bodyMedium
+                                    .copyWith(color: AppColors.textPrimary),
+                                decoration: InputDecoration(
+                                  labelText: 'Enter Custom Expense Type *',
+                                  hintText:
+                                      'e.g. Indar Civil Cont., Mess Exp, Vehicle Repair',
+                                  prefixIcon: const Icon(
+                                      Icons.edit_note_rounded,
+                                      color: AppColors.primary,
+                                      size: 20),
+                                  suffixIcon: isLocked
+                                      ? null
+                                      : VoiceInputIconButton(
+                                          controller:
+                                              _customExpenseTypeController,
+                                          fieldLabel: 'Expense Type',
+                                        ),
+                                ),
+                              ).animate().fadeIn(),
+                            ],
+                          ],
+                        ),
+                      )
+                      .animate()
+                      .fadeIn(delay: 200.ms),
+
+                  const SizedBox(height: 18),
+
+                  // ── Optional: Bill / Voucher No & Party Name ──
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          controller: _billNoController,
+                          readOnly: isLocked,
+                          style: AppTextStyles.bodyMedium
+                              .copyWith(color: AppColors.textPrimary),
+                          decoration: const InputDecoration(
+                            labelText: 'Bill / Voucher No. (Optional)',
+                            hintText: 'e.g. 1042',
+                            prefixIcon: Icon(Icons.receipt_rounded,
+                                color: AppColors.textTertiary, size: 20),
                           ),
                         ),
                       ),
-                    ),
-                  ],
-                ).animate().fadeIn(delay: 450.ms),
-            ],
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextFormField(
+                          controller: _partyNameController,
+                          readOnly: isLocked,
+                          style: AppTextStyles.bodyMedium
+                              .copyWith(color: AppColors.textPrimary),
+                          decoration: InputDecoration(
+                            labelText: 'Party / Vendor (Optional)',
+                            hintText: 'e.g. Sharma Hardware',
+                            prefixIcon: const Icon(Icons.person_outline_rounded,
+                                color: AppColors.textTertiary, size: 20),
+                            suffixIcon: isLocked
+                                ? null
+                                : VoiceInputIconButton(
+                                    controller: _partyNameController,
+                                    fieldLabel: 'Party Name',
+                                  ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ).animate().fadeIn(delay: 220.ms),
 
-            const SizedBox(height: 24),
-          ],
+                  const SizedBox(height: 18),
+
+                  // ── 3. Description of Expenses (Required Narration matching Excel Col B) ──
+                  TextFormField(
+                    controller: _remarksController,
+                    readOnly: isLocked,
+                    maxLines: 2,
+                    validator: (v) => (v == null || v.trim().isEmpty)
+                        ? 'Please enter description of expense'
+                        : null,
+                    style: AppTextStyles.bodyMedium
+                        .copyWith(color: AppColors.textPrimary),
+                    decoration: InputDecoration(
+                      labelText: 'Description of Expenses *',
+                      hintText:
+                          'e.g. Sabji, oil / JCB 5.18 hr / Tractor diesel 30L / Auto rent',
+                      alignLabelWithHint: true,
+                      prefixIcon: const Padding(
+                        padding: EdgeInsets.only(bottom: 24),
+                        child: Icon(Icons.notes_rounded,
+                            color: AppColors.textTertiary, size: 20),
+                      ),
+                      suffixIcon: isLocked
+                          ? null
+                          : VoiceInputIconButton(
+                              controller: _remarksController,
+                              fieldLabel: 'Description of Expense',
+                            ),
+                    ),
+                  ).animate().fadeIn(delay: 250.ms),
+
+                  const SizedBox(height: 18),
+
+                  // ── 4. Expense Amount (₹) ──
+                  TextFormField(
+                    controller: _expenseAmountController,
+                    readOnly: isLocked,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    validator: (v) =>
+                        Validators.positiveNumber(v, 'Expense Amount'),
+                    style: AppTextStyles.h4.copyWith(color: AppColors.rejected),
+                    decoration: const InputDecoration(
+                      labelText: 'Expense Amount (₹) *',
+                      prefixIcon: Icon(Icons.currency_rupee_rounded,
+                          color: AppColors.rejected, size: 20),
+                    ),
+                  ).animate().fadeIn(delay: 300.ms),
+                ] else ...[
+                  // ── CASH RECEIVED (INFLOW) FIELDS ──
+                  // 1. Amount Received
+                  TextFormField(
+                    controller: _amountReceivedController,
+                    readOnly: isLocked,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    validator: (v) =>
+                        Validators.positiveNumber(v, 'Amount Received'),
+                    style: AppTextStyles.h4.copyWith(color: AppColors.approved),
+                    decoration: const InputDecoration(
+                      labelText: 'Amount Received (₹) *',
+                      prefixIcon: Icon(Icons.currency_rupee_rounded,
+                          color: AppColors.approved, size: 20),
+                    ),
+                  ).animate().fadeIn(delay: 200.ms),
+
+                  const SizedBox(height: 18),
+
+                  // 2. Source / Account Head (defaults to Indore Office)
+                  TextFormField(
+                    controller: _customExpenseTypeController,
+                    readOnly: isLocked,
+                    style: AppTextStyles.bodyMedium
+                        .copyWith(color: AppColors.textPrimary),
+                    decoration: InputDecoration(
+                      labelText: 'Received From / Head',
+                      hintText:
+                          'e.g. Indore Office, Bank Transfer, Head Office Advance',
+                      prefixIcon: const Icon(Icons.account_balance_rounded,
+                          color: AppColors.primary, size: 20),
+                      suffixIcon: isLocked
+                          ? null
+                          : VoiceInputIconButton(
+                              controller: _customExpenseTypeController,
+                              fieldLabel: 'Received From',
+                            ),
+                    ),
+                  ).animate().fadeIn(delay: 250.ms),
+
+                  const SizedBox(height: 18),
+
+                  // ── Optional: Slip / Ref No & Party / Depositor ──
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextFormField(
+                          controller: _billNoController,
+                          readOnly: isLocked,
+                          style: AppTextStyles.bodyMedium
+                              .copyWith(color: AppColors.textPrimary),
+                          decoration: const InputDecoration(
+                            labelText: 'Slip / Ref No. (Optional)',
+                            hintText: 'e.g. TXN-8901',
+                            prefixIcon: Icon(Icons.receipt_rounded,
+                                color: AppColors.textTertiary, size: 20),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextFormField(
+                          controller: _partyNameController,
+                          readOnly: isLocked,
+                          style: AppTextStyles.bodyMedium
+                              .copyWith(color: AppColors.textPrimary),
+                          decoration: InputDecoration(
+                            labelText: 'Party / Depositor (Optional)',
+                            hintText: 'e.g. Indore Office',
+                            prefixIcon: const Icon(Icons.person_outline_rounded,
+                                color: AppColors.textTertiary, size: 20),
+                            suffixIcon: isLocked
+                                ? null
+                                : VoiceInputIconButton(
+                                    controller: _partyNameController,
+                                    fieldLabel: 'Party / Depositor',
+                                  ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ).animate().fadeIn(delay: 280.ms),
+
+                  const SizedBox(height: 18),
+
+                  // 3. Narration / Remarks
+                  TextFormField(
+                    controller: _remarksController,
+                    readOnly: isLocked,
+                    maxLines: 2,
+                    style: AppTextStyles.bodyMedium
+                        .copyWith(color: AppColors.textPrimary),
+                    decoration: InputDecoration(
+                      labelText: 'Description / Narration (Optional)',
+                      hintText:
+                          'e.g. Advance cash received for site kickoff / NEFT Ref #1234',
+                      alignLabelWithHint: true,
+                      prefixIcon: const Padding(
+                        padding: EdgeInsets.only(bottom: 24),
+                        child: Icon(Icons.notes_rounded,
+                            color: AppColors.textTertiary, size: 20),
+                      ),
+                      suffixIcon: isLocked
+                          ? null
+                          : VoiceInputIconButton(
+                              controller: _remarksController,
+                              fieldLabel: 'Description / Narration',
+                            ),
+                    ),
+                  ).animate().fadeIn(delay: 300.ms),
+                ],
+
+                const SizedBox(height: 20),
+
+                // ── Live Running Balance Preview Card ──
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceDark,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: AppColors.divider),
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Current Site Balance:',
+                              style: AppTextStyles.bodySmall
+                                  .copyWith(color: AppColors.textSecondary)),
+                          Text(
+                            cashState.isLoading &&
+                                    cashState.transactions.isEmpty
+                                ? 'Syncing live balance...'
+                                : currencyFmt.format(currentBalance),
+                            style: AppTextStyles.bodyMedium
+                                .copyWith(color: AppColors.textPrimary),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            _entryMode == CashEntryMode.expense
+                                ? 'Deduct Expense:'
+                                : 'Add Inflow:',
+                            style: AppTextStyles.bodySmall.copyWith(
+                              color: _entryMode == CashEntryMode.expense
+                                  ? AppColors.rejected
+                                  : AppColors.approved,
+                            ),
+                          ),
+                          Text(
+                            _entryMode == CashEntryMode.expense
+                                ? '-${currencyFmt.format(parseFiniteNumber(_expenseAmountController.text) ?? 0)}'
+                                : '+${currencyFmt.format(parseFiniteNumber(_amountReceivedController.text) ?? 0)}',
+                            style: AppTextStyles.bodyMedium.copyWith(
+                              color: _entryMode == CashEntryMode.expense
+                                  ? AppColors.rejected
+                                  : AppColors.approved,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 8),
+                        child: Divider(color: AppColors.divider, height: 1),
+                      ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.account_balance_wallet_rounded,
+                                  size: 18,
+                                  color: projectedBalance >= 0
+                                      ? AppColors.approved
+                                      : AppColors.rejected),
+                              const SizedBox(width: 8),
+                              Text('Estimated Balance in Hand:',
+                                  style: AppTextStyles.bodyMedium.copyWith(
+                                      color: AppColors.textPrimary,
+                                      fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                          Text(
+                            currencyFmt.format(projectedBalance),
+                            style: AppTextStyles.h4.copyWith(
+                              color: projectedBalance >= 0
+                                  ? AppColors.approved
+                                  : AppColors.rejected,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ).animate().fadeIn(delay: 350.ms),
+
+                const SizedBox(height: 20),
+
+                // ── Photo Picker (Voucher / Bill) ──
+                PhotoPickerWidget(
+                  key: _photoPickerKey,
+                  initialPhotoUrls: widget.existingTransaction?.photoUrls ?? [],
+                  isReadOnly: isLocked,
+                  onPhotosChanged: (photos) {
+                    setState(() {
+                      _selectedPhotos = photos;
+                    });
+                  },
+                ).animate().fadeIn(delay: 400.ms),
+
+                const SizedBox(height: 24),
+
+                // ── Staged Entries Tray (Multi-Entry Batch) ──
+                if (widget.existingTransaction == null)
+                  _buildStagedEntriesTray(currencyFmt),
+
+                // ── Action Buttons ──
+                if (!isLocked) ...[
+                  if (widget.existingTransaction != null)
+                    SizedBox(
+                      width: double.infinity,
+                      height: 54,
+                      child: ElevatedButton.icon(
+                        onPressed: (_isSubmitting || cashState.isLoading)
+                            ? null
+                            : () => _handleSubmit(
+                                expenseTypesAsync.valueOrNull ?? []),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _entryMode == CashEntryMode.expense
+                              ? AppColors.primary
+                              : AppColors.approved,
+                        ),
+                        icon: (_isSubmitting || cashState.isLoading)
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 2, color: Colors.white),
+                              )
+                            : const Icon(Icons.check_circle_rounded),
+                        label: Text(
+                          (_isSubmitting || cashState.isLoading)
+                              ? 'Saving Changes...'
+                              : 'Save Changes',
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 16),
+                        ),
+                      ),
+                    ).animate().fadeIn(delay: 450.ms)
+                  else
+                    Row(
+                      children: [
+                        Expanded(
+                          flex: 1,
+                          child: SizedBox(
+                            height: 52,
+                            child: OutlinedButton.icon(
+                              onPressed: (_isSubmitting || isLocked)
+                                  ? null
+                                  : () => _stageCurrentEntry(
+                                      types:
+                                          expenseTypesAsync.valueOrNull ?? []),
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(
+                                    color: AppColors.primary, width: 1.5),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12)),
+                              ),
+                              icon: const Icon(Icons.add_rounded,
+                                  color: AppColors.primary, size: 20),
+                              label: const Text(
+                                '+ Add Item',
+                                style: TextStyle(
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          flex: 2,
+                          child: SizedBox(
+                            height: 52,
+                            child: ElevatedButton.icon(
+                              onPressed: (_isSubmitting ||
+                                      cashState.isLoading ||
+                                      isLocked)
+                                  ? null
+                                  : () => _handleSubmit(
+                                      expenseTypesAsync.valueOrNull ?? []),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor:
+                                    _entryMode == CashEntryMode.expense
+                                        ? AppColors.primary
+                                        : AppColors.approved,
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12)),
+                              ),
+                              icon: (_isSubmitting || cashState.isLoading)
+                                  ? const SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 2, color: Colors.white),
+                                    )
+                                  : const Icon(Icons.send_rounded, size: 20),
+                              label: Text(
+                                (_isSubmitting || cashState.isLoading)
+                                    ? 'Submitting Batch...'
+                                    : (_stagedEntries.isNotEmpty
+                                        ? 'Submit Batch (${_stagedEntries.length + (_hasCurrentDraftData ? 1 : 0)})'
+                                        : 'Submit Entry'),
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold, fontSize: 15),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ).animate().fadeIn(delay: 450.ms),
+                ],
+
+                const SizedBox(height: 24),
+              ],
+            ),
+          ),
         ),
       ),
-    ),
-  ),
-);
+    );
   }
 
   Widget _buildStagedEntriesTray(NumberFormat currencyFmt) {
     if (_stagedEntries.isEmpty) return const SizedBox.shrink();
 
-    final totalStaged = _stagedEntries.fold<double>(0.0, (sum, e) => sum + e.amount);
+    final totalStaged =
+        _stagedEntries.fold<double>(0.0, (sum, e) => sum + e.amount);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
@@ -1595,7 +1812,8 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       decoration: BoxDecoration(
         color: AppColors.cardDark,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.primary.withOpacity(0.5), width: 1.5),
+        border: Border.all(
+            color: AppColors.primary.withValues(alpha: 0.5), width: 1.5),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1605,23 +1823,29 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
             children: [
               Row(
                 children: [
-                  const Icon(Icons.layers_rounded, color: AppColors.primary, size: 20),
+                  const Icon(Icons.layers_rounded,
+                      color: AppColors.primary, size: 20),
                   const SizedBox(width: 8),
                   Text(
                     'Staged Batch (${_stagedEntries.length} ${_stagedEntries.length == 1 ? "item" : "items"})',
-                    style: AppTextStyles.h4.copyWith(fontSize: 15, color: AppColors.textPrimary),
+                    style: AppTextStyles.h4
+                        .copyWith(fontSize: 15, color: AppColors.textPrimary),
                   ),
                 ],
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.15),
+                  color: AppColors.primary.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
                   'Total: ${currencyFmt.format(totalStaged)}',
-                  style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 13),
+                  style: const TextStyle(
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13),
                 ),
               ),
             ],
@@ -1642,20 +1866,26 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                 decoration: BoxDecoration(
                   color: AppColors.surfaceDark,
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: AppColors.divider.withOpacity(0.5)),
+                  border: Border.all(
+                      color: AppColors.divider.withValues(alpha: 0.5)),
                 ),
                 child: Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: isExpense ? AppColors.rejected.withOpacity(0.15) : AppColors.approved.withOpacity(0.15),
+                        color: isExpense
+                            ? AppColors.rejected.withValues(alpha: 0.15)
+                            : AppColors.approved.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
                         isExpense ? 'EXP' : 'REC',
                         style: TextStyle(
-                          color: isExpense ? AppColors.rejected : AppColors.approved,
+                          color: isExpense
+                              ? AppColors.rejected
+                              : AppColors.approved,
                           fontWeight: FontWeight.bold,
                           fontSize: 11,
                         ),
@@ -1668,13 +1898,16 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                         children: [
                           Text(
                             item.expenseTypeName,
-                            style: AppTextStyles.bodyMedium.copyWith(color: AppColors.textPrimary, fontWeight: FontWeight.w600),
+                            style: AppTextStyles.bodyMedium.copyWith(
+                                color: AppColors.textPrimary,
+                                fontWeight: FontWeight.w600),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
                           Text(
                             '${currencyFmt.format(item.amount)}${item.billNo != null ? ' • Bill #${item.billNo}' : ''}${item.partyName != null ? ' • ${item.partyName}' : ''}',
-                            style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary),
+                            style: AppTextStyles.bodySmall
+                                .copyWith(color: AppColors.textSecondary),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -1682,17 +1915,28 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                       ),
                     ),
                     if (item.photos.isNotEmpty) ...[
-                      const Icon(Icons.photo_camera_rounded, size: 16, color: AppColors.textTertiary),
+                      const Icon(Icons.photo_camera_rounded,
+                          size: 16, color: AppColors.textTertiary),
                       const SizedBox(width: 4),
-                      Text('${item.photos.length}', style: AppTextStyles.bodySmall.copyWith(color: AppColors.textTertiary)),
+                      Text('${item.photos.length}',
+                          style: AppTextStyles.bodySmall
+                              .copyWith(color: AppColors.textTertiary)),
                       const SizedBox(width: 8),
                     ],
                     IconButton(
-                      icon: const Icon(Icons.delete_outline_rounded, color: AppColors.rejected, size: 20),
+                      icon: const Icon(Icons.delete_outline_rounded,
+                          color: AppColors.rejected, size: 20),
                       visualDensity: VisualDensity.compact,
                       onPressed: () {
                         setState(() {
                           _stagedEntries.removeAt(idx);
+                          _saveDrafts(_stagedEntries).catchError((Object e) {
+                            if (mounted) {
+                              if (!mounted) return;
+                              ScaffoldMessenger.of(this.context)
+                                  .showSnackBar(SnackBar(content: Text("$e")));
+                            }
+                          });
                         });
                       },
                     ),
@@ -1716,7 +1960,8 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       alignment: Alignment.centerLeft,
       padding: const EdgeInsets.only(left: 16),
       child: Text(text,
-          style: AppTextStyles.bodySmall.copyWith(color: AppColors.textTertiary)),
+          style:
+              AppTextStyles.bodySmall.copyWith(color: AppColors.textTertiary)),
     );
   }
 }

@@ -19,8 +19,11 @@ enum UserRole {
   }
 
   static UserRole fromString(String value) {
-    final clean = value.toLowerCase().replaceAll('-', '_').replaceAll(' ', '_').trim();
-    if (clean == 'projecthead' || clean == 'project_head' || clean == 'supervisor') {
+    final clean =
+        value.toLowerCase().replaceAll('-', '_').replaceAll(' ', '_').trim();
+    if (clean == 'projecthead' ||
+        clean == 'project_head' ||
+        clean == 'supervisor') {
       return UserRole.projectHead;
     }
     return UserRole.values.firstWhere(

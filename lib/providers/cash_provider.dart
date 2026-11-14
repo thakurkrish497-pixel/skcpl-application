@@ -1,3 +1,5 @@
+import 'stock_provider.dart';
+import '../services/submission_support.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/cash_transaction_model.dart';
 import '../models/stock_transaction_model.dart'; // for TransactionStatus
@@ -40,78 +42,90 @@ class CashState {
 /// Cash state notifier
 class CashNotifier extends StateNotifier<CashState> {
   final CashService _cashService;
+  int _loadRevision = 0;
+  void clearSession() {
+    ++_loadRevision;
+    if (mounted) state = const CashState();
+  }
+
+  Future<void> refresh() => loadAllTransactions();
 
   CashNotifier(this._cashService) : super(const CashState());
 
-  /// Load cash transactions for all sites (merges any queued offline records, latest on top)
+  /// Keep a canonical cache. Site loads replace only that site's records.
   Future<void> loadAllTransactions() async {
-    state = state.copyWith(isLoading: true, clearError: true);
-    final queued = await OfflineService.getQueuedCashTransactions();
-
+    final revision = ++_loadRevision;
+    if (mounted) {
+      state = state.copyWith(isLoading: true, clearError: true);
+    }
     try {
-      final transactions = await _cashService.getAllTransactions();
-      final allList = [...queued, ...transactions]
-        ..sort((a, b) => (b.createdAt ?? b.date).compareTo(a.createdAt ?? a.date));
-      state = state.copyWith(
-        transactions: allList,
-        isLoading: false,
-      );
+      final cloud = await _cashService.getAllTransactions();
+      final queued = await OfflineService.getQueuedCashTransactions();
+      if (!mounted || revision != _loadRevision) return;
+      final cloudIds = cloud.map((t) => t.id).toSet();
+      if (mounted) {
+        state = state.copyWith(
+            transactions: [
+              ...queued.where((t) => !cloudIds.contains(submissionId(t.id))),
+              ...cloud,
+            ]..sort((a, b) =>
+                (b.createdAt ?? b.date).compareTo(a.createdAt ?? a.date)),
+            isLoading: false);
+      }
     } catch (e) {
-      state = state.copyWith(
-        transactions: queued,
-        error: queued.isNotEmpty ? null : e.toString(),
-        isLoading: false,
-      );
+      if (mounted && revision == _loadRevision) {
+        if (mounted) {
+          state = state.copyWith(error: e.toString(), isLoading: false);
+        }
+      }
     }
   }
 
-  /// Load cash transactions for a site (merges any queued offline records)
   Future<void> loadTransactions(String siteId) async {
-    state = state.copyWith(isLoading: true, clearError: true);
-    final queued = await OfflineService.getQueuedCashTransactions();
-    final siteQueued = queued.where((c) => c.siteId == siteId).toList();
-
-    try {
-      final transactions = await _cashService.getTransactionsForSite(siteId);
-      final allList = [...siteQueued, ...transactions]
-        ..sort((a, b) => (b.createdAt ?? b.date).compareTo(a.createdAt ?? a.date));
-      state = state.copyWith(
-        transactions: allList,
-        isLoading: false,
-      );
-    } catch (e) {
-      state = state.copyWith(
-        transactions: siteQueued,
-        error: siteQueued.isNotEmpty ? null : e.toString(),
-        isLoading: false,
-      );
-    }
+    // Fetch all accessible records; server policies determine the permitted scope.
+    // Views filter the canonical cache instead of changing shared cache scope.
+    await loadAllTransactions();
   }
 
-  /// Submit a new cash transaction with automatic offline queue fallback
+  /// Persist identity and attachments before making any network request.
   Future<bool> submitTransaction(CashTransactionModel transaction) async {
-    state = state.copyWith(isLoading: true, clearError: true);
+    if (mounted) {
+      state = state.copyWith(isLoading: true, clearError: true);
+    }
+    CashTransactionModel? queued;
     try {
-      final created = await _cashService.submitTransaction(transaction);
-      state = state.copyWith(
-        transactions: [created, ...state.transactions],
-        isLoading: false,
-      );
+      queued = await OfflineService.queueCashTransaction(
+          transaction.copyWith(id: submissionId(transaction.id)));
+      final created = await _cashService.submitTransaction(queued);
+      await OfflineService.removeQueuedCashTransaction(queued.id!);
+      if (mounted) {
+        state = state.copyWith(transactions: [
+          created,
+          ...state.transactions
+              .where((t) => t.id != created.id && t.id != queued!.id)
+        ], isLoading: false);
+      }
       return true;
     } catch (e) {
-      // Fallback: save to local offline queue
-      try {
-        final offlineTx = await OfflineService.queueCashTransaction(transaction);
-        state = state.copyWith(
-          transactions: [offlineTx, ...state.transactions],
-          isLoading: false,
-          error: 'OFFLINE_SAVED',
-        );
+      if (queued != null && isRetryableSubmissionError(e)) {
+        if (mounted) {
+          state = state.copyWith(transactions: [
+            queued,
+            ...state.transactions.where((t) => t.id != queued!.id)
+          ], isLoading: false, error: 'OFFLINE_SAVED');
+        }
         return true;
-      } catch (queueErr) {
-        state = state.copyWith(error: e.toString(), isLoading: false);
-        return false;
       }
+      if (queued != null) {
+        try {
+          await OfflineService.pauseCash(queued.id!, e);
+        } catch (_) {}
+      }
+      // Permanent errors remain durably preserved, but never pretend to be offline.
+      if (mounted) {
+        state = state.copyWith(error: e.toString(), isLoading: false);
+      }
+      return false;
     }
   }
 
@@ -120,61 +134,53 @@ class CashNotifier extends StateNotifier<CashState> {
     final txId = transaction.id;
 
     // Handle offline queued transactions
-    if (txId == null || txId.startsWith('offline_')) {
+    if (txId != null && await OfflineService.isQueuedCash(txId)) {
       try {
         if (transaction.status == TransactionStatus.rejected) {
-          if (txId != null) {
+          if (txId.isNotEmpty) {
             await OfflineService.removeQueuedCashTransaction(txId);
           }
         } else {
           await OfflineService.updateQueuedCashTransaction(transaction);
         }
-        state = state.copyWith(
-          transactions: state.transactions
-              .map((t) => (t.id == txId || (txId == null && t.remarks == transaction.remarks))
-                  ? transaction
-                  : t)
-              .toList(),
-          isLoading: false,
-        );
+        if (mounted) {
+          state = state.copyWith(
+            transactions: state.transactions
+                .map((t) => t.id == txId ? transaction : t)
+                .toList(),
+            isLoading: false,
+          );
+        }
         return true;
       } catch (e) {
-        state = state.copyWith(error: e.toString(), isLoading: false);
+        if (mounted) {
+          state = state.copyWith(error: e.toString(), isLoading: false);
+        }
         return false;
       }
     }
 
-    state = state.copyWith(isLoading: true, clearError: true);
+    if (mounted) {
+      state = state.copyWith(isLoading: true, clearError: true);
+    }
     try {
       final updated = await _cashService.updateTransaction(
-        txId,
+        txId!,
         transaction.toJson(),
       );
-      state = state.copyWith(
-        transactions: state.transactions
-            .map((t) => t.id == updated.id ? updated : t)
-            .toList(),
-        isLoading: false,
-      );
-      return true;
-    } catch (e) {
-      // If online update failed, check if it was actually in local offline queue
-      try {
-        if (transaction.status == TransactionStatus.rejected) {
-          await OfflineService.removeQueuedCashTransaction(txId);
-        } else {
-          await OfflineService.updateQueuedCashTransaction(transaction);
-        }
+      if (mounted) {
         state = state.copyWith(
           transactions: state.transactions
-              .map((t) => t.id == txId ? transaction : t)
+              .map((t) => t.id == updated.id ? updated : t)
               .toList(),
           isLoading: false,
         );
-        return true;
-      } catch (_) {}
-
-      state = state.copyWith(error: e.toString(), isLoading: false);
+      }
+      return true;
+    } catch (e) {
+      if (mounted) {
+        state = state.copyWith(error: e.toString(), isLoading: false);
+      }
       return false;
     }
   }
@@ -186,43 +192,43 @@ class CashNotifier extends StateNotifier<CashState> {
       if (txId != null && txId.startsWith('offline_')) {
         await OfflineService.removeQueuedCashTransaction(txId);
       } else {
-        await OfflineService.removeQueuedCashTransactionMatching(
-          siteId: transaction.siteId,
-          remarks: transaction.remarks,
-          amount: transaction.expenseAmount,
-        );
         if (txId != null && !txId.startsWith('offline_')) {
           await _cashService.deleteTransaction(txId);
         }
       }
-      state = state.copyWith(
-        transactions: state.transactions
-            .where((t) => t.id != txId && !(t.siteId == transaction.siteId && t.remarks == transaction.remarks && t.expenseAmount == transaction.expenseAmount))
-            .toList(),
-      );
+      if (mounted) {
+        state = state.copyWith(
+          transactions: state.transactions.where((t) => t.id != txId).toList(),
+        );
+      }
       return true;
-    } catch (_) {
-      state = state.copyWith(
-        transactions: state.transactions.where((t) => t.id != txId).toList(),
-      );
-      return true;
+    } catch (e) {
+      if (mounted) {
+        state = state.copyWith(error: e.toString());
+      }
+      return false;
     }
   }
 
   /// Accounts approves a cash transaction
-  Future<bool> approveByAccounts(String transactionId, String reviewedBy) async {
+  Future<bool> approveByAccounts(
+      String transactionId, String reviewedBy) async {
     try {
       await _cashService.approveByAccounts(transactionId, reviewedBy);
-      state = state.copyWith(
-        transactions: state.transactions
-            .map((t) => t.id == transactionId
-                ? t.copyWith(status: TransactionStatus.pendingAdmin)
-                : t)
-            .toList(),
-      );
+      if (mounted) {
+        state = state.copyWith(
+          transactions: state.transactions
+              .map((t) => t.id == transactionId
+                  ? t.copyWith(status: TransactionStatus.pendingAdmin)
+                  : t)
+              .toList(),
+        );
+      }
       return true;
     } catch (e) {
-      state = state.copyWith(error: e.toString());
+      if (mounted) {
+        state = state.copyWith(error: e.toString());
+      }
       return false;
     }
   }
@@ -231,16 +237,20 @@ class CashNotifier extends StateNotifier<CashState> {
   Future<bool> approveByAdmin(String transactionId, String approvedBy) async {
     try {
       await _cashService.approveByAdmin(transactionId, approvedBy);
-      state = state.copyWith(
-        transactions: state.transactions
-            .map((t) => t.id == transactionId
-                ? t.copyWith(status: TransactionStatus.approved)
-                : t)
-            .toList(),
-      );
+      if (mounted) {
+        state = state.copyWith(
+          transactions: state.transactions
+              .map((t) => t.id == transactionId
+                  ? t.copyWith(status: TransactionStatus.approved)
+                  : t)
+              .toList(),
+        );
+      }
       return true;
     } catch (e) {
-      state = state.copyWith(error: e.toString());
+      if (mounted) {
+        state = state.copyWith(error: e.toString());
+      }
       return false;
     }
   }
@@ -249,20 +259,26 @@ class CashNotifier extends StateNotifier<CashState> {
   Future<bool> rejectTransaction(
     String transactionId,
     String rejectedBy,
-    String note,
-  ) async {
+    String note, {
+    String? remarks,
+  }) async {
     try {
-      await _cashService.rejectTransaction(transactionId, rejectedBy, note);
-      state = state.copyWith(
-        transactions: state.transactions
-            .map((t) => t.id == transactionId
-                ? t.copyWith(status: TransactionStatus.rejected)
-                : t)
-            .toList(),
-      );
+      await _cashService.rejectTransaction(transactionId, rejectedBy, note,
+          remarks: remarks);
+      if (mounted) {
+        state = state.copyWith(
+          transactions: state.transactions
+              .map((t) => t.id == transactionId
+                  ? t.copyWith(status: TransactionStatus.rejected)
+                  : t)
+              .toList(),
+        );
+      }
       return true;
     } catch (e) {
-      state = state.copyWith(error: e.toString());
+      if (mounted) {
+        state = state.copyWith(error: e.toString());
+      }
       return false;
     }
   }
@@ -270,7 +286,10 @@ class CashNotifier extends StateNotifier<CashState> {
 
 /// Provider for cash state
 final cashProvider = StateNotifierProvider<CashNotifier, CashState>((ref) {
-  return CashNotifier(ref.read(cashServiceProvider));
+  final notifier = CashNotifier(ref.read(cashServiceProvider));
+  ref.listen(authProvider.select((a) => a.user?.id ?? a.activeSite?.id),
+      (_, next) => notifier.clearSession());
+  return notifier;
 });
 
 /// Provider for pending cash (accounts)
@@ -289,7 +308,8 @@ final pendingCashAccountsProvider =
     }
     return !t.isPendingSupervisorReview;
   }).toList();
-  filtered.sort((a, b) => (b.createdAt ?? b.date).compareTo(a.createdAt ?? a.date));
+  filtered
+      .sort((a, b) => (b.createdAt ?? b.date).compareTo(a.createdAt ?? a.date));
   return filtered;
 });
 
@@ -298,12 +318,63 @@ final pendingCashAdminProvider =
     FutureProvider.autoDispose<List<CashTransactionModel>>((ref) async {
   final cashService = ref.read(cashServiceProvider);
   final list = await cashService.getPendingForAdmin();
-  return list..sort((a, b) => (b.createdAt ?? b.date).compareTo(a.createdAt ?? a.date));
+  return list
+    ..sort((a, b) => (b.createdAt ?? b.date).compareTo(a.createdAt ?? a.date));
 });
 
 /// Provider for a specific site's cash summary
-final siteCashSummaryProvider =
-    FutureProvider.autoDispose.family<Map<String, dynamic>, String>((ref, siteId) async {
+final siteCashSummaryProvider = FutureProvider.autoDispose
+    .family<Map<String, dynamic>, String>((ref, siteId) async {
   final cashService = ref.read(cashServiceProvider);
   return cashService.getSiteCashSummary(siteId);
+});
+
+/// Approved company balances, independent of whichever dashboard loaded history last.
+final allSitesFinanceSummaryProvider =
+    FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
+  final transactions = await ref
+      .watch(cashServiceProvider)
+      .getAllTransactions(status: TransactionStatus.approved);
+  final sums = <String, Map<String, dynamic>>{};
+  for (final tx in transactions) {
+    final row = sums.putIfAbsent(
+        tx.siteId,
+        () => {
+              'site_id': tx.siteId,
+              'total_received': 0.0,
+              'total_expense': 0.0,
+              'balance': 0.0
+            });
+    row['total_received'] =
+        (row['total_received'] as double) + tx.amountReceived;
+    row['total_expense'] = (row['total_expense'] as double) + tx.expenseAmount;
+    row['balance'] =
+        (row['total_received'] as double) - (row['total_expense'] as double);
+  }
+  return sums.values.toList();
+});
+
+final recentTransactionActivityProvider =
+    FutureProvider.autoDispose<({List<double> cash, List<double> stock})>(
+        (ref) async {
+  final now = DateTime.now();
+  final start =
+      DateTime(now.year, now.month, now.day).subtract(const Duration(days: 6));
+  final cash = await ref.watch(cashServiceProvider).getAllTransactions();
+  final stock = await ref.watch(stockServiceProvider).getAllTransactions();
+  final cashCounts = List<double>.filled(7, 0);
+  final stockCounts = List<double>.filled(7, 0);
+  void count(DateTime date, List<double> counts) {
+    final d = date.toLocal();
+    final index = DateTime(d.year, d.month, d.day).difference(start).inDays;
+    if (index >= 0 && index < 7) counts[index]++;
+  }
+
+  for (final tx in cash) {
+    count(tx.createdAt ?? tx.date, cashCounts);
+  }
+  for (final tx in stock) {
+    count(tx.createdAt ?? tx.date, stockCounts);
+  }
+  return (cash: cashCounts, stock: stockCounts);
 });

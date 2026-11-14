@@ -43,9 +43,15 @@ enum StaffModule {
   static StaffModule fromString(String? value) {
     if (value == null) return StaffModule.stock;
     final clean = value.toLowerCase().trim();
-    if (clean == 'cashbook' || clean == 'cash' || clean == 'expense') return StaffModule.cashbook;
-    if (clean == 'report' || clean == 'dsr' || clean == 'daily_report') return StaffModule.report;
-    if (clean == 'attendance' || clean == 'att' || clean == 'office') return StaffModule.attendance;
+    if (clean == 'cashbook' || clean == 'cash' || clean == 'expense') {
+      return StaffModule.cashbook;
+    }
+    if (clean == 'report' || clean == 'dsr' || clean == 'daily_report') {
+      return StaffModule.report;
+    }
+    if (clean == 'attendance' || clean == 'att' || clean == 'office') {
+      return StaffModule.attendance;
+    }
     return StaffModule.stock;
   }
 }
@@ -57,12 +63,14 @@ class SiteStaffModel {
   final String name;
   final SiteStaffRole role;
   final List<StaffModule> modules;
-  final String pin; // Login password (can be words or numbers of arbitrary length set by admin)
-  
+  final String
+      pin; // Login password (can be words or numbers of arbitrary length set by admin)
+
   // Optional identifying details to differentiate duplicate names
   final String? phone; // Contact phone number
   final String? employeeCode; // e.g. "SK-01", "EMP-23"
-  final String? designation; // e.g. "Senior Mason", "Civil Supervisor", "Store Incharge"
+  final String?
+      designation; // e.g. "Senior Mason", "Civil Supervisor", "Store Incharge"
   final String? fatherName; // e.g. "S/o Rameshwar"
   final String? description; // General notes / remarks
 
@@ -72,7 +80,7 @@ class SiteStaffModel {
   final String? aadharCardUrl; // Cloud URL to Aadhar card photo/scan
   final String? panNumber; // 10-character PAN number
   final String? panCardUrl; // Cloud URL to PAN card photo/scan
-  
+
   final bool isActive;
   final DateTime createdAt;
 
@@ -98,14 +106,16 @@ class SiteStaffModel {
   });
 
   /// Backward-compatibility getter for single-module access
-  StaffModule get module => modules.isNotEmpty ? modules.first : StaffModule.stock;
+  StaffModule get module =>
+      modules.isNotEmpty ? modules.first : StaffModule.stock;
 
   /// Calculated age helper based on birth date
   int? get age {
     if (dateOfBirth == null) return null;
     final now = DateTime.now();
     int a = now.year - dateOfBirth!.year;
-    if (now.month < dateOfBirth!.month || (now.month == dateOfBirth!.month && now.day < dateOfBirth!.day)) {
+    if (now.month < dateOfBirth!.month ||
+        (now.month == dateOfBirth!.month && now.day < dateOfBirth!.day)) {
       a--;
     }
     return a >= 0 ? a : null;
@@ -122,7 +132,8 @@ class SiteStaffModel {
   }
 
   /// Check if this staff member has KYC documents attached
-  bool get hasAadharCard => aadharCardUrl != null && aadharCardUrl!.trim().isNotEmpty;
+  bool get hasAadharCard =>
+      aadharCardUrl != null && aadharCardUrl!.trim().isNotEmpty;
   bool get hasPanCard => panCardUrl != null && panCardUrl!.trim().isNotEmpty;
 
   /// Check if this staff member is active and authorized for a specific module
@@ -149,7 +160,9 @@ class SiteStaffModel {
     if (dateOfBirth != null && age != null) {
       parts.add('Age: $age yrs');
     }
-    if (parts.isEmpty && description != null && description!.trim().isNotEmpty) {
+    if (parts.isEmpty &&
+        description != null &&
+        description!.trim().isNotEmpty) {
       parts.add(description!.trim());
     }
     return parts.join(' • ');
@@ -190,7 +203,8 @@ class SiteStaffModel {
       description: json['description'] as String?,
       dateOfBirth: dob,
       aadharNumber: (json['aadhar_number'] ?? json['aadharNumber']) as String?,
-      aadharCardUrl: (json['aadhar_card_url'] ?? json['aadharCardUrl']) as String?,
+      aadharCardUrl:
+          (json['aadhar_card_url'] ?? json['aadharCardUrl']) as String?,
       panNumber: (json['pan_number'] ?? json['panNumber']) as String?,
       panCardUrl: (json['pan_card_url'] ?? json['panCardUrl']) as String?,
       isActive: json['is_active'] as bool? ?? true,
@@ -207,7 +221,8 @@ class SiteStaffModel {
       'name': name,
       'role': role.name,
       'module': module.name, // backward-compatible single value
-      'modules': modules.map((m) => m.name).toList(), // modern multi-module list
+      'modules':
+          modules.map((m) => m.name).toList(), // modern multi-module list
       'pin': pin,
       'phone': phone,
       'employee_code': employeeCode,

@@ -39,16 +39,23 @@ class _StockHistoryScreenState extends ConsumerState<StockHistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final stockState = ref.watch(stockProvider);
+    final activeSiteId = ref.watch(authProvider).activeSite?.id;
+    final rawState = ref.watch(stockProvider);
+    final stockState = rawState.copyWith(
+        transactions: rawState.transactions
+            .where((t) => t.siteId == activeSiteId)
+            .toList());
 
     return Scaffold(
       backgroundColor: AppColors.scaffoldDark,
       appBar: AppBar(
         title: const Text('Stock History'),
         actions: [
-          if (ref.watch(authProvider).isAdmin || ref.watch(authProvider).isAccounts)
+          if (ref.watch(authProvider).isAdmin ||
+              ref.watch(authProvider).isAccounts)
             IconButton(
-              icon: const Icon(Icons.table_view_rounded, color: Color(0xFF107C41)),
+              icon: const Icon(Icons.table_view_rounded,
+                  color: Color(0xFF107C41)),
               tooltip: 'Export Excel Workbook (.xlsx)',
               onPressed: () async {
                 final activeSite = ref.read(authProvider).activeSite;
@@ -56,7 +63,9 @@ class _StockHistoryScreenState extends ConsumerState<StockHistoryScreen> {
                 try {
                   var cashList = ref.read(cashProvider).transactions;
                   if (cashList.isEmpty) {
-                    await ref.read(cashProvider.notifier).loadTransactions(activeSite.id);
+                    await ref
+                        .read(cashProvider.notifier)
+                        .loadTransactions(activeSite.id);
                     cashList = ref.read(cashProvider).transactions;
                   }
                   await ExcelService.exportAndShareComprehensiveExcel(
@@ -68,7 +77,8 @@ class _StockHistoryScreenState extends ConsumerState<StockHistoryScreen> {
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('Comprehensive Excel (Cash & Stock) exported!'),
+                        content: Text(
+                            'Comprehensive Excel (Cash & Stock) exported!'),
                         backgroundColor: Color(0xFF107C41),
                       ),
                     );
@@ -98,7 +108,7 @@ class _StockHistoryScreenState extends ConsumerState<StockHistoryScreen> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.inventory_2_outlined,
+                      const Icon(Icons.inventory_2_outlined,
                           color: AppColors.textTertiary, size: 64),
                       const SizedBox(height: 16),
                       Text(
@@ -122,10 +132,16 @@ class _StockHistoryScreenState extends ConsumerState<StockHistoryScreen> {
                     final activeSiteId = ref.read(authProvider).activeSite?.id;
                     if (activeSiteId != null) {
                       ref.invalidate(stockOverviewProvider(activeSiteId));
-                      await ref.read(stockProvider.notifier).loadTransactions(activeSiteId);
-                      await ref.read(stockProvider.notifier).loadCurrentStock(activeSiteId);
+                      await ref
+                          .read(stockProvider.notifier)
+                          .loadTransactions(activeSiteId);
+                      await ref
+                          .read(stockProvider.notifier)
+                          .loadCurrentStock(activeSiteId);
                     } else {
-                      await ref.read(stockProvider.notifier).loadAllTransactions();
+                      await ref
+                          .read(stockProvider.notifier)
+                          .loadAllTransactions();
                     }
                     await ref.read(autoSyncProvider.notifier).syncNow();
                   },
@@ -134,46 +150,56 @@ class _StockHistoryScreenState extends ConsumerState<StockHistoryScreen> {
                     itemCount: stockState.transactions.length,
                     separatorBuilder: (_, __) => const SizedBox(height: 10),
                     itemBuilder: (context, index) {
-                    final tx = stockState.transactions[index];
-                    final isAdmin = ref.watch(authProvider).isAdmin;
-                    final canEdit = tx.isEditable || isAdmin;
+                      final tx = stockState.transactions[index];
+                      final isAdmin = ref.watch(authProvider).isAdmin;
+                      final canEdit = tx.isEditable;
 
-                    void openEdit() {
-                      final screen = tx.type == TransactionType.inbound
-                          ? AddProductScreen(existingTransaction: tx)
-                          : UseProductScreen(existingTransaction: tx);
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => screen))
-                          .then((didUpdate) {
-                        if (didUpdate == true) {
-                          final siteId = ref.read(authProvider).activeSite?.id ?? tx.siteId;
-                          ref.invalidate(stockOverviewProvider(siteId));
-                          ref.invalidate(allSitesStockProvider);
-                          ref.read(stockProvider.notifier).loadCurrentStock(siteId);
-                          ref.read(stockProvider.notifier).loadTransactions(siteId);
-                        }
-                      });
-                    }
+                      void openEdit() {
+                        final screen = tx.type == TransactionType.inbound
+                            ? AddProductScreen(existingTransaction: tx)
+                            : UseProductScreen(existingTransaction: tx);
+                        Navigator.push(context,
+                                MaterialPageRoute(builder: (_) => screen))
+                            .then((didUpdate) {
+                          if (didUpdate == true) {
+                            final siteId =
+                                ref.read(authProvider).activeSite?.id ??
+                                    tx.siteId;
+                            ref.invalidate(stockOverviewProvider(siteId));
+                            ref.invalidate(allSitesStockProvider);
+                            ref
+                                .read(stockProvider.notifier)
+                                .loadCurrentStock(siteId);
+                            ref
+                                .read(stockProvider.notifier)
+                                .loadTransactions(siteId);
+                          }
+                        });
+                      }
 
-                    return InkWell(
-                      onTap: () {
-                        if (canEdit) {
-                          openEdit();
-                        } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('This submission has been reviewed and is locked.')),
-                          );
-                        }
-                      },
-                      borderRadius: BorderRadius.circular(14),
-                      child: _TransactionTile(
-                        transaction: tx,
-                        onEdit: canEdit ? openEdit : null,
-                        onDelete: isAdmin ? () => _confirmDeleteStock(tx) : null,
-                      ),
-                    );
-                  },
+                      return InkWell(
+                        onTap: () {
+                          if (canEdit) {
+                            openEdit();
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                  content: Text(
+                                      'This submission has been reviewed and is locked.')),
+                            );
+                          }
+                        },
+                        borderRadius: BorderRadius.circular(14),
+                        child: _TransactionTile(
+                          transaction: tx,
+                          onEdit: canEdit ? openEdit : null,
+                          onDelete:
+                              isAdmin ? () => _confirmDeleteStock(tx) : null,
+                        ),
+                      );
+                    },
+                  ),
                 ),
-              ),
     );
   }
 
@@ -183,16 +209,20 @@ class _StockHistoryScreenState extends ConsumerState<StockHistoryScreen> {
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.surfaceDark,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Delete Stock Entry?', style: TextStyle(color: Colors.white)),
+        title: const Text('Delete Stock Entry?',
+            style: TextStyle(color: Colors.white)),
         content: Text(
           'Are you sure you want to permanently delete this ${tx.type.displayName} entry (${tx.displayProductName} - ${tx.quantity} ${tx.displayMetricUnitName})?\n\n'
           'Current stock balance will be recalculated automatically.',
           style: const TextStyle(color: Colors.white70),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppColors.rejected),
+            style:
+                ElevatedButton.styleFrom(backgroundColor: AppColors.rejected),
             onPressed: () => Navigator.pop(ctx, true),
             child: const Text('Delete Permanently'),
           ),
@@ -202,7 +232,8 @@ class _StockHistoryScreenState extends ConsumerState<StockHistoryScreen> {
 
     if (confirm == true) {
       final siteId = ref.read(authProvider).activeSite?.id ?? tx.siteId;
-      final success = await ref.read(stockProvider.notifier).deleteTransaction(tx);
+      final success =
+          await ref.read(stockProvider.notifier).deleteTransaction(tx);
       ref.invalidate(stockOverviewProvider(siteId));
       ref.invalidate(allSitesStockProvider);
       ref.read(stockProvider.notifier).loadCurrentStock(siteId);
@@ -210,7 +241,9 @@ class _StockHistoryScreenState extends ConsumerState<StockHistoryScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(success ? 'Stock entry deleted & inventory updated.' : 'Failed to delete stock entry.'),
+            content: Text(success
+                ? 'Stock entry deleted & inventory updated.'
+                : 'Failed to delete stock entry.'),
             backgroundColor: success ? AppColors.approved : AppColors.rejected,
           ),
         );
@@ -270,12 +303,14 @@ class _TransactionTile extends StatelessWidget {
                     .copyWith(color: AppColors.textSecondary),
               ),
               const Spacer(),
-              if (transaction.status == TransactionStatus.approved && transaction.approvedAt != null)
+              if (transaction.status == TransactionStatus.approved &&
+                  transaction.approvedAt != null)
                 Padding(
                   padding: const EdgeInsets.only(right: 8),
                   child: Text(
                     'Approved ${DateFormat('dd MMM hh:mm a').format(transaction.approvedAt!)}',
-                    style: AppTextStyles.caption.copyWith(color: AppColors.approved),
+                    style: AppTextStyles.caption
+                        .copyWith(color: AppColors.approved),
                   ),
                 ),
               StatusBadge(
@@ -285,7 +320,8 @@ class _TransactionTile extends StatelessWidget {
               ),
               if (transaction.isEditable) ...[
                 const SizedBox(width: 8),
-                const Icon(Icons.edit_outlined, size: 16, color: AppColors.primary),
+                const Icon(Icons.edit_outlined,
+                    size: 16, color: AppColors.primary),
               ],
             ],
           ),
@@ -294,7 +330,8 @@ class _TransactionTile extends StatelessWidget {
             '${transaction.displayProductName}: ${transaction.quantity} ${transaction.displayMetricUnitName}',
             style: AppTextStyles.h4.copyWith(color: AppColors.textPrimary),
           ),
-          if (transaction.billNo != null || (isInbound && transaction.displayVendorName != 'None'))
+          if (transaction.billNo != null ||
+              (isInbound && transaction.displayVendorName != 'None'))
             Padding(
               padding: const EdgeInsets.only(top: 4),
               child: Wrap(
@@ -304,12 +341,17 @@ class _TransactionTile extends StatelessWidget {
                   if (isInbound && transaction.displayVendorName != 'None')
                     Text(
                       'Party / Vendor: ${transaction.displayVendorName}',
-                      style: AppTextStyles.bodySmall.copyWith(color: AppColors.textSecondary, fontWeight: FontWeight.w600),
+                      style: AppTextStyles.bodySmall.copyWith(
+                          color: AppColors.textSecondary,
+                          fontWeight: FontWeight.w600),
                     ),
-                  if (transaction.billNo != null && transaction.billNo!.isNotEmpty)
+                  if (transaction.billNo != null &&
+                      transaction.billNo!.isNotEmpty)
                     Text(
                       'Bill: #${transaction.billNo!}',
-                      style: AppTextStyles.bodySmall.copyWith(color: AppColors.primary, fontWeight: FontWeight.w600),
+                      style: AppTextStyles.bodySmall.copyWith(
+                          color: AppColors.primary,
+                          fontWeight: FontWeight.w600),
                     ),
                 ],
               ),
@@ -317,10 +359,11 @@ class _TransactionTile extends StatelessWidget {
           if (isInbound && transaction.finalAmount != null)
             Text(
               '₹ ${NumberFormat('#,##,###.##').format(transaction.finalAmount)}',
-              style: AppTextStyles.labelLarge
-                  .copyWith(color: AppColors.primary),
+              style:
+                  AppTextStyles.labelLarge.copyWith(color: AppColors.primary),
             ),
-          if (transaction.submitterName != null || transaction.supervisorReviewNote != null) ...[
+          if (transaction.submitterName != null ||
+              transaction.supervisorReviewNote != null) ...[
             const SizedBox(height: 6),
             Wrap(
               spacing: 6,
@@ -328,7 +371,8 @@ class _TransactionTile extends StatelessWidget {
               children: [
                 if (transaction.submitterName != null)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
                       color: AppColors.surfaceDark,
                       borderRadius: BorderRadius.circular(6),
@@ -337,7 +381,8 @@ class _TransactionTile extends StatelessWidget {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.person_outline, size: 11, color: AppColors.primary),
+                        const Icon(Icons.person_outline,
+                            size: 11, color: AppColors.primary),
                         const SizedBox(width: 4),
                         Text(
                           'By: ${transaction.submitterName}',
@@ -352,16 +397,19 @@ class _TransactionTile extends StatelessWidget {
                   ),
                 if (transaction.supervisorReviewNote != null)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color: AppColors.primary.withOpacity(0.1),
+                      color: AppColors.primary.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: AppColors.primary.withOpacity(0.3)),
+                      border: Border.all(
+                          color: AppColors.primary.withValues(alpha: 0.3)),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.verified_outlined, size: 11, color: AppColors.primary),
+                        const Icon(Icons.verified_outlined,
+                            size: 11, color: AppColors.primary),
                         const SizedBox(width: 4),
                         Text(
                           transaction.supervisorReviewNote!,
@@ -388,7 +436,7 @@ class _TransactionTile extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ],
-          if (transaction.status == TransactionStatus.rejected && 
+          if (transaction.status == TransactionStatus.rejected &&
               transaction.rejectionNote != null) ...[
             const SizedBox(height: 12),
             Container(
@@ -400,12 +448,14 @@ class _TransactionTile extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.error_outline, size: 16, color: AppColors.rejected),
+                  const Icon(Icons.error_outline,
+                      size: 16, color: AppColors.rejected),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'Rejected: ${transaction.rejectionNote!}',
-                      style: AppTextStyles.bodySmall.copyWith(color: AppColors.rejected),
+                      style: AppTextStyles.bodySmall
+                          .copyWith(color: AppColors.rejected),
                     ),
                   ),
                 ],
@@ -421,15 +471,25 @@ class _TransactionTile extends StatelessWidget {
               children: [
                 if (onEdit != null)
                   TextButton.icon(
-                    icon: const Icon(Icons.edit_note_rounded, size: 18, color: AppColors.primary),
-                    label: const Text('Edit Entry', style: TextStyle(color: AppColors.primary, fontSize: 13, fontWeight: FontWeight.bold)),
+                    icon: const Icon(Icons.edit_note_rounded,
+                        size: 18, color: AppColors.primary),
+                    label: const Text('Edit Entry',
+                        style: TextStyle(
+                            color: AppColors.primary,
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold)),
                     onPressed: onEdit,
                   ),
                 if (onDelete != null) ...[
                   const SizedBox(width: 8),
                   TextButton.icon(
-                    icon: const Icon(Icons.delete_outline_rounded, size: 18, color: AppColors.rejected),
-                    label: const Text('Delete', style: TextStyle(color: AppColors.rejected, fontSize: 13, fontWeight: FontWeight.bold)),
+                    icon: const Icon(Icons.delete_outline_rounded,
+                        size: 18, color: AppColors.rejected),
+                    label: const Text('Delete',
+                        style: TextStyle(
+                            color: AppColors.rejected,
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold)),
                     onPressed: onDelete,
                   ),
                 ],

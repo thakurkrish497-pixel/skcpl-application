@@ -5,7 +5,7 @@ app='build/macos/Build/Products/Release/SKCPL - Connect to Waves.app'
 [[ -d "$app" ]] || { echo 'macOS release .app is missing.' >&2; exit 1; }
 # Reject an accidentally ARM-only package when advertising both Mac families.
 for binary in "$app/Contents/MacOS/SKCPL - Connect to Waves" "$app/Contents/Frameworks/App.framework/Versions/A/App"; do
-  lipo -verify_arch arm64 x86_64 "$binary"
+  lipo "$binary" -verify_arch arm64 x86_64
 done
 mkdir -p dist
 export MACOS_SIGNED=false MACOS_NOTARIZED=false

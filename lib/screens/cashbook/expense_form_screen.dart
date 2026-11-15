@@ -356,14 +356,6 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       }
     }
 
-    if (_entryMode == CashEntryMode.expense && _selectedPhotos.isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content:
-                Text('Attach a receipt photo before staging this expense.')));
-      }
-      return false;
-    }
     final catName = _getCategoryDisplayName(_selectedExpenseTypeId, types);
 
     final draft = CashEntryDraft(
@@ -632,6 +624,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       final acceptedIds = <String>{};
       int successCount = 0;
       int queuedCount = 0;
+      final failures = <String>[];
 
       for (final draft in _stagedEntries) {
         String? encodedRemarks = draft.remarks;
@@ -704,18 +697,22 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
         final success = await ref
             .read(cashProvider.notifier)
             .submitTransaction(transaction);
+        // Capture the submission result before any later load clears provider errors.
+        final submissionError = ref.read(cashProvider).error;
         if (success) {
           acceptedIds.add(draft.id);
-          if (ref.read(cashProvider).error == 'OFFLINE_SAVED') queuedCount++;
+          if (submissionError == 'OFFLINE_SAVED') queuedCount++;
           successCount++;
+        } else {
+          failures
+              .add(submissionError ?? 'The server did not accept this entry.');
         }
       }
 
       if (mounted) {
-        ref.invalidate(siteCashSummaryProvider(siteId));
-        ref.read(cashProvider.notifier).loadTransactions(siteId);
-
         if (successCount > 0) {
+          ref.invalidate(siteCashSummaryProvider(siteId));
+          ref.read(cashProvider.notifier).loadTransactions(siteId);
           setState(() {
             _stagedEntries.removeWhere((d) => acceptedIds.contains(d.id));
           });
@@ -723,13 +720,13 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text(
-                '${successCount - queuedCount} uploaded; $queuedCount saved on this device for retry; ${_stagedEntries.length} need correction.'),
+                '${successCount - queuedCount} uploaded; $queuedCount saved on this device for retry; ${_stagedEntries.length} need correction.${failures.isEmpty ? '' : '\n${failures.first}'}'),
           ));
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content:
-                  Text(ref.read(cashProvider).error ?? 'Submission failed'),
+              content: Text(
+                  'Entry kept on this device. ${failures.isEmpty ? 'Please retry.' : failures.first}'),
               backgroundColor: AppColors.rejected,
             ),
           );
@@ -1664,7 +1661,10 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
 
                 const SizedBox(height: 20),
 
-                // ── Photo Picker (Voucher / Bill) ──
+                // Receipts remain optional for cashbook entries.
+                Text('Receipt / bill photo (optional)',
+                    style: AppTextStyles.labelMedium),
+                const SizedBox(height: 8),
                 PhotoPickerWidget(
                   key: _photoPickerKey,
                   initialPhotoUrls: widget.existingTransaction?.photoUrls ?? [],

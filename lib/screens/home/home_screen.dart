@@ -104,7 +104,7 @@ class HomeScreen extends ConsumerWidget {
                       ),
                     ),
                     child: const Text(
-                      'ERP v1.0.1',
+                      'ERP v1.0.2',
                       style: TextStyle(
                         color: AppColors.waveCyan,
                         fontSize: 10,
@@ -315,7 +315,7 @@ class HomeScreen extends ConsumerWidget {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'v1.0.1 • S. Kumar Creation Pvt. Ltd.',
+                        'v1.0.2 • S. Kumar Creation Pvt. Ltd.',
                         style: AppTextStyles.caption.copyWith(
                           color: AppColors.textTertiary,
                           fontSize: 11,

@@ -234,8 +234,20 @@ class StockService {
       getAllTransactions(status: TransactionStatus.pendingAccounts);
 
   /// Fetch all pending-admin transactions (for Admin dashboard)
-  Future<List<StockTransactionModel>> getPendingForAdmin() =>
-      getAllTransactions(status: TransactionStatus.pendingAdmin);
+  Future<List<StockTransactionModel>> getPendingForAdmin() async {
+    final permissions =
+        await RoleAccessService(_client).getVerifiedPermissions();
+    final waiting =
+        await getAllTransactions(status: TransactionStatus.pendingAdmin);
+    if (!permissions.accountsCanApproveStock) {
+      final bypassed =
+          await getAllTransactions(status: TransactionStatus.pendingAccounts);
+      waiting.addAll(bypassed.where((entry) =>
+          !permissions.projectHeadCanApproveStock ||
+          !entry.isPendingSupervisorReview));
+    }
+    return waiting;
+  }
 
   Future<({String id, String role})> _reviewIdentity(String? claimedId) async {
     final id = _client.auth.currentUser?.id;
@@ -314,6 +326,15 @@ class StockService {
         throw StateError('Insufficient approved stock in this material/unit.');
       }
     }
+    final permissions =
+        await RoleAccessService(_client).getVerifiedPermissions();
+    final bypassed = tx.status == TransactionStatus.pendingAccounts &&
+        !permissions.accountsCanApproveStock &&
+        (!permissions.projectHeadCanApproveStock ||
+            !tx.isPendingSupervisorReview);
+    if (tx.status != TransactionStatus.pendingAdmin && !bypassed) {
+      throw StateError('Earlier review checkpoints are still required.');
+    }
     final updateData = <String, dynamic>{
       'status': 'approved',
       'approved_at': DateTime.now().toIso8601String(),
@@ -324,7 +345,7 @@ class StockService {
         .from('stock_transactions')
         .update(updateData)
         .eq('id', transactionId)
-        .eq('status', 'pending_admin')
+        .eq('status', tx.status.dbValue)
         .select('id')
         .single();
   }
@@ -351,6 +372,24 @@ class StockService {
     if (note.trim().isEmpty) {
       throw ArgumentError('A rejection reason is required.');
     }
+    final row = await _client
+        .from('stock_transactions')
+        .select()
+        .eq('id', transactionId)
+        .single();
+    final status = TransactionStatus.fromString(row['status'] as String);
+    final pendingHead = (row['remarks'] as String? ?? '')
+            .contains('[PENDING SUPERVISOR REVIEW]') ||
+        RegExp(r'\[(Project Head Review: Pending|Project Head: Review Pending|Supervisor Review: Pending|Supervisor: Review Pending)\]')
+            .hasMatch(row['remarks'] as String? ?? '');
+    final bypassed = status == TransactionStatus.pendingAccounts &&
+        !permissions.accountsCanApproveStock &&
+        (!permissions.projectHeadCanApproveStock || !pendingHead);
+    if (role == 'admin' &&
+        status != TransactionStatus.pendingAdmin &&
+        !bypassed) {
+      throw StateError('Earlier review checkpoints are still required.');
+    }
     final updateData = <String, dynamic>{
       'status': 'rejected',
       'rejection_note': note,
@@ -363,7 +402,7 @@ class StockService {
         .from('stock_transactions')
         .update(updateData)
         .eq('id', transactionId)
-        .eq('status', role == 'admin' ? 'pending_admin' : 'pending_accounts')
+        .eq('status', role == 'admin' ? status.dbValue : 'pending_accounts')
         .select('id')
         .single();
   }

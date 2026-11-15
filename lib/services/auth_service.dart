@@ -1,6 +1,8 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:crypto/crypto.dart';
 import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'management_support.dart';
 import '../models/user_model.dart';
 
 /// Handles authentication for all three user roles
@@ -24,12 +26,25 @@ class AuthService {
     var cleanEmail = email.trim().toLowerCase();
     if (cleanEmail == 'admin') {
       cleanEmail = 'admin@skcpl.com';
-    } else if (cleanEmail == 'project' ||
-        cleanEmail == 'projecthead' ||
-        cleanEmail == 'head') {
-      cleanEmail = 'projecthead@skcpl.com';
-    } else if (cleanEmail == 'accounts' || cleanEmail == 'account') {
-      cleanEmail = 'accounts@skcpl.com';
+    } else if (!cleanEmail.contains('@')) {
+      try {
+        final email = await _client.rpc('skcpl_resolve_management_login',
+            params: {'p_login': cleanEmail});
+        if (email is! String || email.isEmpty) {
+          throw const AuthException('Invalid Login ID or password.');
+        }
+        cleanEmail = email;
+      } catch (error) {
+        if (!isMissingManagementBackend(error)) rethrow;
+        // Compatibility while the new local backend has not been deployed.
+        if (['project', 'projecthead', 'head'].contains(cleanEmail)) {
+          cleanEmail = 'projecthead@skcpl.com';
+        } else if (['accounts', 'account'].contains(cleanEmail)) {
+          cleanEmail = 'accounts@skcpl.com';
+        } else {
+          throw const AuthException('Invalid Login ID or password.');
+        }
+      }
     }
 
     if (_client.auth.currentUser != null) await _client.auth.signOut();
@@ -51,8 +66,25 @@ class AuthService {
       await _client.auth.signOut();
       throw StateError('Your company role is not recognized. Contact Admin.');
     }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(
+        _sessionVersionKey(response.user!.id),
+        (response.user!.appMetadata['skcpl_credential_revision'] as num?)
+                ?.toInt() ??
+            0);
     return UserModel.fromJson(profile);
   }
+
+  String _sessionVersionKey(String id) =>
+      'skcpl_management_session_revision_v1_$id';
+  Future<bool> acceptsCredentialRevision(
+      String id, int requiredRevision) async {
+    final prefs = await SharedPreferences.getInstance();
+    return requiredRevision <= (prefs.getInt(_sessionVersionKey(id)) ?? 0);
+  }
+
+  Future<void> signOutForCredentialChange() =>
+      _client.auth.signOut(scope: SignOutScope.local);
 
   /// Sign in a site worker using site-specific credentials
   /// Uses a custom verification against the sites table

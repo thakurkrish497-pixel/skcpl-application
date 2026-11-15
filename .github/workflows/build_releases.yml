@@ -7,6 +7,7 @@ on:
       - 'lib/**'
       - 'assets/**'
       - 'test/**'
+      - 'supabase/**'
       - 'android/**'
       - 'windows/**'
       - 'macos/**'
@@ -45,6 +46,12 @@ jobs:
       - run: flutter analyze --no-pub
       - run: flutter test --no-pub --reporter expanded
       - run: python3 -m unittest discover -s scripts -p 'test_*.py'
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: '2.9.8'
+      - run: deno task --config supabase/functions/deno.json check
+      - run: deno task --config supabase/functions/deno.json lint
+      - run: deno task --config supabase/functions/deno.json test
 
   android:
     needs: validate

@@ -1,0 +1,2 @@
+[functions.skcpl-management-control]
+verify_jwt = false # Handler verifies bearer tokens with Supabase Auth and checks the active Admin profile.

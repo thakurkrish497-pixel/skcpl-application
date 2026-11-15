@@ -54,3 +54,6 @@ scratch/
 android/key.properties
 android/local.properties
 dist/
+
+# Supabase CLI generated deployment state
+supabase/.temp/

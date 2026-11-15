@@ -1,3 +1,4 @@
+import '../../widgets/nonfinancial_review_queue.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -1288,6 +1289,15 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
       appBar: AppBar(
         title: Text(context.tr('attendance_punch')),
         actions: [
+          IconButton(
+              tooltip: 'Verified ATTENDANCE review queue',
+              icon: const Icon(Icons.fact_check_outlined),
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => Scaffold(
+                      appBar:
+                          AppBar(title: const Text('Final ATTENDANCE reviews')),
+                      body: const NonFinancialReviewQueue(
+                          module: 'attendance'))))),
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 8, horizontal: 2),
             child: LanguageToggleButton(isCompact: true),

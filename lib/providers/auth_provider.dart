@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/user_model.dart';
 import '../models/site_model.dart';
+import '../models/role_permissions_model.dart';
 import '../services/auth_service.dart';
 
 /// Provides the standard Supabase client instance (for Auth)
@@ -62,6 +63,7 @@ class AuthState {
 class AuthNotifier extends StateNotifier<AuthState> {
   final AuthService _authService;
   int _sessionRevision = 0;
+  Future<void>? _credentialLogout;
 
   AuthNotifier(this._authService) : super(const AuthState()) {
     checkSession();
@@ -72,6 +74,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     final revision = ++_sessionRevision;
     state = const AuthState(isLoading: true);
     try {
+      await _credentialLogout;
       final user = await _authService.signInWithEmail(
         email: email,
         password: password,
@@ -100,6 +103,34 @@ class AuthNotifier extends StateNotifier<AuthState> {
     } catch (e) {
       if (!mounted || revision != _sessionRevision) return;
       state = state.copyWith(error: e.toString(), isLoading: false);
+    }
+  }
+
+  Future<void> enforceCredentialRevision(RolePermissionsModel policy) async {
+    final user = state.user;
+    if (user == null || user.isAdmin) return;
+    final requiredRevision = user.isAccounts
+        ? policy.accountsCredentialRevision
+        : user.isProjectHead
+            ? policy.projectHeadCredentialRevision
+            : 0;
+    final revision = _sessionRevision;
+    if (await _authService.acceptsCredentialRevision(
+        user.id, requiredRevision)) {
+      return;
+    }
+    if (!mounted || revision != _sessionRevision || state.user?.id != user.id) {
+      return;
+    }
+    ++_sessionRevision;
+    state = const AuthState(
+        error:
+            'Your login details were changed by Admin. Sign in again. Your saved entries remain on this device.');
+    _credentialLogout = _authService.signOutForCredentialChange();
+    try {
+      await _credentialLogout;
+    } catch (_) {/* Keep UI signed out and preserve drafts. */} finally {
+      _credentialLogout = null;
     }
   }
 

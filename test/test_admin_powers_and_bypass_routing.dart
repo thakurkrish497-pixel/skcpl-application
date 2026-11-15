@@ -31,8 +31,7 @@ void main() {
       expect(perms.projectHeadCanApproveDSR, isTrue);
     });
 
-    test(
-        'Admin can update credentials and extract Stock approval from Accounts',
+    test('Admin settings retain policy changes without persisting passwords',
         () async {
       final service = RoleAccessService();
 
@@ -53,10 +52,10 @@ void main() {
 
       final reloaded = await service.loadRolePermissions();
       expect(reloaded.accountsEmail, 'chiefaccounts@skcpl.com');
-      expect(reloaded.accountsPassword, 'chiefSecret789');
+      expect(reloaded.accountsPassword, isEmpty);
       expect(reloaded.accountsCanApproveStock, isFalse);
       expect(reloaded.projectHeadEmail, 'leadengineer@skcpl.com');
-      expect(reloaded.projectHeadPassword, 'engineerPass456');
+      expect(reloaded.projectHeadPassword, isEmpty);
     });
 
     test('Permission-setting credentials cannot bypass Supabase Auth',

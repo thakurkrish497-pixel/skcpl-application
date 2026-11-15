@@ -210,8 +210,20 @@ class CashService {
       getAllTransactions(status: TransactionStatus.pendingAccounts);
 
   /// Fetch pending-admin cash transactions for Admin approval
-  Future<List<CashTransactionModel>> getPendingForAdmin() =>
-      getAllTransactions(status: TransactionStatus.pendingAdmin);
+  Future<List<CashTransactionModel>> getPendingForAdmin() async {
+    final permissions =
+        await RoleAccessService(_client).getVerifiedPermissions();
+    final waiting =
+        await getAllTransactions(status: TransactionStatus.pendingAdmin);
+    if (!permissions.accountsCanApproveCash) {
+      final bypassed =
+          await getAllTransactions(status: TransactionStatus.pendingAccounts);
+      waiting.addAll(bypassed.where((entry) =>
+          !permissions.projectHeadCanApproveCash ||
+          !entry.isPendingSupervisorReview));
+    }
+    return waiting;
+  }
 
   Future<({String id, String role})> _reviewIdentity(String? claimedId) async {
     final id = _client.auth.currentUser?.id;
@@ -275,6 +287,20 @@ class CashService {
   /// Admin approves a cash transaction (permanent lock)
   Future<void> approveByAdmin(String transactionId, String? approvedBy) async {
     final validUserId = await _requireReviewer('admin', approvedBy);
+    final tx = CashTransactionModel.fromJson(await _client
+        .from('cash_transactions')
+        .select()
+        .eq('id', transactionId)
+        .single());
+    final permissions =
+        await RoleAccessService(_client).getVerifiedPermissions();
+    final bypassed = tx.status == TransactionStatus.pendingAccounts &&
+        !permissions.accountsCanApproveCash &&
+        (!permissions.projectHeadCanApproveCash ||
+            !tx.isPendingSupervisorReview);
+    if (tx.status != TransactionStatus.pendingAdmin && !bypassed) {
+      throw StateError('Earlier review checkpoints are still required.');
+    }
     final updateData = <String, dynamic>{
       'status': 'approved',
       'approved_at': DateTime.now().toIso8601String(),
@@ -285,7 +311,7 @@ class CashService {
         .from('cash_transactions')
         .update(updateData)
         .eq('id', transactionId)
-        .eq('status', 'pending_admin')
+        .eq('status', tx.status.dbValue)
         .select('id')
         .single();
   }
@@ -312,6 +338,24 @@ class CashService {
     if (note.trim().isEmpty) {
       throw ArgumentError('A rejection reason is required.');
     }
+    final row = await _client
+        .from('cash_transactions')
+        .select()
+        .eq('id', transactionId)
+        .single();
+    final status = TransactionStatus.fromString(row['status'] as String);
+    final pendingHead = (row['remarks'] as String? ?? '')
+            .contains('[PENDING SUPERVISOR REVIEW]') ||
+        RegExp(r'\[(Project Head Review: Pending|Project Head: Review Pending|Supervisor Review: Pending|Supervisor: Review Pending)\]')
+            .hasMatch(row['remarks'] as String? ?? '');
+    final bypassed = status == TransactionStatus.pendingAccounts &&
+        !permissions.accountsCanApproveCash &&
+        (!permissions.projectHeadCanApproveCash || !pendingHead);
+    if (role == 'admin' &&
+        status != TransactionStatus.pendingAdmin &&
+        !bypassed) {
+      throw StateError('Earlier review checkpoints are still required.');
+    }
     final updateData = <String, dynamic>{
       'status': 'rejected',
       'rejection_note': note,
@@ -324,7 +368,7 @@ class CashService {
         .from('cash_transactions')
         .update(updateData)
         .eq('id', transactionId)
-        .eq('status', role == 'admin' ? 'pending_admin' : 'pending_accounts')
+        .eq('status', role == 'admin' ? status.dbValue : 'pending_accounts')
         .select('id')
         .single();
   }

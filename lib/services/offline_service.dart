@@ -241,8 +241,10 @@ class OfflineService {
           final data = Map<String, dynamic>.from(jsonDecode(raw));
           id = data['id'] as String?;
           if (data['sync_paused'] == true) {
-            throw StateError(
+            // Report a paused failure without rewrapping and rewriting it every tick.
+            errors.add(
                 data['sync_error']?.toString() ?? 'Entry needs correction.');
+            continue;
           }
           if (data['sync_version'] != 2) {
             throw StateError(

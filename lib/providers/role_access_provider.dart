@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/role_permissions_model.dart';
 import '../services/role_access_service.dart';
+import 'auth_provider.dart';
 
 final roleAccessServiceProvider = Provider<RoleAccessService>((ref) {
   return RoleAccessService();
@@ -20,6 +21,10 @@ class RoleAccessNotifier extends StateNotifier<RolePermissionsModel> {
     } catch (_) {}
   }
 
+  void applyServerPolicy(RolePermissionsModel policy) {
+    if (mounted) state = policy;
+  }
+
   Future<bool> saveRolePermissions(RolePermissionsModel updated) async {
     try {
       await _service.savePermissions(updated);
@@ -37,4 +42,20 @@ class RoleAccessNotifier extends StateNotifier<RolePermissionsModel> {
 final roleAccessProvider =
     StateNotifierProvider<RoleAccessNotifier, RolePermissionsModel>((ref) {
   return RoleAccessNotifier(ref.read(roleAccessServiceProvider));
+});
+
+/// Credential changes refresh authentication without clearing any offline data.
+final managementSessionGuardProvider = Provider<void>((ref) {
+  bool disposed = false;
+  void check() {
+    if (disposed) return;
+    final notifier = ref.read(authProvider.notifier);
+    notifier.enforceCredentialRevision(ref.read(roleAccessProvider));
+  }
+
+  ref.listen<RolePermissionsModel>(roleAccessProvider, (_, __) => check());
+  ref.listen(
+      authProvider.select((value) => value.user?.id), (_, __) => check());
+  Future.microtask(check);
+  ref.onDispose(() => disposed = true);
 });

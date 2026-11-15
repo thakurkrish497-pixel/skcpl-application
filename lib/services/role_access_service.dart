@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/role_permissions_model.dart';
+import 'management_support.dart';
 
 /// Service managing dynamic credentials and approval powers configured by Admin
 class RoleAccessService {
@@ -19,6 +20,21 @@ class RoleAccessService {
       {bool forceRefresh = false}) async {
     if (_cached != null && !forceRefresh) return _cached!;
 
+    try {
+      final canonical = await _client.rpc('skcpl_management_policy');
+      if (canonical is Map) {
+        _cached =
+            RolePermissionsModel.fromJson(Map<String, dynamic>.from(canonical));
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(_prefsKey, _cached!.toJsonString());
+        return _cached!;
+      }
+    } catch (error) {
+      if (!isMissingManagementBackend(error)) {
+        // Display may use an offline snapshot; mutations never do.
+      }
+    }
+
     // 1. Try remote Supabase tasks table FIRST (cloud source of truth for all laptops)
     try {
       final rows = await _client
@@ -34,7 +50,7 @@ class RoleAccessService {
           _cached = RolePermissionsModel.fromJsonString(desc);
           // Update local cache for offline fallback
           final prefs = await SharedPreferences.getInstance();
-          await prefs.setString(_prefsKey, desc);
+          await prefs.setString(_prefsKey, _cached!.toJsonString());
           return _cached!;
         }
       }
@@ -46,6 +62,7 @@ class RoleAccessService {
       final localJson = prefs.getString(_prefsKey);
       if (localJson != null && localJson.isNotEmpty) {
         _cached = RolePermissionsModel.fromJsonString(localJson);
+        await prefs.setString(_prefsKey, _cached!.toJsonString());
         return _cached!;
       }
     } catch (_) {}
@@ -56,6 +73,17 @@ class RoleAccessService {
 
   /// Mutations require the current server policy, never an offline/default cache.
   Future<RolePermissionsModel> getVerifiedPermissions() async {
+    try {
+      final canonical = await _client.rpc('skcpl_management_policy');
+      if (canonical is! Map) {
+        throw StateError('Company approval policy is unavailable.');
+      }
+      return RolePermissionsModel.fromJson(
+          Map<String, dynamic>.from(canonical));
+    } catch (error) {
+      if (!isMissingManagementBackend(error)) rethrow;
+    }
+
     final row = await _client
         .from('tasks')
         .select('description')
@@ -112,7 +140,7 @@ class RoleAccessService {
           .select('id')
           .single();
     }
-    _cached = model;
+    _cached = RolePermissionsModel.fromJson(model.toJson());
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_prefsKey, jsonStr);
   }

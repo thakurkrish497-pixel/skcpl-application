@@ -1,3 +1,5 @@
+import '../../providers/role_access_provider.dart';
+import '../../widgets/nonfinancial_review_queue.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
@@ -255,6 +257,7 @@ class _DailySiteReportsScreenState
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(roleAccessProvider);
     final sitesAsync = ref.watch(activeSitesProvider);
 
     return Scaffold(
@@ -263,6 +266,13 @@ class _DailySiteReportsScreenState
         title: Text(
             context.tr('daily_site_report', defaultText: 'Daily Site Reports')),
         actions: [
+          IconButton(
+              tooltip: 'Verified DSR review queue',
+              icon: const Icon(Icons.fact_check_outlined),
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => Scaffold(
+                      appBar: AppBar(title: const Text('Final DSR reviews')),
+                      body: const NonFinancialReviewQueue(module: 'dsr'))))),
           const Padding(
             padding: EdgeInsets.only(right: 6),
             child: LanguageToggleButton(isCompact: true),
@@ -582,8 +592,14 @@ class _DailySiteReportsScreenState
       ),
       data: (allReports) {
         // Strictly filter to ONLY Project Head approved reports for Admin (hide rejected & pending)
-        final reports =
-            allReports.where((r) => r.isProjectHeadApproved).toList();
+        final reports = allReports.where((r) {
+          final policy = ref.read(roleAccessProvider);
+          return !r.isProjectHeadRejected &&
+              !r.isAccountsRejected &&
+              !r.isAdminRejected &&
+              (!policy.projectHeadCanApproveDSR || r.isProjectHeadApproved) &&
+              (!policy.accountsCanApproveDSR || r.isAccountsApproved);
+        }).toList();
 
         if (reports.isEmpty) {
           return Center(

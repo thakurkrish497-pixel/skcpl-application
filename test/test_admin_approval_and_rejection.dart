@@ -54,7 +54,7 @@ void main() {
       expect(approved['status'], 'approved');
       expect(approved['approved_by'], ErpTestBackend.adminId);
       await expectLater(
-          admin(ErpTestBackend.adminId), throwsA(isA<PostgrestException>()));
+          admin(ErpTestBackend.adminId), throwsStateError);
       await expectLater(
           stock
               ? inventory.updateTransaction(id, {'quantity': 30})

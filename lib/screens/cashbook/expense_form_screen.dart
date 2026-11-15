@@ -60,6 +60,19 @@ class CashEntryDraft {
     this.photos = const [],
     required this.date,
   });
+  CashEntryDraft withoutPhotos() => CashEntryDraft(
+        id: id,
+        mode: mode,
+        expenseTypeId: expenseTypeId,
+        customExpenseType: customExpenseType,
+        expenseTypeName: expenseTypeName,
+        amount: amount,
+        remarks: remarks,
+        billNo: billNo,
+        partyName: partyName,
+        date: date,
+      );
+
   Map<String, dynamic> toLocalJson() => {
         'id': id,
         'mode': mode.name,
@@ -356,14 +369,6 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       }
     }
 
-    if (_entryMode == CashEntryMode.expense && _selectedPhotos.isEmpty) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content:
-                Text('Attach a receipt photo before staging this expense.')));
-      }
-      return false;
-    }
     final catName = _getCategoryDisplayName(_selectedExpenseTypeId, types);
 
     final draft = CashEntryDraft(
@@ -425,6 +430,31 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       );
     }
     return true;
+  }
+
+  Future<void> _removeStagedPhotos(String id) async {
+    if (_isSubmitting || isLocked) return;
+    final updated = [
+      for (final draft in _stagedEntries)
+        if (draft.id == id) draft.withoutPhotos() else draft
+    ];
+    setState(() => _isSubmitting = true);
+    try {
+      await _saveDrafts(updated);
+      if (!mounted) return;
+      setState(() {
+        _stagedEntries
+          ..clear()
+          ..addAll(updated);
+      });
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Could not save attachment change: $error')));
+      }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
   }
 
   Future<void> _handleSubmit(
@@ -632,6 +662,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
       final acceptedIds = <String>{};
       int successCount = 0;
       int queuedCount = 0;
+      final failures = <String>[];
 
       for (final draft in _stagedEntries) {
         String? encodedRemarks = draft.remarks;
@@ -675,8 +706,16 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
             draft.mode == CashEntryMode.expense ? draft.amount : 0;
         final double receivedAmt =
             draft.mode == CashEntryMode.received ? draft.amount : 0;
-        final currentBal =
-            _getCurrentSiteBalance(ref.read(cashProvider).transactions, siteId);
+        // A saved failed entry may already be in the local queue/cache.
+        // Retrying that UUID must not deduct or credit it a second time.
+        final currentBal = _getCurrentSiteBalance(
+          ref
+              .read(cashProvider)
+              .transactions
+              .where((tx) => submissionId(tx.id) != draft.id)
+              .toList(),
+          siteId,
+        );
         final cashInHand = currentBal + (receivedAmt - expenseAmt);
 
         final effectiveExpenseTypeId =
@@ -704,18 +743,22 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
         final success = await ref
             .read(cashProvider.notifier)
             .submitTransaction(transaction);
+        // Capture the submission result before any later load clears provider errors.
+        final submissionError = ref.read(cashProvider).error;
         if (success) {
           acceptedIds.add(draft.id);
-          if (ref.read(cashProvider).error == 'OFFLINE_SAVED') queuedCount++;
+          if (submissionError == 'OFFLINE_SAVED') queuedCount++;
           successCount++;
+        } else {
+          failures
+              .add(submissionError ?? 'The server did not accept this entry.');
         }
       }
 
       if (mounted) {
-        ref.invalidate(siteCashSummaryProvider(siteId));
-        ref.read(cashProvider.notifier).loadTransactions(siteId);
-
         if (successCount > 0) {
+          ref.invalidate(siteCashSummaryProvider(siteId));
+          ref.read(cashProvider.notifier).loadTransactions(siteId);
           setState(() {
             _stagedEntries.removeWhere((d) => acceptedIds.contains(d.id));
           });
@@ -723,13 +766,13 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text(
-                '${successCount - queuedCount} uploaded; $queuedCount saved on this device for retry; ${_stagedEntries.length} need correction.'),
+                '${successCount - queuedCount} uploaded; $queuedCount saved on this device for retry; ${_stagedEntries.length} need correction.${failures.isEmpty ? '' : '\n${failures.first}'}'),
           ));
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content:
-                  Text(ref.read(cashProvider).error ?? 'Submission failed'),
+              content: Text(
+                  'Entry kept on this device. ${failures.isEmpty ? 'Please retry.' : failures.first}'),
               backgroundColor: AppColors.rejected,
             ),
           );
@@ -1664,7 +1707,10 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
 
                 const SizedBox(height: 20),
 
-                // ── Photo Picker (Voucher / Bill) ──
+                // Receipts remain optional for cashbook entries.
+                Text('Receipt / bill photo (optional)',
+                    style: AppTextStyles.labelMedium),
+                const SizedBox(height: 8),
                 PhotoPickerWidget(
                   key: _photoPickerKey,
                   initialPhotoUrls: widget.existingTransaction?.photoUrls ?? [],
@@ -1915,6 +1961,15 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                       ),
                     ),
                     if (item.photos.isNotEmpty) ...[
+                      IconButton(
+                        tooltip: 'Remove attached photos; keep entry',
+                        visualDensity: VisualDensity.compact,
+                        icon: const Icon(Icons.image_not_supported_outlined,
+                            size: 20),
+                        onPressed: _isSubmitting
+                            ? null
+                            : () => _removeStagedPhotos(item.id),
+                      ),
                       const Icon(Icons.photo_camera_rounded,
                           size: 16, color: AppColors.textTertiary),
                       const SizedBox(width: 4),

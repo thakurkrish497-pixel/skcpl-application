@@ -41,6 +41,12 @@ class DailySiteReportModel {
     required this.updatedAt,
   });
 
+  bool get isAccountsApproved =>
+      remarks?.contains('[Accounts: Approved') ?? false;
+  bool get isAccountsRejected =>
+      remarks?.contains('[Accounts: Rejected') ?? false;
+  bool get isAdminRejected => remarks?.contains('[Admin: Rejected') ?? false;
+
   bool get isSupervisorApproved =>
       (remarks?.contains('[Project Head: Approved') ?? false) ||
       (remarks?.contains('[Supervisor: Approved') ?? false);

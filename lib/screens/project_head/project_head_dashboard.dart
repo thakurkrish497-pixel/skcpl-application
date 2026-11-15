@@ -1,3 +1,5 @@
+import '../../services/management_support.dart';
+import '../../widgets/nonfinancial_review_queue.dart';
 import '../../widgets/responsive_toolbar_actions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -349,10 +351,12 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
                 _buildStockApprovalsList(pendingStock, sites),
 
                 // Tab 3: Attendance Regularization
-                _buildAttendanceApprovalsList(pendingAttendance),
+                _reviewQueueOrLegacy('attendance',
+                    () => _buildAttendanceApprovalsList(pendingAttendance)),
 
                 // Tab 4: DSR Reports
-                _buildDsrApprovalsList(pendingReports, sites),
+                _reviewQueueOrLegacy(
+                    'dsr', () => _buildDsrApprovalsList(pendingReports, sites)),
 
                 // Tab 5: Master Entry History
                 MasterEntryHistoryView(selectedSiteId: _selectedSiteId),
@@ -362,6 +366,16 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
         ),
       ),
     );
+  }
+
+  Widget _reviewQueueOrLegacy(String module, Widget Function() legacy) {
+    // An absent migration retains the existing application flow during local development.
+    final queue = ref.watch(
+        managementReviewQueueProvider((module: module, site: _selectedSiteId)));
+    if (queue.hasError && isMissingManagementBackend(queue.error!)) {
+      return legacy();
+    }
+    return NonFinancialReviewQueue(module: module, site: _selectedSiteId);
   }
 
   // ─────────────────────────────────────────────────────────────

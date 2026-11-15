@@ -5,17 +5,21 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 final FlutterLocalNotificationsPlugin _localNotifications =
     FlutterLocalNotificationsPlugin();
 bool _isInitialized = false;
+Future<void>? _initializing;
 
-Future<void> _ensureInitialized() async {
+Future<void> _ensureInitialized() =>
+    _initializing ??= _initialize().whenComplete(() => _initializing = null);
+
+Future<void> _initialize() async {
   if (_isInitialized) return;
 
   try {
     const androidSettings =
         AndroidInitializationSettings('@mipmap/launcher_icon');
     const darwinSettings = DarwinInitializationSettings(
-      requestAlertPermission: true,
-      requestBadgePermission: true,
-      requestSoundPermission: true,
+      requestAlertPermission: false,
+      requestBadgePermission: false,
+      requestSoundPermission: false,
     );
     const linuxSettings =
         LinuxInitializationSettings(defaultActionName: 'Open');
@@ -32,10 +36,15 @@ Future<void> _ensureInitialized() async {
       ),
     );
 
-    await _localNotifications.initialize(settings: initSettings);
+    final initialized =
+        await _localNotifications.initialize(settings: initSettings);
+    if (initialized != true) {
+      throw StateError('Native notifications could not initialize.');
+    }
     _isInitialized = true;
   } catch (e) {
     debugPrint('[NotificationIO] Initialization error: $e');
+    rethrow;
   }
 }
 
@@ -82,11 +91,27 @@ Future<bool> checkPlatformNotificationPermission() async {
       final android = _localNotifications.resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin>();
       final granted = await android?.areNotificationsEnabled();
-      return granted ?? true;
+      return granted ?? false;
     }
-    return true;
+    if (Platform.isMacOS) {
+      return (await _localNotifications
+                  .resolvePlatformSpecificImplementation<
+                      MacOSFlutterLocalNotificationsPlugin>()
+                  ?.checkPermissions())
+              ?.isEnabled ??
+          false;
+    }
+    if (Platform.isIOS) {
+      return (await _localNotifications
+                  .resolvePlatformSpecificImplementation<
+                      IOSFlutterLocalNotificationsPlugin>()
+                  ?.checkPermissions())
+              ?.isEnabled ??
+          false;
+    }
+    return Platform.isWindows || Platform.isLinux;
   } catch (e) {
-    return true;
+    return false;
   }
 }
 
@@ -124,8 +149,10 @@ Future<void> showPlatformNotification({
       windows: WindowsNotificationDetails(),
     );
 
-    final notificationId =
-        tag != null ? tag.hashCode.abs() % 100000 : DateTime.now().millisecond;
+    final notificationId = tag != null
+        ? tag.codeUnits.fold<int>(
+            2166136261, (hash, unit) => ((hash ^ unit) * 16777619) & 0x7fffffff)
+        : DateTime.now().millisecondsSinceEpoch & 0x7fffffff;
 
     await _localNotifications.show(
       id: notificationId,
@@ -135,5 +162,6 @@ Future<void> showPlatformNotification({
     );
   } catch (e) {
     debugPrint('[NotificationIO] Show notification error: $e');
+    rethrow;
   }
 }

@@ -19,45 +19,66 @@ class SiteAnnouncementService {
 
   /// Fetch active broadcast announcements
   Future<List<SiteAnnouncementModel>> getAnnouncements() async {
-    // 1. Try primary table
+    List<SiteAnnouncementModel>? primary;
+    List<SiteAnnouncementModel>? fallback;
+    var primaryMissing = false;
     try {
       final data = await _client
           .from('site_announcements')
           .select()
           .eq('is_active', true)
           .order('created_at', ascending: false);
-
-      final list = (data as List)
-          .map((json) => SiteAnnouncementModel.fromJson(json))
-          .toList();
-
-      if (list.isNotEmpty) {
-        _cacheLocally(list);
-        return list;
-      }
-    } catch (_) {}
-
-    // 2. Try resilient fallback tasks table
+      primary =
+          (data as List).map((j) => SiteAnnouncementModel.fromJson(j)).toList();
+    } catch (error) {
+      primaryMissing = isSchemaUnavailable(error);
+    }
     try {
-      final fallbackList = await _getFallbackAnnouncements();
-      if (fallbackList.isNotEmpty) {
-        _cacheLocally(fallbackList);
-        return fallbackList;
-      }
+      fallback = await _getFallbackAnnouncements();
     } catch (_) {}
-
-    // 3. Try local cache
-    return _getLocalCachedAnnouncements();
+    if (primary != null || (primaryMissing && fallback != null)) {
+      final byId = <String, SiteAnnouncementModel>{
+        for (final a in fallback ?? <SiteAnnouncementModel>[]) a.id: a,
+        for (final a in primary ?? <SiteAnnouncementModel>[]) a.id: a
+      };
+      final list = byId.values.toList()
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      await _cacheLocally(
+          list); // An authoritative empty result clears deleted notices.
+      return list;
+    }
+    return fallback ?? await _getLocalCachedAnnouncements();
   }
 
-  /// Create a new broadcast announcement (simplified: broadcast to all staff)
+  /// Independent notice-only realtime subscriptions, with polling retained as fallback.
+  void Function() watchChanges(void Function() onChange) {
+    final channels = <RealtimeChannel>[];
+    for (final table in ['site_announcements', 'tasks']) {
+      final channel = _client.channel('notice_${table}_${_uuid.v4()}');
+      channel
+          .onPostgresChanges(
+              event: PostgresChangeEvent.all,
+              schema: 'public',
+              table: table,
+              callback: (_) => onChange())
+          .subscribe((status, _) {
+        if (status == RealtimeSubscribeStatus.subscribed) onChange();
+      });
+      channels.add(channel);
+    }
+    return () {
+      for (final channel in channels) {
+        _client.removeChannel(channel);
+      }
+    };
+  }
+
+  /// Create a company-wide or site-specific announcement
   Future<SiteAnnouncementModel> createAnnouncement(
       SiteAnnouncementModel announcement) async {
     final effectiveId = announcement.id.isEmpty ? _uuid.v4() : announcement.id;
     final toSave = announcement.copyWith(
       id: effectiveId,
-      targetSiteId: 'all',
-      targetSiteName: 'All Staff',
       isActive: true,
     );
 
@@ -128,7 +149,7 @@ class SiteAnnouncementService {
     } else {
       await _client.from('tasks').insert({
         'site_id': validSiteId,
-        'created_by': _defaultAdminUserId,
+        'created_by': _client.auth.currentUser?.id ?? _defaultAdminUserId,
         'title': tag,
         'description': jsonStr,
         'status': model.isActive ? 'pending' : 'completed',

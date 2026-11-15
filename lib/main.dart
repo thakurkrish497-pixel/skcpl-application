@@ -1,3 +1,5 @@
+import 'providers/notification_clock_provider.dart';
+import 'providers/site_announcement_provider.dart';
 import 'providers/role_access_provider.dart';
 import 'app_routes.dart';
 import 'package:flutter/material.dart';
@@ -45,6 +47,8 @@ class SKCPLApp extends ConsumerWidget {
     ref.watch(autoSyncProvider);
     ref.watch(realtimeSyncProvider);
     ref.watch(managementSessionGuardProvider);
+    ref.watch(noticeRealtimeProvider);
+    ref.watch(notificationStartupProvider);
 
     return MaterialApp(
       title: 'SKCPL Construction Management',

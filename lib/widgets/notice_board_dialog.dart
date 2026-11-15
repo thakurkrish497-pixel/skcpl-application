@@ -1,3 +1,4 @@
+import '../providers/site_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -43,7 +44,15 @@ class _NoticeBoardDialogState extends ConsumerState<NoticeBoardDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final announcementsAsync = ref.watch(announcementsProvider);
+    final announcementsAsync = ref.watch(visibleAnnouncementsProvider);
+    final notices = announcementsAsync.valueOrNull;
+    if (notices != null && ref.watch(unreadNoticeCountProvider) > 0) {
+      final reader = ref.read(
+          noticeReadProvider(ref.read(noticeReaderScopeProvider)).notifier);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) reader.markRead(notices.map((n) => n.id));
+      });
+    }
     final authState = ref.watch(authProvider);
     final user = authState.user;
     final canPost = canUserPostAnnouncements(user?.role);
@@ -63,68 +72,55 @@ class _NoticeBoardDialogState extends ConsumerState<NoticeBoardDialog> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── Header Row ──
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: AppColors.waveCyan.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(Icons.campaign_rounded,
-                        color: AppColors.waveCyan, size: 22),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
+              Row(children: [
+                const Icon(Icons.campaign_rounded, color: AppColors.waveCyan),
+                const SizedBox(width: 10),
+                Expanded(
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                      Text(
                           context.tr('notice_board',
                               defaultText: 'SKCPL Notice Board'),
-                          style: AppTextStyles.h4.copyWith(
-                              color: AppColors.textPrimary, fontSize: 18),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTextStyles.h4.copyWith(fontSize: 18)),
+                      const Text('Company and site announcements',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                              fontSize: 11, color: AppColors.textSecondary)),
+                    ])),
+                IconButton(
+                    icon: const Icon(Icons.close_rounded),
+                    tooltip: 'Close notice board',
+                    onPressed: () => Navigator.of(context).pop()),
+              ]),
+              Wrap(
+                  spacing: 10,
+                  runSpacing: 6,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    const LanguageToggleButton(isCompact: true),
+                    if (canPost)
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 9),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8)),
                         ),
-                        Text(
-                          context.tr('active_notices',
-                              defaultText:
-                                  'Official Broadcasts, Zoom Meetings & Staff Announcements'),
-                          style: AppTextStyles.bodySmall.copyWith(
-                              color: AppColors.textSecondary, fontSize: 11),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Padding(
-                    padding: EdgeInsets.only(right: 6),
-                    child: LanguageToggleButton(isCompact: true),
-                  ),
-                  if (canPost)
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 14, vertical: 9),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8)),
+                        icon: const Icon(Icons.add_rounded, size: 16),
+                        label: Text(
+                            context.tr('post_notice',
+                                defaultText: 'Post Notice'),
+                            style: const TextStyle(
+                                fontSize: 12, fontWeight: FontWeight.bold)),
+                        onPressed: () => _showCreateAnnouncementDialog(context),
                       ),
-                      icon: const Icon(Icons.add_rounded, size: 16),
-                      label: Text(
-                          context.tr('post_notice', defaultText: 'Post Notice'),
-                          style: const TextStyle(
-                              fontSize: 12, fontWeight: FontWeight.bold)),
-                      onPressed: () => _showCreateAnnouncementDialog(context),
-                    ),
-                  const SizedBox(width: 6),
-                  IconButton(
-                    icon: const Icon(Icons.close_rounded,
-                        color: AppColors.textSecondary, size: 20),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ],
-              ),
+                  ]),
 
               // ── Phone & Desktop Notification Permission Banner ──
               FutureBuilder<bool>(
@@ -344,7 +340,10 @@ class _NoticeBoardDialogState extends ConsumerState<NoticeBoardDialog> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Top Row: Category Badge & Timestamp
-          Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -376,15 +375,17 @@ class _NoticeBoardDialogState extends ConsumerState<NoticeBoardDialog> {
                   color: AppColors.waveCyan.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(6),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.public_rounded,
+                    const Icon(Icons.public_rounded,
                         size: 11, color: AppColors.waveCyan),
-                    SizedBox(width: 4),
+                    const SizedBox(width: 4),
                     Text(
-                      'All Staff',
-                      style: TextStyle(
+                      notice.isAllSites
+                          ? 'All Staff'
+                          : (notice.targetSiteName ?? 'Selected site'),
+                      style: const TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
                           color: AppColors.waveCyan),
@@ -392,8 +393,6 @@ class _NoticeBoardDialogState extends ConsumerState<NoticeBoardDialog> {
                   ],
                 ),
               ),
-
-              const Spacer(),
 
               // Timestamp
               Text(
@@ -519,11 +518,12 @@ class _NoticeBoardDialogState extends ConsumerState<NoticeBoardDialog> {
               const Icon(Icons.person_outline_rounded,
                   size: 13, color: AppColors.textTertiary),
               const SizedBox(width: 4),
-              Text(
+              Expanded(
+                  child: Text(
                 'Posted by ${notice.createdByName} (${notice.createdByRole})',
                 style: AppTextStyles.bodySmall
                     .copyWith(fontSize: 10.5, color: AppColors.textTertiary),
-              ),
+              )),
             ],
           ),
         ],
@@ -586,6 +586,7 @@ class _CreateAnnouncementDialogState
 
   AnnouncementCategory _category = AnnouncementCategory.general;
   DateTime? _scheduledAt;
+  String _targetSiteId = 'all';
   bool _isSubmitting = false;
 
   @override
@@ -600,6 +601,11 @@ class _CreateAnnouncementDialogState
   Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
     final user = authState.user;
+    if (!canUserPostAnnouncements(user?.role)) {
+      return const AlertDialog(
+          content: Text('Only management can publish notices.'));
+    }
+    final sites = ref.watch(activeSitesProvider).valueOrNull ?? [];
 
     return Dialog(
       backgroundColor: AppColors.surfaceDark,
@@ -621,18 +627,20 @@ class _CreateAnnouncementDialogState
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Row(
+                      Expanded(
+                          child: Row(
                         children: [
                           const Icon(Icons.campaign_rounded,
                               color: AppColors.waveCyan, size: 22),
                           const SizedBox(width: 8),
-                          Text(
+                          Flexible(
+                              child: Text(
                             'Broadcast Notice',
                             style: AppTextStyles.h4.copyWith(
                                 color: AppColors.textPrimary, fontSize: 17),
-                          ),
+                          )),
                         ],
-                      ),
+                      )),
                       IconButton(
                         icon: const Icon(Icons.close_rounded,
                             size: 20, color: AppColors.textSecondary),
@@ -682,6 +690,22 @@ class _CreateAnnouncementDialogState
 
                   const SizedBox(height: 16),
 
+                  DropdownButtonFormField<String>(
+                    initialValue: _targetSiteId,
+                    isExpanded: true,
+                    decoration: const InputDecoration(labelText: 'Audience'),
+                    items: [
+                      const DropdownMenuItem(
+                          value: 'all', child: Text('All Staff')),
+                      ...sites.map((s) =>
+                          DropdownMenuItem(value: s.id, child: Text(s.name)))
+                    ],
+                    onChanged: _isSubmitting
+                        ? null
+                        : (value) =>
+                            setState(() => _targetSiteId = value ?? 'all'),
+                  ),
+                  const SizedBox(height: 12),
                   // ── Broadcast Badge ──
                   Container(
                     padding:
@@ -699,7 +723,7 @@ class _CreateAnnouncementDialogState
                         SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            'Broadcast Notice (Notifies all staff across all sites)',
+                            'Notifies the selected audience while their app is running.',
                             style: TextStyle(
                                 fontSize: 11.5,
                                 fontWeight: FontWeight.w600,
@@ -841,7 +865,7 @@ class _CreateAnnouncementDialogState
                       label: Text(
                         _isSubmitting
                             ? 'Broadcasting Notice...'
-                            : 'Broadcast Notice to All',
+                            : 'Publish Notice',
                         style: const TextStyle(
                             fontSize: 14, fontWeight: FontWeight.bold),
                       ),
@@ -888,6 +912,10 @@ class _CreateAnnouncementDialogState
   }
 
   Future<void> _submit(String? creatorName, String? creatorRole) async {
+    if (_isSubmitting ||
+        !canUserPostAnnouncements(ref.read(authProvider).user?.role)) {
+      return;
+    }
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isSubmitting = true);
@@ -897,12 +925,20 @@ class _CreateAnnouncementDialogState
         title: _titleController.text.trim(),
         message: _messageController.text.trim(),
         category: _category,
-        targetSiteId: 'all',
-        targetSiteName: 'All Staff',
+        targetSiteId: _targetSiteId,
+        targetSiteName: _targetSiteId == 'all'
+            ? 'All Staff'
+            : ref
+                .read(activeSitesProvider)
+                .valueOrNull
+                ?.where((s) => s.id == _targetSiteId)
+                .firstOrNull
+                ?.name,
         meetingLink: _linkController.text.trim().isNotEmpty
             ? _linkController.text.trim()
             : null,
         scheduledAt: _scheduledAt,
+        createdById: ref.read(authProvider).user?.id,
         createdByName: creatorName ?? 'SKCPL Management',
         createdByRole: creatorRole ?? 'Admin',
         createdAt: DateTime.now(),
@@ -914,7 +950,7 @@ class _CreateAnnouncementDialogState
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('📢 Notice Broadcasted Successfully to All Staff!'),
+            content: Text('📢 Notice Published Successfully!'),
             backgroundColor: AppColors.approved,
           ),
         );

@@ -37,7 +37,7 @@ class NotificationBellButton extends ConsumerWidget {
                 count > 0 ? const Color(0xFFF59E0B) : AppColors.textSecondary,
           ),
           tooltip: count > 0
-              ? '$count Overdue Alerts (>36h)'
+              ? '$count Operational Alerts'
               : 'Notifications & Alerts',
           onPressed: () => showSlaAlertsModal(context, ref),
         ),
@@ -110,7 +110,7 @@ void showSlaAlertsModal(BuildContext context, WidgetRef ref) {
                       ),
                     ),
                     Text(
-                      'Overdue requests & missed site entries (>36h)',
+                      'Overdue approvals & missed site entries',
                       style: AppTextStyles.caption.copyWith(
                         color: AppColors.textTertiary,
                         fontSize: 11,
@@ -174,8 +174,8 @@ void showSlaAlertsModal(BuildContext context, WidgetRef ref) {
                                   ),
                                   Text(
                                     isGranted
-                                        ? 'You will receive instant alerts on phone & desktop for broadcast notices, Zoom meetings & birthdays.'
-                                        : 'Get notified for announcements, Zoom meetings & approvals even when app is minimized.',
+                                        ? 'Receive notices, birthdays and approval alerts while the app is running.'
+                                        : 'Receive alerts while the app is running.',
                                     style: const TextStyle(
                                       color: AppColors.textSecondary,
                                       fontSize: 10,
@@ -244,7 +244,7 @@ void showSlaAlertsModal(BuildContext context, WidgetRef ref) {
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            'No pending approval requests have exceeded the 36-hour threshold.',
+                            'No overdue approvals or missed site entries to show.',
                             style: AppTextStyles.caption
                                 .copyWith(color: AppColors.textTertiary),
                             textAlign: TextAlign.center,
@@ -268,7 +268,7 @@ void showSlaAlertsModal(BuildContext context, WidgetRef ref) {
                             : const Color(0xFFEF4444);
                         final badgeLabel = isMissedCash
                             ? 'MISSED ENTRY'
-                            : '${alert.hoursElapsed}H OVERDUE';
+                            : '${alert.hoursElapsed}H PENDING';
 
                         return Container(
                           padding: const EdgeInsets.all(12),

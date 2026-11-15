@@ -378,3 +378,33 @@ final recentTransactionActivityProvider =
   }
   return (cash: cashCounts, stock: stockCounts);
 });
+
+/// Operational view of the canonical cloud + durable offline cache. Approval-only
+/// accounting providers above remain separate. Realtime/retry updates to the
+/// cash notifier immediately recompute this view without extra subscriptions.
+final siteOperationalCashSummaryProvider =
+    Provider.autoDispose.family<Map<String, double>, String>((ref, siteId) {
+  final transactions =
+      ref.watch(cashProvider.select((state) => state.transactions));
+  double received = 0, spent = 0, approvedReceived = 0, approvedSpent = 0;
+  var pending = 0;
+  for (final tx in transactions.where((tx) => tx.siteId == siteId)) {
+    if (tx.status == TransactionStatus.rejected) continue;
+    received += tx.amountReceived;
+    spent += tx.expenseAmount;
+    if (tx.status == TransactionStatus.approved) {
+      approvedReceived += tx.amountReceived;
+      approvedSpent += tx.expenseAmount;
+    } else {
+      pending++;
+    }
+  }
+  return {
+    'total_received': received,
+    'total_expense': spent,
+    'balance': received - spent,
+    'approved_balance': approvedReceived - approvedSpent,
+    'approved_expense': approvedSpent,
+    'pending_count': pending.toDouble(),
+  };
+});

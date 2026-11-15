@@ -4,6 +4,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import '../core/constants/app_colors.dart';
 import '../core/constants/app_text_styles.dart';
 import '../models/site_staff_model.dart';
+import '../models/site_announcement_model.dart';
 import '../providers/birthday_provider.dart';
 import '../providers/site_announcement_provider.dart';
 import '../providers/auth_provider.dart';
@@ -26,7 +27,9 @@ class SkcplAnnouncementBar extends ConsumerWidget {
     final birthdays = ref.watch(todayBirthdayStaffProvider);
     final activeNotice = ref.watch(activeAnnouncementProvider);
 
-    final hasBirthdays = birthdays.isNotEmpty;
+    final unread = ref.watch(unreadNoticeCountProvider);
+    final hasBirthdays = birthdays.isNotEmpty &&
+        activeNotice?.category != AnnouncementCategory.urgent;
     final hasActiveNotice = !hasBirthdays && activeNotice != null;
 
     final String titleText;
@@ -118,8 +121,12 @@ class SkcplAnnouncementBar extends ConsumerWidget {
                     const Icon(Icons.campaign_rounded, size: 18),
                     const SizedBox(width: 8),
                     Expanded(
-                        child: Text(titleText,
-                            maxLines: 2, overflow: TextOverflow.ellipsis)),
+                        child: Text(
+                            unread > 0
+                                ? '$titleText • $unread unread'
+                                : titleText,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis)),
                     const Icon(Icons.chevron_right)
                   ])
                 : Row(
@@ -170,7 +177,9 @@ class SkcplAnnouncementBar extends ConsumerWidget {
                           children: [
                             Flexible(
                               child: Text(
-                                titleText,
+                                unread > 0
+                                    ? '$titleText • $unread unread'
+                                    : titleText,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
                                   fontSize: 13.5,

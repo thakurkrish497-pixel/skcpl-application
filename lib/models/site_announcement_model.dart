@@ -3,12 +3,15 @@ import 'package:flutter/material.dart';
 /// Announcement category
 enum AnnouncementCategory {
   general,
+  important,
   meeting,
   urgent,
   celebration;
 
   String get displayName {
     switch (this) {
+      case AnnouncementCategory.important:
+        return 'Important Notice';
       case AnnouncementCategory.general:
         return 'General Notice';
       case AnnouncementCategory.meeting:
@@ -24,6 +27,8 @@ enum AnnouncementCategory {
     switch (this) {
       case AnnouncementCategory.general:
         return Icons.campaign_rounded;
+      case AnnouncementCategory.important:
+        return Icons.priority_high_rounded;
       case AnnouncementCategory.meeting:
         return Icons.video_camera_front_rounded;
       case AnnouncementCategory.urgent:
@@ -37,6 +42,8 @@ enum AnnouncementCategory {
     switch (this) {
       case AnnouncementCategory.general:
         return const Color(0xFF00E5FF); // Wave Cyan
+      case AnnouncementCategory.important:
+        return const Color(0xFFF59E0B);
       case AnnouncementCategory.meeting:
         return const Color(0xFF3B82F6); // Blue / Zoom
       case AnnouncementCategory.urgent:
@@ -53,6 +60,8 @@ enum AnnouncementCategory {
       case 'meeting':
       case 'zoom':
         return AnnouncementCategory.meeting;
+      case 'important':
+        return AnnouncementCategory.important;
       case 'urgent':
       case 'alert':
         return AnnouncementCategory.urgent;

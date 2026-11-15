@@ -1,3 +1,4 @@
+import '../../widgets/sites_overview.dart';
 import '../../widgets/nonfinancial_review_queue.dart';
 import '../../widgets/responsive_toolbar_actions.dart';
 import 'package:flutter/material.dart';
@@ -11,7 +12,6 @@ import '../../models/cash_transaction_model.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/stock_provider.dart';
 import '../../providers/cash_provider.dart';
-import '../../providers/site_provider.dart';
 import '../../providers/role_access_provider.dart';
 import '../../widgets/app_drawer.dart';
 import '../../widgets/status_badge.dart';
@@ -24,7 +24,6 @@ import '../../widgets/universal_sync_button.dart';
 import '../../widgets/site_finance_summary_header.dart';
 import '../../widgets/master_entry_history_view.dart';
 import '../home/home_screen.dart';
-import '../admin/site_details_screen.dart';
 import '../stock/add_product_screen.dart';
 import '../stock/use_product_screen.dart';
 import '../cashbook/expense_form_screen.dart';
@@ -96,7 +95,6 @@ class _AccountsDashboardState extends ConsumerState<AccountsDashboard> {
   Widget build(BuildContext context) {
     final pendingStockAsync = ref.watch(pendingStockAccountsProvider);
     final pendingCashAsync = ref.watch(pendingCashAccountsProvider);
-    final allSitesAsync = ref.watch(activeSitesProvider);
     final authState = ref.watch(authProvider);
     final roleAccess = ref.watch(roleAccessProvider);
     final canApproveStock = roleAccess.accountsCanApproveStock;
@@ -653,73 +651,7 @@ class _AccountsDashboardState extends ConsumerState<AccountsDashboard> {
                   ),
 
                 // ── Tab 3: Sites Overview ──
-                allSitesAsync.when(
-                  loading: () => const Center(
-                      child:
-                          CircularProgressIndicator(color: AppColors.primary)),
-                  error: (e, _) => Center(child: Text('Error: $e')),
-                  data: (sitesList) => sitesList.isEmpty
-                      ? _emptyState(
-                          'No Sites Found', Icons.location_on_outlined)
-                      : Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Select Site for Details',
-                                style: AppTextStyles.h4
-                                    .copyWith(color: AppColors.textPrimary),
-                              ).animate().fadeIn(),
-                              const SizedBox(height: 16),
-                              Expanded(
-                                child: ListView.separated(
-                                  itemCount: sitesList.length,
-                                  separatorBuilder: (_, __) =>
-                                      const SizedBox(height: 10),
-                                  itemBuilder: (context, index) {
-                                    final site = sitesList[index];
-                                    return ListTile(
-                                      tileColor: AppColors.cardDark,
-                                      shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(14),
-                                          side: const BorderSide(
-                                              color: AppColors.divider,
-                                              width: 0.5)),
-                                      title: Text(
-                                        site.name,
-                                        style: AppTextStyles.labelLarge
-                                            .copyWith(
-                                                color: AppColors.textPrimary),
-                                      ),
-                                      subtitle: Text(
-                                        site.address ?? 'No address provided',
-                                        style: AppTextStyles.bodySmall.copyWith(
-                                            color: AppColors.textSecondary),
-                                      ),
-                                      trailing: const Icon(Icons.chevron_right,
-                                          color: AppColors.textTertiary),
-                                      onTap: () {
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (_) =>
-                                                SiteDetailsScreen(site: site),
-                                          ),
-                                        );
-                                      },
-                                    ).animate().fadeIn(
-                                          delay: Duration(
-                                              milliseconds: 50 * index),
-                                        );
-                                  },
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                ),
+                const SitesOverview(),
 
                 // ── Tab 4: Master Entry History ──
                 MasterEntryHistoryView(selectedSiteId: _selectedSiteId),

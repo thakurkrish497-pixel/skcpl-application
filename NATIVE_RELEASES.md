@@ -1,5 +1,19 @@
 # SKCPL native releases
 
+## Current release: 1.0.4, build 5
+
+This release includes the previously tested sync/offline and Admin controls, live Admin Cashflow summaries, Project Head Sites/Excel parity, and the notification/Notice Board fixes. Flutter analysis is clean and 226 Flutter tests pass locally; release packaging checks and hosted CI validate publication separately.
+
+Android updates preserve the existing package ID and signing certificate. Preserve app data and sync pending entries before updating. Windows is a complete x64 EXE/ZIP; macOS contains both Apple Silicon and Intel architectures. All three CI packages must match one source commit and shared-source fingerprint before the release becomes public.
+
+Notifications are local while the app runs. Closed-app remote push is not implemented. No operational database changes are included. Apple notarization depends on configured signing credentials; consult the release manifest for the actual status.
+
+The website pins download links to this exact release after all three artifacts are published and verified. No Google Play upload is performed.
+
+---
+
+## Historical setup notes
+
 Targets: Android APK; Windows x64 ZIP containing SKCPL.exe; universal macOS ZIP containing SKCPL - Connect to Waves.app. The company website remains a download page. No web ERP or Play Store upload is part of this workflow.
 
 ## Local package verified on 15 November 2026

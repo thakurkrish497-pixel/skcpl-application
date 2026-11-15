@@ -1,3 +1,4 @@
+import '../../widgets/sites_overview.dart';
 import '../../services/management_support.dart';
 import '../../widgets/nonfinancial_review_queue.dart';
 import '../../widgets/responsive_toolbar_actions.dart';
@@ -55,7 +56,7 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 5, vsync: this);
+    _tabController = TabController(length: 6, vsync: this);
     Future.microtask(() => _refreshAllData());
   }
 
@@ -306,6 +307,8 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
                     color: AppColors.surfaceDark,
                     child: TabBar(
                       controller: _tabController,
+                      isScrollable: true,
+                      tabAlignment: TabAlignment.start,
                       indicatorColor: AppColors.waveCyan,
                       indicatorWeight: 3,
                       labelColor: Colors.white,
@@ -314,7 +317,7 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
                           fontSize: 12, fontWeight: FontWeight.bold),
                       tabs: [
                         Tab(
-                          text: 'Cash Expenses (${pendingCash.length})',
+                          text: 'Cash (${pendingCash.length})',
                           icon: const Icon(Icons.payments_outlined, size: 18),
                         ),
                         Tab(
@@ -333,6 +336,9 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
                           text: 'All History',
                           icon: Icon(Icons.history_edu_rounded, size: 18),
                         ),
+                        const Tab(
+                            text: 'Sites',
+                            icon: Icon(Icons.location_on_outlined, size: 18)),
                       ],
                     ),
                   ),
@@ -360,6 +366,7 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
 
                 // Tab 5: Master Entry History
                 MasterEntryHistoryView(selectedSiteId: _selectedSiteId),
+                const SitesOverview(),
               ],
             ),
           ),

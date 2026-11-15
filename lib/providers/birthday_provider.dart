@@ -1,3 +1,4 @@
+import 'notification_clock_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/site_staff_model.dart';
 import '../services/notification_service.dart';
@@ -11,7 +12,7 @@ final todayBirthdayStaffProvider = Provider<List<SiteStaffModel>>((ref) {
 
   return allStaffAsync.when(
     data: (staffList) {
-      final now = DateTime.now();
+      final now = ref.watch(notificationNowProvider);
       final birthdays = staffList.where((staff) {
         if (!staff.isActive) return false;
         final dob = staff.dateOfBirth;

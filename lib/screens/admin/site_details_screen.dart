@@ -221,7 +221,8 @@ class SiteDetailsScreen extends ConsumerWidget {
             },
           ),
           if (ref.read(authProvider).isAdmin ||
-              ref.read(authProvider).isAccounts) ...[
+              ref.read(authProvider).isAccounts ||
+              ref.read(authProvider).isProjectHead) ...[
             const SizedBox(height: 12),
             ListTile(
               tileColor: AppColors.cardDark,

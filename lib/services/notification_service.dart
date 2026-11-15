@@ -1,155 +1,142 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'notification/notification_stub.dart'
     if (dart.library.js_interop) 'notification/notification_web.dart'
     if (dart.library.io) 'notification/notification_io.dart';
 
-/// Cross-platform notification service for phone and desktop alerts
-class NotificationService {
-  static const String _keyNotificationPref = 'skcpl_notifications_enabled_v1';
-  static const String _keySentAlerts = 'skcpl_sent_sla_alerts_v1';
+/// Serialized notification delivery only; never accesses transaction queues.
+class NotificationDelivery {
+  final Future<bool> Function() permission;
+  final Future<void> Function(
+      {required String title, required String body, String? tag}) show;
+  final DateTime Function() now;
+  Future<void> _tail = Future.value();
+  static const ledgerKey = 'skcpl_sent_sla_alerts_v1';
 
-  /// Request browser or device notification permission
-  static Future<bool> requestPermission() async {
-    final granted = await requestPlatformNotificationPermission();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_keyNotificationPref, granted);
-    return granted;
-  }
+  NotificationDelivery(
+      {required this.permission, required this.show, DateTime Function()? now})
+      : now = now ?? DateTime.now;
 
-  /// Check whether notifications are permitted
-  static Future<bool> isPermissionGranted() async {
-    final prefs = await SharedPreferences.getInstance();
-    final userPref = prefs.getBool(_keyNotificationPref);
-    if (userPref == false) return false;
-    return await checkPlatformNotificationPermission();
-  }
-
-  /// Show a desktop/phone notification with intelligent 6-hour rate limiting
-  static Future<void> showSlaNotification({
-    required String title,
-    required String body,
-    required String
-        alertKey, // Unique key for this alert (e.g. 'stock_pending_id_36h')
-  }) async {
-    final permitted = await isPermissionGranted();
-    if (!permitted) return;
-
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final sentMap = prefs.getStringList(_keySentAlerts) ?? [];
-
-      // Check if this alert was already triggered within the last 6 hours
-      final nowMs = DateTime.now().millisecondsSinceEpoch;
-      final recentEntry = sentMap.firstWhere(
-        (e) => e.startsWith('$alertKey:'),
-        orElse: () => '',
-      );
-
-      if (recentEntry.isNotEmpty) {
-        final lastSentMs = int.tryParse(recentEntry.split(':')[1]) ?? 0;
-        if (nowMs - lastSentMs < 6 * 3600 * 1000) {
-          // Already notified recently, skip duplicate ping
-          return;
+  Future<void> send(
+      {required String key,
+      required String title,
+      required String body,
+      Duration? repeatAfter}) {
+    final result = _tail.then((_) async {
+      try {
+        if (!await permission()) return;
+        final prefs = await SharedPreferences.getInstance();
+        final sent = prefs.getStringList(ledgerKey) ?? [];
+        final time = now();
+        final stamp = time.millisecondsSinceEpoch;
+        final previous = sent.where((e) => e.startsWith('$key:'));
+        if (previous.isNotEmpty) {
+          final last = int.tryParse(previous.last.substring(key.length + 1));
+          if (last != null &&
+              (repeatAfter == null ||
+                  stamp - last < repeatAfter.inMilliseconds)) {
+            return;
+          }
         }
+        await show(title: title, body: body, tag: key);
+        sent.removeWhere((e) => e.startsWith('$key:'));
+        // Keep all birthday recipients for today, even in a large workforce.
+        // Retain notice deduplication for 90 days; old SLA and birthday keys expire.
+        sent.removeWhere((e) {
+          final split = e.lastIndexOf(':');
+          final last = split < 0 ? null : int.tryParse(e.substring(split + 1));
+          if (last == null) return true;
+          final age = stamp - last;
+          return age >
+              (e.startsWith('announcement_')
+                      ? const Duration(days: 90)
+                      : const Duration(days: 2))
+                  .inMilliseconds;
+        });
+        sent.add('$key:$stamp');
+        await prefs.setStringList(ledgerKey, sent);
+      } catch (error) {
+        // A failed native delivery must remain eligible for retry.
+        debugPrint('[Notifications] Delivery unavailable: $error');
       }
+    });
+    _tail = result;
+    return result;
+  }
+}
 
-      // Show native platform notification
-      await showPlatformNotification(
-        title: title,
-        body: body,
-        tag: alertKey,
-      );
+class NotificationService {
+  static final _permissionChanges = StreamController<void>.broadcast();
+  static Stream<void> get permissionChanges => _permissionChanges.stream;
+  static final _delivery = NotificationDelivery(
+      permission: isPermissionGranted,
+      show: ({required title, required body, tag}) =>
+          showPlatformNotification(title: title, body: body, tag: tag));
 
-      // Record timestamp
-      sentMap.removeWhere((e) => e.startsWith('$alertKey:'));
-      sentMap.add('$alertKey:$nowMs');
-      // Keep last 100 entries
-      if (sentMap.length > 100) sentMap.removeAt(0);
-      await prefs.setStringList(_keySentAlerts, sentMap);
-    } catch (e) {
-      debugPrint('[NotificationService] Failed to show notification: $e');
+  static Future<void>? _startupPermission;
+  static Future<void> requestPermissionOnFirstUse() => _startupPermission ??=
+      _requestOnFirstUse().whenComplete(() => _startupPermission = null);
+  static Future<void> _requestOnFirstUse() async {
+    if (kIsWeb) return; // Browser permission needs an explicit button gesture.
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      const key = 'skcpl_notification_permission_prompted_v1';
+      if (prefs.getBool(key) == true) return;
+      await prefs.setBool(key, true);
+      if (!await isPermissionGranted()) await requestPermission();
+    } catch (_) {/* Optional notifications never block sign-in. */}
+  }
+
+  static Future<bool> requestPermission() async {
+    try {
+      final granted = await requestPlatformNotificationPermission();
+      _permissionChanges.add(null);
+      return granted;
+    } catch (_) {
+      return false;
     }
   }
 
-  /// Show birthday notification for an employee, rate-limited to once per calendar day per employee.
-  /// If there are multiple employees with birthdays today, this is called for each employee
-  /// so users receive notifications for all celebrating staff members.
-  static Future<void> showBirthdayNotification({
-    required String staffId,
-    required String staffName,
-  }) async {
-    final permitted = await isPermissionGranted();
-    if (!permitted) return;
+  static Future<bool> isPermissionGranted() async {
+    try {
+      return await checkPlatformNotificationPermission();
+    } catch (_) {
+      return false;
+    }
+  }
 
+  static Future<void> showSlaNotification(
+          {required String title,
+          required String body,
+          required String alertKey}) =>
+      _delivery.send(
+          key: alertKey,
+          title: title,
+          body: body,
+          repeatAfter: const Duration(hours: 6));
+
+  static Future<void> showBirthdayNotification(
+      {required String staffId, required String staffName}) {
     final now = DateTime.now();
-    final todayKey = '${now.year}_${now.month}_${now.day}';
-    final alertKey = 'birthday_${staffId}_$todayKey';
-
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final sentMap = prefs.getStringList(_keySentAlerts) ?? [];
-
-      if (sentMap.any((e) => e.startsWith('$alertKey:'))) {
-        return; // Already notified today
-      }
-
-      await showPlatformNotification(
+    return _delivery.send(
+        key: 'birthday_${staffId}_${now.year}_${now.month}_${now.day}',
         title: '🎂 Happy Birthday $staffName!',
-        body:
-            'Today is $staffName\'s Birthday! SKCPL wishes them happiness, good health & success!',
-        tag: alertKey,
-      );
-
-      final nowMs = now.millisecondsSinceEpoch;
-      sentMap.add('$alertKey:$nowMs');
-      if (sentMap.length > 100) sentMap.removeAt(0);
-      await prefs.setStringList(_keySentAlerts, sentMap);
-    } catch (e) {
-      debugPrint(
-          '[NotificationService] Failed to show birthday notification: $e');
-    }
+        body: "SKCPL wishes $staffName happiness, good health & success!");
   }
 
-  /// Show company-wide or sitewise broadcast announcement notification on desktop & phone
-  static Future<void> showAnnouncementNotification({
-    required String announcementId,
-    required String title,
-    required String body,
-    String? targetSiteName,
-  }) async {
-    final permitted = await isPermissionGranted();
-    if (!permitted) return;
-
-    final alertKey = 'announcement_$announcementId';
-
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final sentMap = prefs.getStringList(_keySentAlerts) ?? [];
-
-      if (sentMap.any((e) => e.startsWith('$alertKey:'))) {
-        return; // Already notified
-      }
-
-      final header = (targetSiteName != null &&
-              targetSiteName != 'All Sites' &&
-              targetSiteName.isNotEmpty)
-          ? '📢 [$targetSiteName] $title'
-          : '📢 $title';
-
-      await showPlatformNotification(
-        title: header,
-        body: body,
-        tag: alertKey,
-      );
-
-      final nowMs = DateTime.now().millisecondsSinceEpoch;
-      sentMap.add('$alertKey:$nowMs');
-      if (sentMap.length > 100) sentMap.removeAt(0);
-      await prefs.setStringList(_keySentAlerts, sentMap);
-    } catch (e) {
-      debugPrint(
-          '[NotificationService] Failed to show announcement notification: $e');
-    }
-  }
+  static Future<void> showAnnouncementNotification(
+          {required String announcementId,
+          required String title,
+          required String body,
+          String? targetSiteName}) =>
+      _delivery.send(
+          key: 'announcement_$announcementId',
+          title: targetSiteName != null &&
+                  targetSiteName.isNotEmpty &&
+                  targetSiteName != 'All Sites' &&
+                  targetSiteName != 'All Staff'
+              ? '📢 [$targetSiteName] $title'
+              : '📢 $title',
+          body: body);
 }

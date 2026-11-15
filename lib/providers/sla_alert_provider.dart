@@ -1,3 +1,4 @@
+import 'notification_clock_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/stock_transaction_model.dart';
 import '../models/user_model.dart';
@@ -65,7 +66,7 @@ final slaAlertsProvider = Provider<List<SlaAlert>>((ref) {
   }
 
   final alerts = <SlaAlert>[];
-  final now = DateTime.now();
+  final now = ref.watch(notificationNowProvider);
   const slaThresholdHours = 36;
 
   // 1. Check Overdue Pending Stock Approvals (> 36 hours)
@@ -77,7 +78,7 @@ final slaAlertsProvider = Provider<List<SlaAlert>>((ref) {
 
     final txTime = tx.createdAt ?? tx.date;
     final hours = now.difference(txTime).inHours;
-    if (hours >= slaThresholdHours) {
+    if (now.difference(txTime) > const Duration(hours: slaThresholdHours)) {
       final sName = siteMap[tx.siteId] ?? tx.siteName ?? 'Site';
       final itemDesc = tx.productName ?? tx.remarks ?? 'Material';
       final alertId = 'stock_pending_${tx.id ?? txTime.millisecondsSinceEpoch}';
@@ -114,16 +115,17 @@ final slaAlertsProvider = Provider<List<SlaAlert>>((ref) {
 
     final txTime = tx.createdAt ?? tx.date;
     final hours = now.difference(txTime).inHours;
-    if (hours >= slaThresholdHours) {
+    if (now.difference(txTime) > const Duration(hours: slaThresholdHours)) {
       final sName = siteMap[tx.siteId] ?? tx.siteName ?? 'Site';
       final alertId = 'cash_pending_${tx.id ?? txTime.millisecondsSinceEpoch}';
 
       final alert = SlaAlert(
         id: alertId,
         type: SlaAlertType.pendingCash,
-        title: '⚠️ Cash Expense Overdue (${hours}h)',
+        title:
+            '⚠️ Cash ${tx.amountReceived > 0 ? 'Receipt' : 'Expense'} Overdue (${hours}h)',
         message:
-            '₹${tx.expenseAmount.toStringAsFixed(0)} (${tx.remarks ?? 'Expense'}) pending review for ${hours}h at $sName',
+            '₹${(tx.amountReceived > 0 ? tx.amountReceived : tx.expenseAmount).toStringAsFixed(0)} (${tx.cleanRemarks ?? (tx.amountReceived > 0 ? 'Cash receipt' : 'Expense')}) pending review for ${hours}h at $sName',
         siteId: tx.siteId,
         siteName: sName,
         hoursElapsed: hours,
@@ -134,7 +136,7 @@ final slaAlertsProvider = Provider<List<SlaAlert>>((ref) {
       NotificationService.showSlaNotification(
         title: 'SKCPL Alert: Cash Approval Overdue (${hours}h)',
         body:
-            '$sName: ₹${tx.expenseAmount.toStringAsFixed(0)} waiting for review for $hours hours.',
+            '$sName: ₹${(tx.amountReceived > 0 ? tx.amountReceived : tx.expenseAmount).toStringAsFixed(0)} waiting for review for $hours hours.',
         alertKey: alertId,
       );
     }
@@ -177,10 +179,15 @@ final slaAlertsProvider = Provider<List<SlaAlert>>((ref) {
   }
 
   // 4. Check Missed Cashbook Entries for Active Construction Sites (> 24 hours / Evening Cut-off)
-  final yesterday = now.subtract(const Duration(days: 1));
+  final yesterday = DateTime(now.year, now.month, now.day - 1);
   final checkTodayMissed = now.hour >= 18;
 
   for (final site in sites) {
+    if (cashState.isLoading || cashState.error != null) continue;
+    if (site.createdAt.isAfter(
+        DateTime(yesterday.year, yesterday.month, yesterday.day + 1))) {
+      continue;
+    }
     if (site.isHeadOffice) {
       continue; // Only construction sites check cashbook entries
     }
@@ -259,8 +266,9 @@ final missedCashbookForWorkerProvider = Provider<List<DateTime>>((ref) {
   if (activeSite == null || activeSite.isHeadOffice) return const [];
 
   final cashState = ref.watch(cashProvider);
-  final now = DateTime.now();
-  final yesterday = now.subtract(const Duration(days: 1));
+  if (cashState.isLoading || cashState.error != null) return const [];
+  final now = ref.watch(notificationNowProvider);
+  final yesterday = DateTime(now.year, now.month, now.day - 1);
   final missed = <DateTime>[];
 
   // 1. Check yesterday

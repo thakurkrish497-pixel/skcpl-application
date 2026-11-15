@@ -79,12 +79,12 @@ def combine(folder):
         f"SKCPL ERP {version} (build {number})\n\n"
         f"Source: {commit}\n\n"
         "Native Android APK, Windows x64 ZIP (SKCPL.exe and required DLL/data files), and universal macOS APP/ZIP.\n"
-        "Includes durable cashbook/offline submission fixes, optional cashbook receipts, current sync and responsive layouts, plus protected Admin Login ID/password and approval-power controls. No web ERP or Play Store upload.\n\n"
+        "Includes all existing durable cashbook/offline submission fixes, optional receipts, responsive layouts and protected Admin controls; live Admin Cashflow totals; Project Head Sites and Excel export; and tested notification, birthday, overdue-alert, notice audience/unread and permission improvements. No web ERP or Play Store upload.\n\n"
         "Sync pending entries when online before updating. Keep device application data and local drafts; do not uninstall or clear app data. Admin controls require the matching protected backend deployment.\n"
         "Windows: extract the entire ZIP. Executable is not Authenticode-signed.\n"
         f"macOS: Developer ID signed: {mac['signed']}; notarized: {mac['notarized']}. "
         "Unnotarized downloads may be blocked by Gatekeeper; contact company IT for a signed release.\n\n"
-        "Use SHA256SUMS.txt to verify downloads. Native permissions and operational workflows still need device acceptance testing.\n")
+        "Notifications are generated while the app is running; closed-app remote push is not implemented. Existing operational data and approval stages are unchanged. Use SHA256SUMS.txt to verify downloads. Native device acceptance remains separate from automated tests.\n")
     print(f'v{version}')
 
 if __name__ == '__main__':

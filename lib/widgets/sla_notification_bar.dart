@@ -20,7 +20,8 @@ class SlaNotificationBar extends ConsumerStatefulWidget {
 }
 
 class _SlaNotificationBarState extends ConsumerState<SlaNotificationBar> {
-  bool _isDismissed = false;
+  Set<String> _dismissedIds = {};
+  bool _permissionDismissed = false;
   bool _hasCheckedPermission = false;
   bool _isPermissionGranted = false;
 
@@ -59,8 +60,6 @@ class _SlaNotificationBarState extends ConsumerState<SlaNotificationBar> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isDismissed) return const SizedBox.shrink();
-
     // RESTRICTION: Only Accounts, Project Head, and Admin see SLA approval alerts.
     final authState = ref.watch(authProvider);
     final userRole = authState.user?.role;
@@ -70,6 +69,10 @@ class _SlaNotificationBarState extends ConsumerState<SlaNotificationBar> {
     if (!isApprovalAuthority) return const SizedBox.shrink();
 
     final alerts = ref.watch(slaAlertsProvider);
+    if (alerts.isNotEmpty &&
+        alerts.every((a) => _dismissedIds.contains(a.id))) {
+      return const SizedBox.shrink();
+    }
     if (alerts.isEmpty && _isPermissionGranted) {
       return const SizedBox.shrink();
     }
@@ -139,7 +142,7 @@ class _SlaNotificationBarState extends ConsumerState<SlaNotificationBar> {
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
-                          '$totalCount OVERDUE (>36h)',
+                          '$totalCount ALERT${totalCount == 1 ? '' : 'S'}',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
@@ -167,7 +170,7 @@ class _SlaNotificationBarState extends ConsumerState<SlaNotificationBar> {
                   const SizedBox(height: 2),
                   Text(
                     totalCount > 1
-                        ? '${topAlert.message} (+$totalCount more overdue items across sites)'
+                        ? '${topAlert.message} (+${totalCount - 1} more alerts across sites)'
                         : topAlert.message,
                     style: AppTextStyles.caption.copyWith(
                       color: AppColors.textSecondary,
@@ -209,7 +212,8 @@ class _SlaNotificationBarState extends ConsumerState<SlaNotificationBar> {
               icon: const Icon(Icons.close_rounded,
                   color: AppColors.textTertiary, size: 18),
               tooltip: 'Dismiss banner',
-              onPressed: () => setState(() => _isDismissed = true),
+              onPressed: () => setState(
+                  () => _dismissedIds = alerts.map((a) => a.id).toSet()),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
             ),
@@ -219,7 +223,9 @@ class _SlaNotificationBarState extends ConsumerState<SlaNotificationBar> {
     }
 
     // Permission Prompt Bar (if user hasn't enabled phone/desktop notifications yet)
-    if (!_isPermissionGranted && _hasCheckedPermission) {
+    if (!_isPermissionGranted &&
+        _hasCheckedPermission &&
+        !_permissionDismissed) {
       return Container(
         margin: const EdgeInsets.only(bottom: 14),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -263,7 +269,7 @@ class _SlaNotificationBarState extends ConsumerState<SlaNotificationBar> {
               icon: const Icon(Icons.close_rounded,
                   color: AppColors.textTertiary, size: 16),
               tooltip: 'Dismiss',
-              onPressed: () => setState(() => _isDismissed = true),
+              onPressed: () => setState(() => _permissionDismissed = true),
               padding: const EdgeInsets.only(left: 6),
               constraints: const BoxConstraints(),
             ),

@@ -23,14 +23,11 @@ Future<void> showPlatformNotification(
     required String body,
     String? tag,
     String? iconUrl}) async {
-  try {
-    if (web.Notification.permission == 'granted') {
-      web.Notification(
-          title,
-          web.NotificationOptions(
-              body: body,
-              tag: tag ?? '',
-              icon: iconUrl ?? 'icons/Icon-192.png'));
-    }
-  } catch (_) {}
+  if (web.Notification.permission != 'granted') {
+    throw StateError('Notification permission is not granted.');
+  }
+  web.Notification(
+      title,
+      web.NotificationOptions(
+          body: body, tag: tag ?? '', icon: iconUrl ?? 'icons/Icon-192.png'));
 }

@@ -1,3 +1,4 @@
+import '../../widgets/nonfinancial_review_queue.dart';
 import '../../widgets/responsive_toolbar_actions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -102,7 +103,7 @@ class _AccountsDashboardState extends ConsumerState<AccountsDashboard> {
     final canApproveCash = roleAccess.accountsCanApproveCash;
 
     return DefaultTabController(
-      length: 4,
+      length: 6,
       child: Scaffold(
         backgroundColor: AppColors.scaffoldDark,
         drawer: AppDrawer(
@@ -173,6 +174,8 @@ class _AccountsDashboardState extends ConsumerState<AccountsDashboard> {
                   ],
                 ),
               ),
+              Tab(text: 'Attendance'),
+              Tab(text: 'DSR'),
             ],
           ),
         ),
@@ -720,6 +723,20 @@ class _AccountsDashboardState extends ConsumerState<AccountsDashboard> {
 
                 // ── Tab 4: Master Entry History ──
                 MasterEntryHistoryView(selectedSiteId: _selectedSiteId),
+                roleAccess.accountsCanApproveAttendance
+                    ? NonFinancialReviewQueue(
+                        module: 'attendance', site: _selectedSiteId)
+                    : _buildExtractedPowerBanner(
+                        title: 'Attendance approval is OFF',
+                        message:
+                            'This Accounts checkpoint is bypassed by Admin policy.'),
+                roleAccess.accountsCanApproveDSR
+                    ? NonFinancialReviewQueue(
+                        module: 'dsr', site: _selectedSiteId)
+                    : _buildExtractedPowerBanner(
+                        title: 'DSR approval is OFF',
+                        message:
+                            'This Accounts checkpoint is bypassed by Admin policy.'),
               ],
             ),
           ),

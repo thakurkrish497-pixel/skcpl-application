@@ -187,7 +187,8 @@ class ErpTestBackend {
       if (path.endsWith('/token')) {
         final data = Map<String, dynamic>.from(jsonDecode(request.body));
         final email = data['email'];
-        if (data['password'] == 'wrongPassword' || data['password'] == 'wrong') {
+        if (data['password'] == 'wrongPassword' ||
+            data['password'] == 'wrong') {
           return response(request, {'msg': 'Invalid credentials'}, status: 400);
         }
         final user = (tables['users'] ?? [])
@@ -231,7 +232,11 @@ class ErpTestBackend {
     final table = path.split('/rest/v1/').last;
     if (table.startsWith('rpc/')) {
       return response(
-          request, {'message': 'RPC unavailable in isolated fixture'},
+          request,
+          {
+            'code': 'PGRST202',
+            'message': 'RPC unavailable in isolated fixture'
+          },
           status: 404);
     }
     final source = view(table);

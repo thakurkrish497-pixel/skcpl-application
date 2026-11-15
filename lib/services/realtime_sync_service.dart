@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'transaction_refresh.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,13 +18,49 @@ class RealtimeSyncService {
   RealtimeChannel? _stockChannel;
   RealtimeChannel? _sitesChannel;
   RealtimeChannel? _permsChannel;
+  RealtimeChannel? _managementChannel;
+  Timer? _policyPoll;
+  final _reviewChannels = <RealtimeChannel>[];
 
   RealtimeSyncService(this._ref, this._client, {bool enabled = true}) {
     if (enabled) _subscribe();
   }
 
+  void _refreshPolicy() {
+    if (_disposed) return;
+    _ref.read(roleAccessProvider.notifier).loadPermissions(forceRefresh: true);
+    invalidateTransactionViews(_ref.invalidate);
+  }
+
   void _subscribe() {
+    _policyPoll =
+        Timer.periodic(const Duration(seconds: 30), (_) => _refreshPolicy());
     try {
+      _managementChannel = _client
+          .channel('public:skcpl_management_state')
+          .onPostgresChanges(
+              event: PostgresChangeEvent.all,
+              schema: 'public',
+              table: 'skcpl_management_state',
+              callback: (_) => _refreshPolicy())
+        ..subscribe((status, error) {
+          if (status == RealtimeSubscribeStatus.subscribed) _refreshPolicy();
+        });
+      for (final table in [
+        'attendance',
+        'daily_site_reports',
+        'skcpl_entry_reviews'
+      ]) {
+        _reviewChannels
+            .add(_client.channel('public:reviews:$table').onPostgresChanges(
+                event: PostgresChangeEvent.all,
+                schema: 'public',
+                table: table,
+                callback: (_) {
+                  if (!_disposed) invalidateTransactionViews(_ref.invalidate);
+                })
+              ..subscribe());
+      }
       // 1. Live stream on cash_transactions
       _cashChannel = _client.channel('public:realtime_cash').onPostgresChanges(
             event: PostgresChangeEvent.all,
@@ -110,9 +147,7 @@ class RealtimeSyncService {
                   if (_disposed) return;
                   invalidateTransactionViews(_ref.invalidate);
                   debugPrint('Realtime permissions refresh');
-                  _ref
-                      .read(roleAccessProvider.notifier)
-                      .loadPermissions(forceRefresh: true);
+                  _refreshPolicy();
                 },
               )..subscribe((status, error) {
               if (!_disposed && status == RealtimeSubscribeStatus.subscribed) {
@@ -130,11 +165,14 @@ class RealtimeSyncService {
 
   Future<void> dispose() async {
     _disposed = true;
+    _policyPoll?.cancel();
     for (final channel in [
       _cashChannel,
       _stockChannel,
       _sitesChannel,
-      _permsChannel
+      _permsChannel,
+      _managementChannel,
+      ..._reviewChannels,
     ]) {
       if (channel != null) await _client.removeChannel(channel);
     }

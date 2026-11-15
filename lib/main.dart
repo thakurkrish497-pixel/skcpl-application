@@ -1,3 +1,4 @@
+import 'providers/role_access_provider.dart';
 import 'app_routes.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -43,6 +44,7 @@ class SKCPLApp extends ConsumerWidget {
     // Continuous 30s background auto-sync & live Realtime WebSockets across all devices
     ref.watch(autoSyncProvider);
     ref.watch(realtimeSyncProvider);
+    ref.watch(managementSessionGuardProvider);
 
     return MaterialApp(
       title: 'SKCPL Construction Management',

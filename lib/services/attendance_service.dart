@@ -1,3 +1,5 @@
+import 'management_review_service.dart';
+import 'management_support.dart';
 import 'submission_support.dart';
 import 'dart:convert';
 import 'package:intl/intl.dart';
@@ -188,6 +190,14 @@ class AttendanceService {
 
   /// Fetch all pending attendance regularization requests for Admin
   Future<List<AttendanceRecordModel>> getPendingRegularizationRequests() async {
+    try {
+      final rows =
+          await ManagementReviewService(_client).pending('attendance', 'all');
+      return rows.map((e) => AttendanceRecordModel.fromJson(e.data)).toList();
+    } catch (error) {
+      if (!isMissingManagementBackend(error)) rethrow;
+    }
+
     List<AttendanceRecordModel> list;
     try {
       final data = await _client
@@ -392,6 +402,20 @@ class AttendanceService {
     String? note,
     required String reviewedBy,
   }) async {
+    try {
+      final service = ManagementReviewService(_client);
+      final entry = await service.eligibleEntry('attendance', attendanceId);
+      if (entry == null) {
+        throw StateError(
+            'This attendance entry is not waiting at your enabled checkpoint. Refresh first.');
+      }
+      final result = await service.decide('attendance', entry,
+          approve: approve, note: note ?? '', halfDay: halfDay);
+      return AttendanceRecordModel.fromJson(
+          Map<String, dynamic>.from(result['data'] as Map));
+    } catch (error) {
+      if (!isMissingManagementBackend(error)) rethrow;
+    }
     final newStatus = !approve
         ? AttendanceStatus.rejected
         : (halfDay

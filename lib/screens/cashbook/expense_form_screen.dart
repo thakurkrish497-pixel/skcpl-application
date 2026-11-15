@@ -60,6 +60,19 @@ class CashEntryDraft {
     this.photos = const [],
     required this.date,
   });
+  CashEntryDraft withoutPhotos() => CashEntryDraft(
+        id: id,
+        mode: mode,
+        expenseTypeId: expenseTypeId,
+        customExpenseType: customExpenseType,
+        expenseTypeName: expenseTypeName,
+        amount: amount,
+        remarks: remarks,
+        billNo: billNo,
+        partyName: partyName,
+        date: date,
+      );
+
   Map<String, dynamic> toLocalJson() => {
         'id': id,
         'mode': mode.name,
@@ -419,6 +432,31 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
     return true;
   }
 
+  Future<void> _removeStagedPhotos(String id) async {
+    if (_isSubmitting || isLocked) return;
+    final updated = [
+      for (final draft in _stagedEntries)
+        if (draft.id == id) draft.withoutPhotos() else draft
+    ];
+    setState(() => _isSubmitting = true);
+    try {
+      await _saveDrafts(updated);
+      if (!mounted) return;
+      setState(() {
+        _stagedEntries
+          ..clear()
+          ..addAll(updated);
+      });
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('Could not save attachment change: $error')));
+      }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
   Future<void> _handleSubmit(
       [List<DropdownItemModel> currentTypes = const []]) async {
     if (_isSubmitting || isLocked) return;
@@ -668,8 +706,16 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
             draft.mode == CashEntryMode.expense ? draft.amount : 0;
         final double receivedAmt =
             draft.mode == CashEntryMode.received ? draft.amount : 0;
-        final currentBal =
-            _getCurrentSiteBalance(ref.read(cashProvider).transactions, siteId);
+        // A saved failed entry may already be in the local queue/cache.
+        // Retrying that UUID must not deduct or credit it a second time.
+        final currentBal = _getCurrentSiteBalance(
+          ref
+              .read(cashProvider)
+              .transactions
+              .where((tx) => submissionId(tx.id) != draft.id)
+              .toList(),
+          siteId,
+        );
         final cashInHand = currentBal + (receivedAmt - expenseAmt);
 
         final effectiveExpenseTypeId =
@@ -1915,6 +1961,15 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                       ),
                     ),
                     if (item.photos.isNotEmpty) ...[
+                      IconButton(
+                        tooltip: 'Remove attached photos; keep entry',
+                        visualDensity: VisualDensity.compact,
+                        icon: const Icon(Icons.image_not_supported_outlined,
+                            size: 20),
+                        onPressed: _isSubmitting
+                            ? null
+                            : () => _removeStagedPhotos(item.id),
+                      ),
                       const Icon(Icons.photo_camera_rounded,
                           size: 16, color: AppColors.textTertiary),
                       const SizedBox(width: 4),

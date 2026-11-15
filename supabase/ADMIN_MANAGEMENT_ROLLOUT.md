@@ -1,6 +1,6 @@
 # Admin login and approval controls — local rollout notes
 
-Implementation is local. No production migration, credential update, deployment, Git commit/push or release publication was performed for this feature.
+The additive backend was deployed to the approved production project on 2026-11-15. No employee password was reset, Auth UUID replaced, or operational row rewritten. The production preflight repaired a missing Project Head role/profile using its existing Auth account ID. Native release publication follows verification of this deployment.
 
 ## App behavior
 
@@ -17,7 +17,7 @@ Policy changes are enforced by server checks on new review writes. Connected upd
 ## Controlled deployment still required
 
 1. Validate the additive migrations in a staging copy of the actual deployed schema and RLS policies. Local tests cover PostgreSQL enums, new tables, functions, triggers, permission checks, ordinary site writes, primary and tasks-backed records. They do not reproduce every pre-existing production policy or custom trigger.
-2. Apply only `202611150001_admin_management.sql`, `202611150002_management_reviews.sql`, and `202611150003_financial_power_guards.sql` in order. They add central state, an operation journal/review ledger and review guards; they do not drop or truncate operational tables. Existing accounts are bound by configured email or a single active role identity; ambiguous/missing bindings fail clearly and must be resolved before use.
+2. First apply `202611150000_management_role.sql` and let that statement commit, then apply `202611150001_admin_management.sql`, `202611150002_management_reviews.sql`, and `202611150003_financial_power_guards.sql` in order. They add central state, an operation journal/review ledger and review guards; they do not drop or truncate operational tables. An existing official Project Head Auth user with a missing ERP profile is linked using its unchanged Auth UUID. Explicit Project Head financial RLS policies enable its guarded review checkpoint. Existing accounts are bound by configured email or a single active role identity; ambiguous/missing bindings fail clearly and must be resolved before use.
 3. Deploy `skcpl-management-control`. Its `verify_jwt=false` setting is intentional: the handler verifies the caller using Supabase Auth and then independently checks an active Admin profile before any snapshot/save. Ensure `SUPABASE_URL`, `SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` are available only in the function environment. Do not put the service key in Flutter build flags or website files.
 4. Install updated Android, Windows and macOS builds on management devices in coordination with backend activation. Old apps have hardcoded Login ID aliases and legacy review actions. Custom IDs require the updated app; old review actions are intentionally refused by the new guards. Confirm the existing mobile signing identities are retained for installable updates.
 5. On staging, test both roles on separate devices: change IDs/emails/passwords, sign in again, toggle every power, verify old credential rejection, interrupt a save and retry, and confirm a pre-existing offline queue/draft still submits under its unchanged account ID. Only then perform a scheduled production rollout.

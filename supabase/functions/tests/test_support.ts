@@ -5,7 +5,7 @@ export const ids = {
   head: "00000000-0000-4000-8000-000000000003",
   site: "00000000-0000-4000-8000-000000000004",
 };
-export async function database() {
+export async function database(missingHeadProfile = false) {
   const db = new PGlite();
   await db.exec(`create role anon;create role authenticated;create role service_role bypassrls;
  create schema auth;
@@ -29,7 +29,14 @@ export async function database() {
  insert into public.sites values('${ids.site}');
  insert into public.cash_transactions(id,submitted_by,approved_by,status,expense_amount) values(gen_random_uuid(),'${ids.accounts}','${ids.admin}','approved',150);
  insert into public.stock_transactions(id,submitted_by,approved_by,status,quantity) values(gen_random_uuid(),'${ids.head}','${ids.admin}','approved',30);`);
+  if (missingHeadProfile) {
+    await db.query("delete from public.users where id=$1", [ids.head]);
+    await db.exec(
+      "alter table public.users alter column role type text using role::text;drop type public.user_role;create type public.user_role as enum ('admin','accounts','worker');alter table public.users alter column role type public.user_role using role::public.user_role",
+    );
+  }
   const migrations = new URL("../../migrations/", import.meta.url);
+  await db.exec(await Deno.readTextFile(new URL("202611150000_management_role.sql", migrations)));
   await db.exec(await Deno.readTextFile(new URL("202611150001_admin_management.sql", migrations)));
   await db.exec(
     await Deno.readTextFile(new URL("202611150002_management_reviews.sql", migrations)),

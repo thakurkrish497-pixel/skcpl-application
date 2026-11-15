@@ -23,6 +23,20 @@ grant select on public.skcpl_management_state to authenticated;
 grant all on public.skcpl_management_state, public.skcpl_management_operations to service_role;
 create policy "Authenticated clients observe nonsecret management state" on public.skcpl_management_state for select to authenticated using (true);
 
+-- Link an existing official Project Head Auth identity when its ERP profile is missing.
+-- Never recreate Auth users, replace UUIDs, or alter a pre-existing profile/history.
+do $profile$
+begin
+ if exists(select 1 from auth.users a where lower(a.email)='projecthead@skcpl.com'
+   and not exists(select 1 from public.users u where u.id=a.id)) then
+   if exists(select 1 from public.users where lower(email)='projecthead@skcpl.com') then
+     raise exception 'Project Head email belongs to another ERP profile. Resolve the binding without replacing its ID.' using errcode='22023';
+   end if;
+   insert into public.users(id,email,role,is_active)
+   select id,email,'project_head',true from auth.users where lower(email)='projecthead@skcpl.com';
+ end if;
+end $profile$;
+
 do $seed$
 declare legacy jsonb := '{}'; aid uuid; pid uuid; settings jsonb;
 begin

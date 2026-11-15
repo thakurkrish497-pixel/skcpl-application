@@ -331,3 +331,40 @@ Deno.test("Authenticated site submissions still write ordinary DSR and fallback 
       await db.exec("reset role");
     }
   }));
+
+for (const module of ["cash", "stock"]) {
+  Deno.test(`${module}: official Project Head has guarded RLS access to other workers' pending entries`, () =>
+    withDb(async (db) => {
+      const table = module === "cash" ? "cash_transactions" : "stock_transactions";
+      const amount = module === "cash" ? "expense_amount" : "quantity";
+      const id = crypto.randomUUID();
+      await db.query(
+        `insert into ${table}(id,submitted_by,status,${amount},site_id,remarks)values($1,$2,'pending_accounts',100,$3,'[PENDING SUPERVISOR REVIEW]')`,
+        [id, ids.accounts, ids.site],
+      );
+      await db.exec(
+        `grant select,update on public.${table} to authenticated;alter table public.${table} enable row level security`,
+      );
+      await actor(db, ids.head);
+      await db.exec("set role authenticated");
+      try {
+        equal((await db.query(`select id from ${table} where id=$1`, [id])).rows.length, 1);
+        await db.query(`update ${table} set remarks='[Project Head: Approved]' where id=$1`, [id]);
+      } finally {
+        await db.exec("reset role");
+      }
+      await setting(db, "project_head_can_approve_" + module, false);
+      await db.exec("set role authenticated");
+      try {
+        await rejects(
+          () =>
+            db.query(`update ${table} set remarks='Changed by disabled reviewer' where id=$1`, [
+              id,
+            ]),
+          "42501",
+        );
+      } finally {
+        await db.exec("reset role");
+      }
+    }));
+}

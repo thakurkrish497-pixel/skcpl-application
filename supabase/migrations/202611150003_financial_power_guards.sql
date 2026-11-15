@@ -56,4 +56,16 @@ do $$ begin
    create trigger skcpl_stock_review_guard before update or delete on public.stock_transactions for each row execute function public.skcpl_financial_review_guard();
  end if;
 end $$;
+-- The original production policies predate official Project Head Auth accounts.
+-- Grant the existing review checkpoint; the trigger still enforces live powers.
+create policy "Project Head reads cash" on public.cash_transactions for select to authenticated
+ using (exists(select 1 from public.users where id=auth.uid() and is_active=true and role::text='project_head'));
+create policy "Project Head reviews cash" on public.cash_transactions for update to authenticated
+ using (status::text='pending_accounts' and exists(select 1 from public.users where id=auth.uid() and is_active=true and role::text='project_head'))
+ with check (status::text in ('pending_accounts','pending_admin','rejected') and exists(select 1 from public.users where id=auth.uid() and is_active=true and role::text='project_head'));
+create policy "Project Head reads stock" on public.stock_transactions for select to authenticated
+ using (exists(select 1 from public.users where id=auth.uid() and is_active=true and role::text='project_head'));
+create policy "Project Head reviews stock" on public.stock_transactions for update to authenticated
+ using (status::text='pending_accounts' and exists(select 1 from public.users where id=auth.uid() and is_active=true and role::text='project_head'))
+ with check (status::text in ('pending_accounts','pending_admin','rejected') and exists(select 1 from public.users where id=auth.uid() and is_active=true and role::text='project_head'));
 commit;

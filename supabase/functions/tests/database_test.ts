@@ -20,3 +20,22 @@ Deno.test("Local migration creates nonsecret management state and preserves exis
     await db.close();
   }
 });
+
+Deno.test("Production preflight adds missing Project Head enum/profile using the existing Auth UUID", async () => {
+  const db = await database(true);
+  try {
+    const profile = (await db.query<{ id: string; role: string; is_active: boolean }>(
+      "select id,role,is_active from public.users where email='projecthead@skcpl.com'",
+    )).rows[0];
+    equal(profile.id, ids.head);
+    equal(profile.role, "project_head");
+    equal(profile.is_active, true);
+    const auth = (await db.query<{ count: number }>(
+      "select count(*)::int as count from auth.users where id=$1",
+      [ids.head],
+    )).rows[0];
+    equal(auth.count, 1);
+  } finally {
+    await db.close();
+  }
+});

@@ -1,3 +1,4 @@
+import 'package:skcpl_app/services/entry_date_policy.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -168,7 +169,8 @@ void main() {
     final provider = StateNotifierProvider<StaffPunchNotifier, StaffPunchState>(
         (ref) => StaffPunchNotifier(service, ref));
     final now = DateTime.now();
-    service.rows.add(record().copyWith(date: now, createdAt: now));
+    service.rows.add(record()
+        .copyWith(date: EntryDatePolicy.today(now: now), createdAt: now));
     await container
         .read(provider.notifier)
         .loadTodayRecord(siteId: 's', staffId: 'u');
@@ -190,8 +192,8 @@ void main() {
     await Future<void>.delayed(Duration.zero);
     service.delay = false;
     final now = DateTime.now();
-    service.rows
-        .add(record().copyWith(date: now, staffId: 'new', createdAt: now));
+    service.rows.add(record().copyWith(
+        date: EntryDatePolicy.today(now: now), staffId: 'new', createdAt: now));
     await notifier.loadTodayRecord(siteId: 's', staffId: 'new');
     expect(container.read(provider).todayRecord!.staffId, 'new');
     for (final gate in service.waiting.values) {

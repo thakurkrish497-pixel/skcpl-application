@@ -268,7 +268,7 @@ void main() {
         staffName: 'Staff',
         staffRole: 'worker',
         date: DateTime(2026, 11, 19),
-        punchTime: DateTime(2026, 11, 19, 10, 20),
+        punchTime: DateTime.parse('2026-11-19T10:20:00+05:30'),
         latitude: 22.7,
         longitude: 75.8);
     expect(result.status, AttendanceStatus.presentOnTime);

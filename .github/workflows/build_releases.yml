@@ -128,6 +128,7 @@ jobs:
           channel: stable
           cache: true
       - run: flutter pub get --enforce-lockfile
+      - run: flutter test --no-pub --reporter expanded
       - run: flutter build windows --release --no-pub
       - name: Package EXE, plugins, assets and Visual C++ runtime
         shell: pwsh
@@ -154,6 +155,7 @@ jobs:
           flutter config --no-enable-swift-package-manager
           pod --version
           flutter pub get --enforce-lockfile
+          flutter test --no-pub --reporter expanded
           flutter build macos --release --no-pub
       - name: Import optional Developer ID certificate
         shell: bash

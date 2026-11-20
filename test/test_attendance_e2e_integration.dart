@@ -120,7 +120,7 @@ void main() {
 
       // Simulate Ramesh Patel punching in at 10:15 AM (75 mins late -> >40 min lockout!)
       final punchDate = DateTime(2026, 10, 20);
-      final latePunchTime = DateTime(2026, 10, 20, 10, 15);
+      final latePunchTime = DateTime.parse('2026-10-20T10:15:00+05:30');
       final record = await attendanceService.punchIn(
         siteId: nissarpurSiteId,
         siteName: 'Nissarpur Site',
@@ -179,7 +179,7 @@ void main() {
       // Test punch-out
       final punchedOut = await attendanceService.punchOut(
         attendanceId: record.id,
-        punchOutTime: DateTime(2026, 10, 20, 18, 5),
+        punchOutTime: DateTime.parse('2026-10-20T18:05:00+05:30'),
         latitude: 22.0376,
         longitude: 74.9255,
       );

@@ -18,7 +18,7 @@ class UniversalSyncButton extends ConsumerWidget {
     final messenger = ScaffoldMessenger.of(context);
 
     // 1. Flush any queued offline transactions to Supabase
-    final syncResult = await ref.read(autoSyncProvider.notifier).syncNow();
+    final syncResult = await ref.read(autoSyncProvider.notifier).retryNow();
 
     // 2. Invalidate and re-fetch fresh server data
     ref.invalidate(activeSitesProvider);

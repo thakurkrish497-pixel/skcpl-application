@@ -1,3 +1,4 @@
+import '../../widgets/entry_date_picker.dart';
 import '../../services/inventory_math.dart';
 import '../../services/draft_store.dart';
 import '../../services/submission_support.dart';
@@ -128,7 +129,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
 
   CashEntryMode _entryMode = CashEntryMode.expense;
   String? _selectedExpenseTypeId;
-  DateTime _selectedDate = DateTime.now();
+  DateTime _selectedDate = EntryDatePolicy.today();
   List<PickedPhoto> _selectedPhotos = [];
   bool _isSubmitting = false;
 
@@ -282,11 +283,10 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
 
   Future<void> _pickDate() async {
     if (isLocked) return;
-    final picked = await showDatePicker(
+    final picked = await showEntryDatePicker(
       context: context,
       initialDate: _selectedDate,
       firstDate: DateTime(2020),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -326,6 +326,12 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
 
   Future<bool> _stageCurrentEntry(
       {bool silent = false, List<DropdownItemModel> types = const []}) async {
+    if (EntryDatePolicy.isFuture(_selectedDate)) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text(EntryDatePolicy.message)));
+      return false;
+    }
+
     if (_isSubmitting || isLocked) return false;
     final exp = parseFiniteNumber(_expenseAmountController.text) ?? 0;
     final rec = parseFiniteNumber(_amountReceivedController.text) ?? 0;
@@ -459,6 +465,12 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
 
   Future<void> _handleSubmit(
       [List<DropdownItemModel> currentTypes = const []]) async {
+    if (EntryDatePolicy.isFuture(_selectedDate)) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text(EntryDatePolicy.message)));
+      return;
+    }
+
     if (_isSubmitting || isLocked) return;
     final authState = ref.read(authProvider);
     final siteId =
@@ -910,7 +922,7 @@ class _ExpenseFormScreenState extends ConsumerState<ExpenseFormScreen> {
                     .read(cashProvider.notifier)
                     .loadTransactions(activeSiteId);
               }
-              await ref.read(autoSyncProvider.notifier).syncNow();
+              await ref.read(autoSyncProvider.notifier).retryNow();
             },
             child: ListView(
               padding: const EdgeInsets.all(20),

@@ -1,3 +1,11 @@
+import 'providers/attendance_session_refresh_provider.dart';
+import 'widgets/attendance_day_host.dart';
+import 'providers/live_location_feed_provider.dart';
+import 'widgets/staff_location_session.dart';
+import 'providers/shift_policy_sync_provider.dart';
+import 'widgets/workflow_monitor_host.dart';
+import 'services/workflow_navigation.dart';
+import 'widgets/staff_reminder_host.dart';
 import 'providers/notification_clock_provider.dart';
 import 'providers/site_announcement_provider.dart';
 import 'providers/role_access_provider.dart';
@@ -49,8 +57,13 @@ class SKCPLApp extends ConsumerWidget {
     ref.watch(managementSessionGuardProvider);
     ref.watch(noticeRealtimeProvider);
     ref.watch(notificationStartupProvider);
+    ref.watch(shiftPolicySyncProvider);
+    ref.watch(liveLocationFeedProvider);
+    ref.watch(attendanceSessionRefreshProvider);
 
     return MaterialApp(
+      navigatorKey: workflowNavigatorKey,
+      navigatorObservers: [staffLocationRoutes],
       title: 'SKCPL Construction Management',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
@@ -69,7 +82,9 @@ class SKCPLApp extends ConsumerWidget {
 
       // Background company logo watermark across all screens & routes
       builder: (context, child) => AppBackgroundWatermark(
-        child: child ?? const SizedBox(),
+        child: WorkflowMonitorHost(
+            child: AttendanceDayHost(
+                child: StaffReminderHost(child: child ?? const SizedBox()))),
       ),
 
       // Entry point

@@ -1,3 +1,4 @@
+import 'entry_date_picker.dart';
 import '../providers/site_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -885,18 +886,18 @@ class _CreateAnnouncementDialogState
   }
 
   Future<void> _pickMeetingDateTime() async {
-    final now = DateTime.now();
-    final pickedDate = await showDatePicker(
+    final now = EntryDatePolicy.today();
+    final pickedDate = await showEntryDatePicker(
       context: context,
       initialDate: now,
-      firstDate: now,
-      lastDate: now.add(const Duration(days: 90)),
+      firstDate: DateTime(2024),
     );
     if (pickedDate == null || !mounted) return;
 
     final pickedTime = await showTimePicker(
       context: context,
-      initialTime: TimeOfDay.fromDateTime(now.add(const Duration(hours: 1))),
+      initialTime:
+          TimeOfDay.fromDateTime(DateTime.now().add(const Duration(hours: 1))),
     );
     if (pickedTime == null || !mounted) return;
 

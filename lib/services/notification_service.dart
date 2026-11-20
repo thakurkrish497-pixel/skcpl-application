@@ -22,10 +22,13 @@ class NotificationDelivery {
       {required String key,
       required String title,
       required String body,
-      Duration? repeatAfter}) {
+      Duration? repeatAfter,
+      bool Function()? stillRelevant}) {
     final result = _tail.then((_) async {
       try {
+        if (stillRelevant?.call() == false) return;
         if (!await permission()) return;
+        if (stillRelevant?.call() == false) return;
         final prefs = await SharedPreferences.getInstance();
         final sent = prefs.getStringList(ledgerKey) ?? [];
         final time = now();
@@ -39,6 +42,7 @@ class NotificationDelivery {
             return;
           }
         }
+        if (stillRelevant?.call() == false) return;
         await show(title: title, body: body, tag: key);
         sent.removeWhere((e) => e.startsWith('$key:'));
         // Keep all birthday recipients for today, even in a large workforce.
@@ -67,12 +71,43 @@ class NotificationDelivery {
 }
 
 class NotificationService {
+  static final _workflowActions = StreamController<String>.broadcast();
+  static bool _actionsBound = false;
+  static Stream<String> get workflowActions {
+    if (!_actionsBound) {
+      _actionsBound = true;
+      setPlatformNotificationTapHandler(
+          (payload) => _workflowActions.add(payload));
+    }
+    return _workflowActions.stream;
+  }
+
+  static Future<void> initializeWorkflowActions() async {
+    await isPermissionGranted(); // Silent initialization, including launch taps.
+  }
+
+  static Future<void> showWorkflowReminder(
+          {required String payload,
+          required String title,
+          required String body,
+          required bool Function() stillRelevant,
+          Duration? repeatAfter = const Duration(hours: 6)}) =>
+      _delivery.send(
+          key: payload,
+          title: title,
+          body: body,
+          repeatAfter: repeatAfter,
+          stillRelevant: stillRelevant);
+
   static final _permissionChanges = StreamController<void>.broadcast();
   static Stream<void> get permissionChanges => _permissionChanges.stream;
   static final _delivery = NotificationDelivery(
       permission: isPermissionGranted,
-      show: ({required title, required body, tag}) =>
-          showPlatformNotification(title: title, body: body, tag: tag));
+      show: ({required title, required body, tag}) => showPlatformNotification(
+          title: title,
+          body: body,
+          tag: tag,
+          payload: tag?.startsWith('workflow.v1.') == true ? tag : null));
 
   static Future<void>? _startupPermission;
   static Future<void> requestPermissionOnFirstUse() => _startupPermission ??=
@@ -105,6 +140,14 @@ class NotificationService {
       return false;
     }
   }
+
+  static Future<void> showDailyTaskReminder(
+          {required String key,
+          required String title,
+          required String body,
+          required bool Function() stillRelevant}) =>
+      _delivery.send(
+          key: key, title: title, body: body, stillRelevant: stillRelevant);
 
   static Future<void> showSlaNotification(
           {required String title,

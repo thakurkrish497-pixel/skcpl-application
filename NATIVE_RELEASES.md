@@ -1,14 +1,16 @@
 # SKCPL native releases
 
-## Current release: 1.0.4, build 5
+## Current release: 1.0.5, build 6
 
-This release includes the previously tested sync/offline and Admin controls, live Admin Cashflow summaries, Project Head Sites/Excel parity, and the notification/Notice Board fixes. Flutter analysis is clean and 226 Flutter tests pass locally; release packaging checks and hosted CI validate publication separately.
+Includes restored cash/stock/site realtime publication, coalesced foreground/reconnect cache refresh, safe explicit retries of permission-paused entries, full site transaction history with status filters, DSR history across management roles, uniform voucher identity, shift inheritance, date restrictions, workflow reminders and foreground GPS quality checks. Midnight closures are estimated audit records; scheduled overnight shifts remain open until their captured end. Existing uploaded source records and actual punch timestamps are preserved.
 
-Android updates preserve the existing package ID and signing certificate. Preserve app data and sync pending entries before updating. Windows is a complete x64 EXE/ZIP; macOS contains both Apple Silicon and Intel architectures. All three CI packages must match one source commit and shared-source fingerprint before the release becomes public.
+Validation: 410 Flutter tests, 46 protected-backend tests, 8 packaging tests, and isolated PostgreSQL checks for primary and legacy attendance/GPS. Flutter analysis is clean. These checks do not substitute for physical-device field acceptance.
 
-Notifications are local while the app runs. Closed-app remote push is not implemented. No operational database changes are included. Apple notarization depends on configured signing credentials; consult the release manifest for the actual status.
+Android preserves the existing application ID and signing key. Update over the installed app; do not uninstall or clear application data. Queued entries and drafts stay on their original device. After updating, tap Sync Now to retry entries paused by the repaired photo permissions; ambiguous legacy entries remain preserved for reconciliation.
 
-The website pins download links to this exact release after all three artifacts are published and verified. No Google Play upload is performed.
+Windows includes the complete x64 EXE and runtime bundle. macOS includes Apple Silicon and Intel architectures; consult the release manifest for signing/notarization status. Closed-app remote push remains deferred. Foreground GPS depends on device permissions and accuracy. The separately deployed attendance job records estimated cutoffs once per minute, without filling actual punch-out timestamps.
+
+The website switches to this exact version only after all three installers and checksums have been verified. No Google Play upload is performed.
 
 ---
 

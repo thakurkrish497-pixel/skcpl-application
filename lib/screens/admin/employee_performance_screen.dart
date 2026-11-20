@@ -1,3 +1,4 @@
+import '../../widgets/entry_date_picker.dart';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -110,10 +111,9 @@ class _EmployeePerformanceScreenState
   }
 
   Future<void> _pickCustomDateRange() async {
-    final picked = await showDateRangePicker(
+    final picked = await showEntryDateRangePicker(
       context: context,
       firstDate: DateTime(2024),
-      lastDate: DateTime.now().add(const Duration(days: 1)),
       initialDateRange: DateTimeRange(start: _startDate, end: _endDate),
       builder: (context, child) {
         return Theme(
@@ -298,7 +298,7 @@ class _EmployeePerformanceScreenState
             .value = TextCellValue(dateFormat.format(r.date));
         sheet
             .cell(CellIndex.indexByColumnRow(columnIndex: 1, rowIndex: attRow))
-            .value = TextCellValue(r.status.displayName);
+            .value = TextCellValue(r.displayStatusName);
         sheet
             .cell(CellIndex.indexByColumnRow(columnIndex: 2, rowIndex: attRow))
             .value = TextCellValue(r.punchInTime !=

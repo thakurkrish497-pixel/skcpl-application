@@ -220,14 +220,34 @@ class OfflineService {
             (prefs.getStringList(_keyCashQueue) ?? []).length;
       });
 
-  static Future<SyncResult> syncAllQueued(
-      {required StockService stockService, required CashService cashService}) {
-    return _syncFlight ??= _flush(stockService, cashService)
-        .whenComplete(() => _syncFlight = null);
+  /// An explicit retry can recheck repaired server permissions using the SAME UUID.
+  /// Invalid content and ambiguous older queues remain paused for correction.
+  static bool canRetryPermissionFailure(Map<String, dynamic> data) {
+    final id = data['id'];
+    if (data['sync_version'] != 2 ||
+        id is! String ||
+        !RegExp(r'^offline_(cash|stock)_[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$')
+            .hasMatch(id)) {
+      return false;
+    }
+    final error = '${data['sync_error']}'.toLowerCase();
+    return error.contains('403') ||
+        error.contains('42501') ||
+        error.contains('row-level security') ||
+        error.contains('row level security');
   }
 
-  static Future<SyncResult> _flush(
-      StockService stockService, CashService cashService) async {
+  static Future<SyncResult> syncAllQueued(
+      {required StockService stockService,
+      required CashService cashService,
+      bool retryPermissionFailures = false}) {
+    return _syncFlight ??=
+        _flush(stockService, cashService, retryPermissionFailures)
+            .whenComplete(() => _syncFlight = null);
+  }
+
+  static Future<SyncResult> _flush(StockService stockService,
+      CashService cashService, bool retryPermissionFailures) async {
     var synced = 0;
     final errors = <String>[];
     for (final key in [_keyStockQueue, _keyCashQueue]) {
@@ -240,7 +260,8 @@ class OfflineService {
         try {
           final data = Map<String, dynamic>.from(jsonDecode(raw));
           id = data['id'] as String?;
-          if (data['sync_paused'] == true) {
+          if (data['sync_paused'] == true &&
+              !(retryPermissionFailures && canRetryPermissionFailure(data))) {
             // Report a paused failure without rewrapping and rewriting it every tick.
             errors.add(
                 data['sync_error']?.toString() ?? 'Entry needs correction.');

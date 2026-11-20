@@ -1,3 +1,6 @@
+import '../../widgets/universal_sync_button.dart';
+import '../../widgets/voucher_entry_details.dart';
+import '../../widgets/entry_date_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -34,12 +37,21 @@ class _SiteHistoryScreenState extends ConsumerState<SiteHistoryScreen>
   late TabController _tabController;
   DateTime? _selectedDate;
   bool _isExporting = false;
+  String _statusFilter = 'all';
+  bool _matchesStatus(TransactionStatus status) => switch (_statusFilter) {
+        'pending' => status == TransactionStatus.pendingAccounts ||
+            status == TransactionStatus.pendingAdmin,
+        'approved' => status == TransactionStatus.approved,
+        'rejected' => status == TransactionStatus.rejected,
+        _ => true,
+      };
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       ref.read(stockProvider.notifier).loadTransactions(widget.siteId);
       ref.read(cashProvider.notifier).loadTransactions(widget.siteId);
     });
@@ -56,11 +68,17 @@ class _SiteHistoryScreenState extends ConsumerState<SiteHistoryScreen>
     final stockState = ref.read(stockProvider);
     setState(() => _isExporting = true);
     try {
+      final siteCash = cashState.transactions
+          .where((t) => t.siteId == widget.siteId)
+          .toList();
+      final siteStock = stockState.transactions
+          .where((t) => t.siteId == widget.siteId)
+          .toList();
       await ExcelService.exportAndShareComprehensiveExcel(
         siteName: widget.siteName,
         siteId: widget.siteId,
-        cashTransactions: cashState.transactions,
-        stockTransactions: stockState.transactions,
+        cashTransactions: siteCash,
+        stockTransactions: siteStock,
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -182,9 +200,9 @@ class _SiteHistoryScreenState extends ConsumerState<SiteHistoryScreen>
     final stockState = ref.watch(stockProvider);
     final cashState = ref.watch(cashProvider);
 
-    // Filter stock transactions
+    // Filter stock transactions strictly for this site
     var stockTransactions = stockState.transactions
-        .where((t) => t.status == TransactionStatus.approved)
+        .where((t) => _matchesStatus(t.status) && t.siteId == widget.siteId)
         .toList();
     if (_selectedDate != null) {
       stockTransactions = stockTransactions.where((t) {
@@ -194,9 +212,9 @@ class _SiteHistoryScreenState extends ConsumerState<SiteHistoryScreen>
       }).toList();
     }
 
-    // Filter cash transactions
+    // Filter cash transactions strictly for this site
     var cashTransactions = cashState.transactions
-        .where((t) => t.status == TransactionStatus.approved)
+        .where((t) => _matchesStatus(t.status) && t.siteId == widget.siteId)
         .toList();
     if (_selectedDate != null) {
       cashTransactions = cashTransactions.where((t) {
@@ -211,6 +229,7 @@ class _SiteHistoryScreenState extends ConsumerState<SiteHistoryScreen>
       appBar: AppBar(
         title: Text('${widget.siteName} History'),
         actions: [
+          UniversalSyncButton(siteId: widget.siteId),
           IconButton(
             icon: _isExporting
                 ? const SizedBox(
@@ -235,11 +254,10 @@ class _SiteHistoryScreenState extends ConsumerState<SiteHistoryScreen>
                 setState(() => _selectedDate = null);
                 return;
               }
-              final picked = await showDatePicker(
+              final picked = await showEntryDatePicker(
                 context: context,
                 initialDate: DateTime.now(),
                 firstDate: DateTime(2020),
-                lastDate: DateTime.now().add(const Duration(days: 365)),
               );
               if (picked != null) {
                 setState(() => _selectedDate = picked);
@@ -260,362 +278,412 @@ class _SiteHistoryScreenState extends ConsumerState<SiteHistoryScreen>
           ],
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          // ── Tab 1: Stock History ──
-          stockState.isLoading
-              ? const Center(
-                  child: CircularProgressIndicator(color: AppColors.primary))
-              : stockTransactions.isEmpty
-                  ? Center(
-                      child: Text(
-                        _selectedDate != null
-                            ? 'No approved stock records on ${DateFormat('dd MMM yyyy').format(_selectedDate!)}'
-                            : 'No historical stock transactions found.',
-                        style: AppTextStyles.bodyMedium
-                            .copyWith(color: AppColors.textTertiary),
-                      ),
-                    )
-                  : ListView.separated(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: stockTransactions.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 12),
-                      itemBuilder: (context, index) {
-                        final tx = stockTransactions[index];
-                        final isAdd = tx.type == TransactionType.inbound;
-                        return Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: AppColors.cardDark,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                                color: AppColors.divider, width: 0.5),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Icon(
-                                    isAdd
-                                        ? Icons.add_circle
-                                        : Icons.remove_circle,
-                                    color: isAdd
-                                        ? AppColors.approved
-                                        : AppColors.rejected,
-                                    size: 30,
-                                  ),
-                                  const SizedBox(width: 14),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          '${isAdd ? 'Product In' : 'Product Used'}: ${tx.displayProductName}',
-                                          style:
-                                              AppTextStyles.bodyMedium.copyWith(
-                                            color: AppColors.textPrimary,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        Text(
-                                          'Date: ${DateFormat('dd MMM yyyy').format(tx.date)}',
-                                          style: AppTextStyles.bodySmall
-                                              .copyWith(
-                                                  color:
-                                                      AppColors.textSecondary),
-                                        ),
-                                        if (tx.submitterName != null ||
-                                            tx.supervisorReviewNote != null)
+      body: Column(children: [
+        Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            child: Row(children: [
+              const Text('Show: '),
+              DropdownButton<String>(
+                  value: _statusFilter,
+                  items: const [
+                    DropdownMenuItem(value: 'all', child: Text('All statuses')),
+                    DropdownMenuItem(
+                        value: 'pending', child: Text('Pending review')),
+                    DropdownMenuItem(
+                        value: 'approved', child: Text('Approved')),
+                    DropdownMenuItem(value: 'rejected', child: Text('Rejected'))
+                  ],
+                  onChanged: (value) {
+                    if (value != null) setState(() => _statusFilter = value);
+                  }),
+            ])),
+        if (cashState.error != null || stockState.error != null)
+          const Padding(
+              padding: EdgeInsets.all(8),
+              child: Text(
+                  'Refresh failed. Showing previously loaded entries; use Sync & Refresh.')),
+        if (cashState.isLoading || stockState.isLoading)
+          const LinearProgressIndicator(),
+        Expanded(
+            child: TabBarView(
+          controller: _tabController,
+          children: [
+            // ── Tab 1: Stock History ──
+            stockState.isLoading && stockTransactions.isEmpty
+                ? const Center(
+                    child: CircularProgressIndicator(color: AppColors.primary))
+                : stockTransactions.isEmpty
+                    ? Center(
+                        child: Text(
+                          _selectedDate != null
+                              ? 'No matching stock records on ${DateFormat('dd MMM yyyy').format(_selectedDate!)}'
+                              : 'No historical stock transactions found.',
+                          style: AppTextStyles.bodyMedium
+                              .copyWith(color: AppColors.textTertiary),
+                        ),
+                      )
+                    : ListView.separated(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: stockTransactions.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 12),
+                        itemBuilder: (context, index) {
+                          final tx = stockTransactions[index];
+                          final isAdd = tx.type == TransactionType.inbound;
+                          return Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: AppColors.cardDark,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                  color: AppColors.divider, width: 0.5),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(
+                                      isAdd
+                                          ? Icons.add_circle
+                                          : Icons.remove_circle,
+                                      color: isAdd
+                                          ? AppColors.approved
+                                          : AppColors.rejected,
+                                      size: 30,
+                                    ),
+                                    const SizedBox(width: 14),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
                                           Text(
-                                            '${tx.submitterName != null ? 'By: ${tx.submitterName}  ' : ''}${tx.supervisorReviewNote != null ? '• ${tx.supervisorReviewNote}' : ''}',
-                                            style: AppTextStyles.caption
+                                            '${isAdd ? 'Product In' : 'Product Used'}: ${tx.displayProductName}',
+                                            style: AppTextStyles.bodyMedium
                                                 .copyWith(
-                                                    color: AppColors.secondary,
-                                                    fontWeight:
-                                                        FontWeight.w600),
+                                              color: AppColors.textPrimary,
+                                              fontWeight: FontWeight.bold,
+                                            ),
                                           ),
-                                        if (tx.billNo != null ||
-                                            (isAdd &&
-                                                tx.displayVendorName != 'None'))
                                           Text(
-                                            '${isAdd && tx.displayVendorName != 'None' ? 'Party: ${tx.displayVendorName}  ' : ''}${tx.billNo != null ? 'Bill: #${tx.billNo}' : ''}',
-                                            style: AppTextStyles.caption
-                                                .copyWith(
-                                                    color: AppColors.primary,
-                                                    fontWeight:
-                                                        FontWeight.w600),
-                                          ),
-                                        if (tx.cleanRemarks != null &&
-                                            tx.cleanRemarks!.isNotEmpty)
-                                          Text(
-                                            'Remarks: ${tx.cleanRemarks}',
+                                            'Date: ${DateFormat('dd MMM yyyy').format(tx.date)}',
                                             style: AppTextStyles.bodySmall
                                                 .copyWith(
-                                                    color:
-                                                        AppColors.textTertiary),
+                                                    color: AppColors
+                                                        .textSecondary),
                                           ),
-                                      ],
+                                          if (tx.submitterName != null ||
+                                              tx.supervisorReviewNote != null)
+                                            Text(
+                                              '${tx.submitterName != null ? 'By: ${tx.submitterName}  ' : ''}${tx.supervisorReviewNote != null ? '• ${tx.supervisorReviewNote}' : ''}',
+                                              style: AppTextStyles.caption
+                                                  .copyWith(
+                                                      color:
+                                                          AppColors.secondary,
+                                                      fontWeight:
+                                                          FontWeight.w600),
+                                            ),
+                                          if (tx.billNo != null ||
+                                              (isAdd &&
+                                                  tx.displayVendorName !=
+                                                      'None'))
+                                            Text(
+                                              '${isAdd && tx.displayVendorName != 'None' ? 'Party: ${tx.displayVendorName}  ' : ''}${tx.billNo != null ? 'Bill: #${tx.billNo}' : ''}',
+                                              style: AppTextStyles.caption
+                                                  .copyWith(
+                                                      color: AppColors.primary,
+                                                      fontWeight:
+                                                          FontWeight.w600),
+                                            ),
+                                          if (tx.cleanRemarks != null &&
+                                              tx.cleanRemarks!.isNotEmpty)
+                                            Text(
+                                              'Remarks: ${tx.cleanRemarks}',
+                                              style: AppTextStyles.bodySmall
+                                                  .copyWith(
+                                                      color: AppColors
+                                                          .textTertiary),
+                                            ),
+                                        ],
+                                      ),
                                     ),
-                                  ),
-                                  Text(
-                                    '${tx.quantity} ${tx.displayMetricUnitName}',
-                                    style: AppTextStyles.labelLarge
-                                        .copyWith(color: AppColors.primary),
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(Icons.picture_as_pdf,
-                                        color: AppColors.textSecondary,
-                                        size: 20),
-                                    onPressed: () {
-                                      PdfService.generateAndPrintStockReceipt(
-                                          tx, widget.siteName);
-                                    },
-                                  ),
-                                ],
-                              ),
-                              if (tx.photoUrls.isNotEmpty)
-                                PhotoThumbnailStrip(photoUrls: tx.photoUrls),
-                              if (ref.read(authProvider).isAdmin) ...[
-                                const Divider(
-                                    color: AppColors.divider, height: 16),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.end,
-                                  children: [
-                                    TextButton.icon(
-                                      icon: const Icon(Icons.edit_note_rounded,
-                                          size: 18, color: AppColors.primary),
-                                      label: const Text('Edit Entry',
-                                          style: TextStyle(
-                                              color: AppColors.primary,
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.bold)),
-                                      onPressed: () async {
-                                        final didUpdate = await Navigator.push<
-                                                bool>(
-                                            context,
-                                            MaterialPageRoute(
-                                              builder: (_) => tx.type ==
-                                                      TransactionType.inbound
-                                                  ? AddProductScreen(
-                                                      existingTransaction: tx)
-                                                  : UseProductScreen(
-                                                      existingTransaction: tx),
-                                            ));
-                                        if (didUpdate == true) {
-                                          ref.invalidate(stockOverviewProvider(
-                                              widget.siteId));
-                                          ref.invalidate(allSitesStockProvider);
-                                          ref
-                                              .read(stockProvider.notifier)
-                                              .loadCurrentStock(widget.siteId);
-                                          ref
-                                              .read(stockProvider.notifier)
-                                              .loadTransactions(widget.siteId);
-                                        }
+                                    Text(
+                                      '${tx.quantity} ${tx.displayMetricUnitName}',
+                                      style: AppTextStyles.labelLarge
+                                          .copyWith(color: AppColors.primary),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.picture_as_pdf,
+                                          color: AppColors.textSecondary,
+                                          size: 20),
+                                      onPressed: () {
+                                        PdfService.generateAndPrintStockReceipt(
+                                            tx, widget.siteName);
                                       },
-                                    ),
-                                    const SizedBox(width: 8),
-                                    TextButton.icon(
-                                      icon: const Icon(
-                                          Icons.delete_outline_rounded,
-                                          size: 18,
-                                          color: AppColors.rejected),
-                                      label: const Text('Delete Entry',
-                                          style: TextStyle(
-                                              color: AppColors.rejected,
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.bold)),
-                                      onPressed: () => _deleteStockTx(tx),
                                     ),
                                   ],
                                 ),
-                              ],
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-
-          // ── Tab 2: Imprest Cashbook History ──
-          cashState.isLoading
-              ? const Center(
-                  child: CircularProgressIndicator(color: AppColors.primary))
-              : cashTransactions.isEmpty
-                  ? Center(
-                      child: Text(
-                        _selectedDate != null
-                            ? 'No approved cash records on ${DateFormat('dd MMM yyyy').format(_selectedDate!)}'
-                            : 'No historical cashbook transactions found.',
-                        style: AppTextStyles.bodyMedium
-                            .copyWith(color: AppColors.textTertiary),
-                      ),
-                    )
-                  : ListView.separated(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: cashTransactions.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 12),
-                      itemBuilder: (context, index) {
-                        final tx = cashTransactions[index];
-                        final isExpense = tx.expenseAmount > 0;
-                        return Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: AppColors.cardDark,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                                color: AppColors.divider, width: 0.5),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Icon(
-                                    isExpense
-                                        ? Icons.money_off_rounded
-                                        : Icons.savings_rounded,
-                                    color: isExpense
-                                        ? AppColors.rejected
-                                        : AppColors.approved,
-                                    size: 28,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          tx.displayExpenseTypeName,
-                                          style:
-                                              AppTextStyles.bodyMedium.copyWith(
-                                            color: AppColors.textPrimary,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        Text(
-                                          'Date: ${DateFormat('dd MMM yyyy').format(tx.date)}',
-                                          style: AppTextStyles.bodySmall
-                                              .copyWith(
-                                                  color:
-                                                      AppColors.textSecondary),
-                                        ),
-                                        if (tx.submitterName != null ||
-                                            tx.supervisorReviewNote != null)
-                                          Text(
-                                            '${tx.submitterName != null ? 'By: ${tx.submitterName}  ' : ''}${tx.supervisorReviewNote != null ? '• ${tx.supervisorReviewNote}' : ''}',
-                                            style: AppTextStyles.caption
-                                                .copyWith(
-                                                    color: AppColors.secondary,
-                                                    fontWeight:
-                                                        FontWeight.w600),
-                                          ),
-                                        if (tx.partyName != null ||
-                                            tx.billNo != null)
-                                          Text(
-                                            '${tx.partyName != null ? 'Party: ${tx.partyName}  ' : ''}${tx.billNo != null ? 'Bill: #${tx.billNo}' : ''}',
-                                            style: AppTextStyles.caption
-                                                .copyWith(
-                                                    color: AppColors.primary,
-                                                    fontWeight:
-                                                        FontWeight.w600),
-                                          ),
-                                        if (tx.cleanRemarks != null &&
-                                            tx.cleanRemarks!.isNotEmpty)
-                                          Text(
-                                            'Desc: ${tx.cleanRemarks}',
-                                            style: AppTextStyles.bodySmall
-                                                .copyWith(
-                                                    color:
-                                                        AppColors.textTertiary),
-                                          ),
-                                      ],
-                                    ),
-                                  ),
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                Text(tx.status.displayName,
+                                    style: AppTextStyles.caption),
+                                VoucherEntryIdentity(stock: tx),
+                                if (tx.photoUrls.isNotEmpty)
+                                  PhotoThumbnailStrip(photoUrls: tx.photoUrls),
+                                if (ref.read(authProvider).isAdmin) ...[
+                                  const Divider(
+                                      color: AppColors.divider, height: 16),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.end,
                                     children: [
-                                      Text(
-                                        isExpense
-                                            ? '-₹${NumberFormat('#,##,###').format(tx.expenseAmount)}'
-                                            : '+₹${NumberFormat('#,##,###').format(tx.amountReceived)}',
-                                        style: AppTextStyles.h4.copyWith(
-                                          color: isExpense
-                                              ? AppColors.rejected
-                                              : AppColors.approved,
-                                        ),
+                                      TextButton.icon(
+                                        icon: const Icon(
+                                            Icons.edit_note_rounded,
+                                            size: 18,
+                                            color: AppColors.primary),
+                                        label: const Text('Edit Entry',
+                                            style: TextStyle(
+                                                color: AppColors.primary,
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.bold)),
+                                        onPressed: () async {
+                                          final didUpdate =
+                                              await Navigator.push<bool>(
+                                                  context,
+                                                  MaterialPageRoute(
+                                                    builder: (_) => tx.type ==
+                                                            TransactionType
+                                                                .inbound
+                                                        ? AddProductScreen(
+                                                            existingTransaction:
+                                                                tx)
+                                                        : UseProductScreen(
+                                                            existingTransaction:
+                                                                tx),
+                                                  ));
+                                          if (didUpdate == true) {
+                                            ref.invalidate(
+                                                stockOverviewProvider(
+                                                    widget.siteId));
+                                            ref.invalidate(
+                                                allSitesStockProvider);
+                                            ref
+                                                .read(stockProvider.notifier)
+                                                .loadCurrentStock(
+                                                    widget.siteId);
+                                            ref
+                                                .read(stockProvider.notifier)
+                                                .loadTransactions(
+                                                    widget.siteId);
+                                          }
+                                        },
                                       ),
-                                      Text(
-                                        'Hand: ₹${NumberFormat('#,##,###').format(tx.cashInHand)}',
-                                        style: AppTextStyles.caption.copyWith(
-                                            color: AppColors.textTertiary),
+                                      const SizedBox(width: 8),
+                                      TextButton.icon(
+                                        icon: const Icon(
+                                            Icons.delete_outline_rounded,
+                                            size: 18,
+                                            color: AppColors.rejected),
+                                        label: const Text('Delete Entry',
+                                            style: TextStyle(
+                                                color: AppColors.rejected,
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.bold)),
+                                        onPressed: () => _deleteStockTx(tx),
                                       ),
                                     ],
                                   ),
                                 ],
-                              ),
-                              if (tx.photoUrls.isNotEmpty)
-                                PhotoThumbnailStrip(photoUrls: tx.photoUrls),
-                              if (ref.read(authProvider).isAdmin) ...[
-                                const Divider(
-                                    color: AppColors.divider, height: 16),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+
+            // ── Tab 2: Imprest Cashbook History ──
+            cashState.isLoading && cashTransactions.isEmpty
+                ? const Center(
+                    child: CircularProgressIndicator(color: AppColors.primary))
+                : cashTransactions.isEmpty
+                    ? Center(
+                        child: Text(
+                          _selectedDate != null
+                              ? 'No matching cash records on ${DateFormat('dd MMM yyyy').format(_selectedDate!)}'
+                              : 'No historical cashbook transactions found.',
+                          style: AppTextStyles.bodyMedium
+                              .copyWith(color: AppColors.textTertiary),
+                        ),
+                      )
+                    : ListView.separated(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: cashTransactions.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 12),
+                        itemBuilder: (context, index) {
+                          final tx = cashTransactions[index];
+                          final isExpense = tx.expenseAmount > 0;
+                          return Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: AppColors.cardDark,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                  color: AppColors.divider, width: 0.5),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.end,
                                   children: [
-                                    TextButton.icon(
-                                      icon: const Icon(Icons.edit_note_rounded,
-                                          size: 18, color: AppColors.primary),
-                                      label: const Text('Edit Entry',
-                                          style: TextStyle(
-                                              color: AppColors.primary,
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.bold)),
-                                      onPressed: () async {
-                                        final didUpdate =
-                                            await Navigator.push<bool>(
-                                                context,
-                                                MaterialPageRoute(
-                                                  builder: (_) =>
-                                                      ExpenseFormScreen(
-                                                          existingTransaction:
-                                                              tx),
-                                                ));
-                                        if (didUpdate == true) {
-                                          ref.invalidate(
-                                              siteCashSummaryProvider(
-                                                  widget.siteId));
-                                          ref
-                                              .read(cashProvider.notifier)
-                                              .loadTransactions(widget.siteId);
-                                        }
-                                      },
+                                    Icon(
+                                      isExpense
+                                          ? Icons.money_off_rounded
+                                          : Icons.savings_rounded,
+                                      color: isExpense
+                                          ? AppColors.rejected
+                                          : AppColors.approved,
+                                      size: 28,
                                     ),
-                                    const SizedBox(width: 8),
-                                    TextButton.icon(
-                                      icon: const Icon(
-                                          Icons.delete_outline_rounded,
-                                          size: 18,
-                                          color: AppColors.rejected),
-                                      label: const Text('Delete Entry',
-                                          style: TextStyle(
-                                              color: AppColors.rejected,
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.bold)),
-                                      onPressed: () => _deleteCashTx(tx),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            tx.displayExpenseTypeName,
+                                            style: AppTextStyles.bodyMedium
+                                                .copyWith(
+                                              color: AppColors.textPrimary,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                          Text(
+                                            'Date: ${DateFormat('dd MMM yyyy').format(tx.date)}',
+                                            style: AppTextStyles.bodySmall
+                                                .copyWith(
+                                                    color: AppColors
+                                                        .textSecondary),
+                                          ),
+                                          if (tx.submitterName != null ||
+                                              tx.supervisorReviewNote != null)
+                                            Text(
+                                              '${tx.submitterName != null ? 'By: ${tx.submitterName}  ' : ''}${tx.supervisorReviewNote != null ? '• ${tx.supervisorReviewNote}' : ''}',
+                                              style: AppTextStyles.caption
+                                                  .copyWith(
+                                                      color:
+                                                          AppColors.secondary,
+                                                      fontWeight:
+                                                          FontWeight.w600),
+                                            ),
+                                          if (tx.partyName != null ||
+                                              tx.billNo != null)
+                                            Text(
+                                              '${tx.partyName != null ? 'Party: ${tx.partyName}  ' : ''}${tx.billNo != null ? 'Bill: #${tx.billNo}' : ''}',
+                                              style: AppTextStyles.caption
+                                                  .copyWith(
+                                                      color: AppColors.primary,
+                                                      fontWeight:
+                                                          FontWeight.w600),
+                                            ),
+                                          if (tx.cleanRemarks != null &&
+                                              tx.cleanRemarks!.isNotEmpty)
+                                            Text(
+                                              'Desc: ${tx.cleanRemarks}',
+                                              style: AppTextStyles.bodySmall
+                                                  .copyWith(
+                                                      color: AppColors
+                                                          .textTertiary),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                    Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.end,
+                                      children: [
+                                        Text(
+                                          isExpense
+                                              ? '-₹${NumberFormat('#,##,###').format(tx.expenseAmount)}'
+                                              : '+₹${NumberFormat('#,##,###').format(tx.amountReceived)}',
+                                          style: AppTextStyles.h4.copyWith(
+                                            color: isExpense
+                                                ? AppColors.rejected
+                                                : AppColors.approved,
+                                          ),
+                                        ),
+                                        Text(
+                                          'Hand: ₹${NumberFormat('#,##,###').format(tx.cashInHand)}',
+                                          style: AppTextStyles.caption.copyWith(
+                                              color: AppColors.textTertiary),
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 ),
+                                Text(tx.status.displayName,
+                                    style: AppTextStyles.caption),
+                                VoucherEntryIdentity(cash: tx),
+                                if (tx.photoUrls.isNotEmpty)
+                                  PhotoThumbnailStrip(photoUrls: tx.photoUrls),
+                                if (ref.read(authProvider).isAdmin) ...[
+                                  const Divider(
+                                      color: AppColors.divider, height: 16),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.end,
+                                    children: [
+                                      TextButton.icon(
+                                        icon: const Icon(
+                                            Icons.edit_note_rounded,
+                                            size: 18,
+                                            color: AppColors.primary),
+                                        label: const Text('Edit Entry',
+                                            style: TextStyle(
+                                                color: AppColors.primary,
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.bold)),
+                                        onPressed: () async {
+                                          final didUpdate =
+                                              await Navigator.push<bool>(
+                                                  context,
+                                                  MaterialPageRoute(
+                                                    builder: (_) =>
+                                                        ExpenseFormScreen(
+                                                            existingTransaction:
+                                                                tx),
+                                                  ));
+                                          if (didUpdate == true) {
+                                            ref.invalidate(
+                                                siteCashSummaryProvider(
+                                                    widget.siteId));
+                                            ref
+                                                .read(cashProvider.notifier)
+                                                .loadTransactions(
+                                                    widget.siteId);
+                                          }
+                                        },
+                                      ),
+                                      const SizedBox(width: 8),
+                                      TextButton.icon(
+                                        icon: const Icon(
+                                            Icons.delete_outline_rounded,
+                                            size: 18,
+                                            color: AppColors.rejected),
+                                        label: const Text('Delete Entry',
+                                            style: TextStyle(
+                                                color: AppColors.rejected,
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.bold)),
+                                        onPressed: () => _deleteCashTx(tx),
+                                      ),
+                                    ],
+                                  ),
+                                ],
                               ],
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-        ],
-      ),
+                            ),
+                          );
+                        },
+                      ),
+          ],
+        )),
+      ]),
     );
   }
 }

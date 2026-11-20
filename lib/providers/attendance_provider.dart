@@ -1,3 +1,6 @@
+import '../services/attendance_session_policy.dart';
+import '../services/shift_policy_resolver.dart';
+import '../services/entry_date_policy.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/attendance_model.dart';
 import '../services/attendance_service.dart';
@@ -7,8 +10,8 @@ final attendanceServiceProvider = Provider<AttendanceService>((ref) {
 });
 
 /// Fetch shift policy for a specific site or company default
-final shiftPolicyForSiteProvider =
-    FutureProvider.family<SiteShiftPolicyModel, String>((ref, siteId) async {
+final shiftPolicyForSiteProvider = FutureProvider.autoDispose
+    .family<SiteShiftPolicyModel, String>((ref, siteId) async {
   final service = ref.read(attendanceServiceProvider);
   return service.getShiftPolicy(siteId);
 });
@@ -18,7 +21,7 @@ final todayAttendanceForSiteProvider =
     FutureProvider.family<List<AttendanceRecordModel>, String>(
         (ref, siteId) async {
   final service = ref.read(attendanceServiceProvider);
-  return service.getTodayAttendance(siteId, DateTime.now());
+  return service.getTodayAttendance(siteId, EntryDatePolicy.today());
 });
 
 /// Fetch attendance for an arbitrary date and site (or 'all' for company-wide)
@@ -52,9 +55,8 @@ final pendingRegularizationRequestsProvider =
 });
 
 /// Fetch live staff locations (all or filtered by site)
-final liveStaffLocationsProvider =
-    FutureProvider.family<List<StaffLiveLocationModel>, String?>(
-        (ref, siteId) async {
+final liveStaffLocationsProvider = FutureProvider.autoDispose
+    .family<List<StaffLiveLocationModel>, String?>((ref, siteId) async {
   final service = ref.read(attendanceServiceProvider);
   return service.getLiveStaffLocations(siteId);
 });
@@ -89,11 +91,12 @@ class StaffPunchState {
 
   StaffPunchState copyWith({
     AttendanceRecordModel? todayRecord,
+    bool clearTodayRecord = false,
     bool? isLoading,
     String? error,
   }) {
     return StaffPunchState(
-      todayRecord: todayRecord ?? this.todayRecord,
+      todayRecord: clearTodayRecord ? null : todayRecord ?? this.todayRecord,
       isLoading: isLoading ?? this.isLoading,
       error: error,
     );
@@ -103,6 +106,7 @@ class StaffPunchState {
 class StaffPunchNotifier extends StateNotifier<StaffPunchState> {
   final AttendanceService _service;
   final Ref _ref;
+  int _loadSerial = 0;
 
   StaffPunchNotifier(this._service, this._ref) : super(const StaffPunchState());
 
@@ -111,14 +115,51 @@ class StaffPunchNotifier extends StateNotifier<StaffPunchState> {
     required String siteId,
     required String staffId,
   }) async {
+    final serial = ++_loadSerial;
     state = state.copyWith(isLoading: true, error: null);
     try {
-      final records = await _service.getTodayAttendance(siteId, DateTime.now());
-      final myRecord = records.where((r) => r.staffId == staffId).firstOrNull;
-      state = state.copyWith(todayRecord: myRecord, isLoading: false);
-    } catch (e) {
-      state = state.copyWith(error: e.toString(), isLoading: false);
+      final now = DateTime.now();
+      final policy = await _service.getShiftPolicy(siteId);
+      final today = EntryDatePolicy.today(now: now),
+          day = AttendanceSessionPolicy.workDay(now, policy);
+      final yesterday = DateTime(today.year, today.month, today.day - 1);
+      final days = {today, yesterday, day};
+      final pages = await Future.wait(
+          days.map((date) => _service.getTodayAttendance(siteId, date)));
+      final records = pages.expand((rows) => rows).toList();
+      if (!mounted || serial != _loadSerial) return;
+      final mine = records
+          .where((r) =>
+              r.staffId == staffId &&
+              shiftLocationKey(r.siteId) == shiftLocationKey(siteId) &&
+              AttendanceSessionPolicy.current(r, now, policy))
+          .toList()
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      state = state.copyWith(
+          todayRecord: mine.firstOrNull,
+          clearTodayRecord: mine.isEmpty,
+          isLoading: false);
+    } catch (error) {
+      if (mounted && serial == _loadSerial) {
+        state = state.copyWith(error: error.toString(), isLoading: false);
+      }
     }
+  }
+
+  void refreshDay(
+      {required String siteId,
+      required String staffId,
+      required SiteShiftPolicyModel policy,
+      DateTime? now}) {
+    if (state.isLoading) return;
+    final record = state.todayRecord;
+    if (record != null &&
+        (record.staffId != staffId ||
+            !AttendanceSessionPolicy.current(
+                record, now ?? DateTime.now(), policy))) {
+      state = state.copyWith(clearTodayRecord: true);
+    }
+    loadTodayRecord(siteId: siteId, staffId: staffId);
   }
 
   /// Punch in
@@ -132,6 +173,7 @@ class StaffPunchNotifier extends StateNotifier<StaffPunchState> {
     double? longitude,
     String? address,
   }) async {
+    _loadSerial++;
     state = state.copyWith(isLoading: true, error: null);
     try {
       final record = await _service.punchIn(
@@ -140,14 +182,16 @@ class StaffPunchNotifier extends StateNotifier<StaffPunchState> {
         staffId: staffId,
         staffName: staffName,
         staffRole: staffRole,
-        date: DateTime.now(),
+        date: EntryDatePolicy.today(),
         punchTime: DateTime.now(),
         latitude: latitude,
         longitude: longitude,
         address: address,
       );
 
-      state = state.copyWith(todayRecord: record, isLoading: false);
+      if (mounted) {
+        state = state.copyWith(todayRecord: record, isLoading: false);
+      }
 
       // Invalidate relevant providers
       _ref.invalidate(todayAttendanceForSiteProvider);

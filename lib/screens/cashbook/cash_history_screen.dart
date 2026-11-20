@@ -216,7 +216,7 @@ class _CashHistoryScreenState extends ConsumerState<CashHistoryScreen> {
               } else {
                 await ref.read(cashProvider.notifier).loadAllTransactions();
               }
-              await ref.read(autoSyncProvider.notifier).syncNow();
+              await ref.read(autoSyncProvider.notifier).retryNow();
             },
             child: ListView.separated(
               padding: const EdgeInsets.all(16),

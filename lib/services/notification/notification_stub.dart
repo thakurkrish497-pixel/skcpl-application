@@ -1,3 +1,5 @@
+void setPlatformNotificationTapHandler(void Function(String)? handler) {}
+
 /// Stub implementation for non-web platforms (IO fallback)
 Future<bool> requestPlatformNotificationPermission() async {
   return true;
@@ -12,6 +14,7 @@ Future<void> showPlatformNotification({
   required String body,
   String? tag,
   String? iconUrl,
+  String? payload,
 }) async {
   // Fallback for IO / mock
 }

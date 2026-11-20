@@ -1,3 +1,4 @@
+import '../../widgets/entry_date_picker.dart';
 import '../../services/inventory_math.dart';
 import '../../services/draft_store.dart';
 import '../../services/submission_support.dart';
@@ -118,7 +119,7 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
   String? _selectedVendorId;
   String? _selectedProductId;
   String? _selectedMetricUnitId;
-  DateTime _selectedDate = DateTime.now();
+  DateTime _selectedDate = EntryDatePolicy.today();
 
   // Photos
   List<PickedPhoto> _selectedPhotos = [];
@@ -294,11 +295,10 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
 
   Future<void> _pickDate() async {
     if (isLocked) return;
-    final picked = await showDatePicker(
+    final picked = await showEntryDatePicker(
       context: context,
       initialDate: _selectedDate,
       firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -346,6 +346,12 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
     List<DropdownItemModel> products = const [],
     List<DropdownItemModel> units = const [],
   }) async {
+    if (EntryDatePolicy.isFuture(_selectedDate)) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text(EntryDatePolicy.message)));
+      return false;
+    }
+
     if (_isSubmitting || isLocked) return false;
     final qty = parseFiniteNumber(_quantityController.text) ?? 0;
     if (!qty.isFinite || qty <= 0) {
@@ -494,6 +500,12 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
     List<DropdownItemModel> products = const [],
     List<DropdownItemModel> units = const [],
   }) async {
+    if (EntryDatePolicy.isFuture(_selectedDate)) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text(EntryDatePolicy.message)));
+      return;
+    }
+
     if (_isSubmitting || isLocked) return;
     final authState = ref.read(authProvider);
     final siteId =

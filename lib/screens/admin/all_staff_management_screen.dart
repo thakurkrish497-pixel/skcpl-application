@@ -1,3 +1,5 @@
+import '../../widgets/inherited_shift_info.dart';
+import '../../widgets/entry_date_picker.dart';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -246,6 +248,7 @@ class _AllStaffManagementScreenState
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    InheritedShiftInfo(siteId: selectedSiteId),
                     // Location / Site Dropdown
                     if (!isEditing) ...[
                       DropdownButtonFormField<String>(
@@ -562,13 +565,11 @@ class _AllStaffManagementScreenState
                               ),
                             ),
                             onPressed: () async {
-                              final now = DateTime.now();
-                              final picked = await showDatePicker(
+                              final picked = await showEntryDatePicker(
                                 context: context,
                                 initialDate:
                                     selectedDob ?? DateTime(1995, 1, 1),
                                 firstDate: DateTime(1940),
-                                lastDate: now,
                                 builder: (context, child) {
                                   return Theme(
                                     data: ThemeData.dark().copyWith(

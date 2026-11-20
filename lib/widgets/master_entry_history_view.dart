@@ -1,3 +1,4 @@
+import 'voucher_entry_details.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -8,7 +9,6 @@ import '../models/stock_transaction_model.dart';
 import '../providers/cash_provider.dart';
 import '../providers/stock_provider.dart';
 import '../widgets/status_badge.dart';
-import '../widgets/photo_thumbnail_strip.dart';
 import '../screens/accounts/transaction_review_screen.dart';
 
 enum HistoryFilterStatus { all, pending, approved, rejected }
@@ -369,193 +369,39 @@ class _MasterEntryHistoryViewState
     );
   }
 
-  Widget _buildCashTile(CashTransactionModel tx, NumberFormat fmt) {
-    final isExpense = tx.expenseAmount > 0;
-    final amount = isExpense ? tx.expenseAmount : tx.amountReceived;
-    final dateStr = DateFormat('dd MMM yyyy').format(tx.date);
-
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.cardDark,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.cardBorder),
-      ),
-      child: Material(
-          color: Colors.transparent,
-          child: ListTile(
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-            leading: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: (isExpense ? AppColors.pending : AppColors.approved)
-                    .withValues(alpha: 0.15),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                isExpense
-                    ? Icons.arrow_upward_rounded
-                    : Icons.arrow_downward_rounded,
-                size: 16,
-                color: isExpense ? AppColors.pending : AppColors.approved,
-              ),
-            ),
-            title: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    tx.displayExpenseTypeName,
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                Text(
-                  '${isExpense ? '-' : '+'}${fmt.format(amount)}',
-                  style: TextStyle(
-                    color: isExpense ? AppColors.pending : AppColors.approved,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                ),
-              ],
-            ),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Text(dateStr,
-                        style: const TextStyle(
-                            color: AppColors.textTertiary, fontSize: 11)),
-                    if (tx.partyName != null) ...[
-                      const Text(' • ',
-                          style: TextStyle(
-                              color: AppColors.textTertiary, fontSize: 11)),
-                      Expanded(
-                        child: Text(
-                          tx.partyName!,
-                          style: const TextStyle(
-                              color: AppColors.textSecondary, fontSize: 11),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                    StatusBadge(status: tx.status, compact: true),
-                  ],
-                ),
-                if (tx.photoUrls.isNotEmpty) ...[
-                  const SizedBox(height: 6),
-                  PhotoThumbnailStrip(photoUrls: tx.photoUrls, size: 44),
-                ],
-              ],
-            ),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => TransactionReviewScreen(cashTransaction: tx),
-                ),
-              );
-            },
-          )),
-    );
-  }
-
-  Widget _buildStockTile(StockTransactionModel tx, NumberFormat fmt) {
-    final isInbound = tx.type == TransactionType.inbound;
-    final dateStr = DateFormat('dd MMM yyyy').format(tx.date);
-
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.cardDark,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.cardBorder),
-      ),
-      child: Material(
-          color: Colors.transparent,
-          child: ListTile(
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-            leading: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: (isInbound ? AppColors.waveCyan : AppColors.goldAccent)
-                    .withValues(alpha: 0.15),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                isInbound ? Icons.inventory_2_rounded : Icons.outbox_rounded,
-                size: 16,
-                color: isInbound ? AppColors.waveCyan : AppColors.goldAccent,
-              ),
-            ),
-            title: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    '${tx.type.displayName}: ${tx.displayProductName}',
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                Text(
-                  '${tx.quantity} ${tx.displayMetricUnitName}',
-                  style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13),
-                ),
-              ],
-            ),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Text(dateStr,
-                        style: const TextStyle(
-                            color: AppColors.textTertiary, fontSize: 11)),
-                    if (tx.displayVendorName != 'None') ...[
-                      const Text(' • ',
-                          style: TextStyle(
-                              color: AppColors.textTertiary, fontSize: 11)),
-                      Expanded(
-                        child: Text(
-                          tx.displayVendorName,
-                          style: const TextStyle(
-                              color: AppColors.textSecondary, fontSize: 11),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                    StatusBadge(status: tx.status, compact: true),
-                  ],
-                ),
-                if (tx.photoUrls.isNotEmpty) ...[
-                  const SizedBox(height: 6),
-                  PhotoThumbnailStrip(photoUrls: tx.photoUrls, size: 44),
-                ],
-              ],
-            ),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => TransactionReviewScreen(stockTransaction: tx),
-                ),
-              );
-            },
-          )),
-    );
-  }
+  Widget _buildCashTile(
+          CashTransactionModel tx, NumberFormat fmt) =>
+      _historyEntry(
+          VoucherEntryDetails(cash: tx),
+          tx.status,
+          () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) =>
+                      TransactionReviewScreen(cashTransaction: tx))));
+  Widget _buildStockTile(StockTransactionModel tx, NumberFormat fmt) =>
+      _historyEntry(
+          VoucherEntryDetails(stock: tx),
+          tx.status,
+          () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) =>
+                      TransactionReviewScreen(stockTransaction: tx))));
+  Widget _historyEntry(
+          Widget details, TransactionStatus status, VoidCallback open) =>
+      Card(
+          child: InkWell(
+              onTap: open,
+              child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        details,
+                        const SizedBox(height: 8),
+                        StatusBadge(status: status, compact: true)
+                      ]))));
 
   Widget _emptyState(String text) {
     return Center(

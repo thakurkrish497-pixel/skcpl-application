@@ -10,7 +10,7 @@ import 'site_customization_screen.dart';
 import 'manage_site_staff_screen.dart';
 import 'site_history_screen.dart';
 import '../../services/excel_service.dart';
-import 'daily_site_reports_screen.dart';
+import '../site_reports/dsr_history_screen.dart';
 import '../../widgets/cache_manager_dialog.dart';
 import '../../widgets/universal_sync_button.dart';
 import 'package:intl/intl.dart';
@@ -40,8 +40,7 @@ class SiteDetailsScreen extends ConsumerWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) =>
-                      DailySiteReportsScreen(initialSiteId: site.id),
+                  builder: (_) => DsrHistoryScreen(initialSiteId: site.id),
                 ),
               );
             },
@@ -214,8 +213,7 @@ class SiteDetailsScreen extends ConsumerWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) =>
-                      DailySiteReportsScreen(initialSiteId: site.id),
+                  builder: (_) => DsrHistoryScreen(initialSiteId: site.id),
                 ),
               );
             },

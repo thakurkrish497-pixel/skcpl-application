@@ -1,3 +1,8 @@
+import '../models/staff_reminder_model.dart' show reminderOfficeIds;
+import 'attendance_session_metadata.dart';
+import 'attendance_session_policy.dart';
+import 'shift_policy_resolver.dart';
+import 'entry_date_policy.dart';
 import 'management_review_service.dart';
 import 'management_support.dart';
 import 'submission_support.dart';
@@ -13,6 +18,7 @@ import 'location_service.dart';
 class AttendanceService {
   final SupabaseClient _client;
   static const _uuid = Uuid();
+  static final _legacyLocationWrites = <String, DateTime>{};
 
   AttendanceService([SupabaseClient? client])
       : _client = client ?? Supabase.instance.client;
@@ -23,33 +29,8 @@ class AttendanceService {
 
   /// Fetch shift policy for a site (falls back to global default)
   Future<SiteShiftPolicyModel> getShiftPolicy(String siteId) async {
-    try {
-      // 1. Check site specific policy
-      final res = await _client
-          .from('site_shift_policies')
-          .select()
-          .eq('site_id', siteId)
-          .maybeSingle();
-
-      if (res != null) {
-        return SiteShiftPolicyModel.fromJson(res);
-      }
-
-      // 2. Check global default policy
-      final global = await _client
-          .from('site_shift_policies')
-          .select()
-          .eq('site_id', 'global')
-          .maybeSingle();
-
-      if (global != null) {
-        return SiteShiftPolicyModel.fromJson(global);
-      }
-    } catch (_) {
-      // Fallback via tasks table
-      final fallback = await _getPolicyFallback(siteId);
-      if (fallback != null) return fallback;
-    }
+    final configured = await ShiftPolicyResolver(_client).configured(siteId);
+    if (configured != null) return configured;
 
     // Default policy
     bool isOffice = siteId == 'office' || siteId == _indoreOfficeSiteId;
@@ -99,18 +80,40 @@ class AttendanceService {
   /// Save or override shift policy for a site or global company default
   Future<SiteShiftPolicyModel> saveShiftPolicy(
       SiteShiftPolicyModel policy) async {
+    String normalizedTime(String value) {
+      final match =
+          RegExp(r'^(\d{1,2}):(\d{2})(?::[0-5]\d)?$').firstMatch(value.trim());
+      if (match == null ||
+          int.parse(match[1]!) > 23 ||
+          int.parse(match[2]!) > 59) {
+        throw ArgumentError('Enter valid shift times in HH:mm format.');
+      }
+      return '${match[1]!.padLeft(2, '0')}:${match[2]}';
+    }
+
+    final normalized = policy.copyWith(
+        siteId: shiftLocationKey(policy.siteId),
+        shiftStartTime: normalizedTime(policy.shiftStartTime),
+        shiftEndTime: normalizedTime(policy.shiftEndTime));
+    if (normalized.shiftStartTime == normalized.shiftEndTime ||
+        policy.graceMinutes < 0 ||
+        policy.graceMinutes > 1440) {
+      throw ArgumentError('Enter a valid shift and grace period.');
+    }
+    late SiteShiftPolicyModel saved;
     try {
-      final payload = policy.toJson();
       final res = await _client
           .from('site_shift_policies')
-          .upsert(payload, onConflict: 'site_id')
+          .upsert(normalized.toJson(), onConflict: 'site_id')
           .select()
           .single();
-      return SiteShiftPolicyModel.fromJson(res);
-    } catch (e) {
-      if (!isSchemaUnavailable(e)) rethrow;
-      return _savePolicyFallback(policy);
+      saved = SiteShiftPolicyModel.fromJson(res);
+    } catch (error) {
+      if (!shiftStorageUnavailable(error, normalized.siteId)) rethrow;
+      saved = await _savePolicyFallback(normalized);
     }
+    shiftPolicySaved.add(saved.siteId);
+    return saved;
   }
 
   // ─────────────────────────────────────────────────────────────
@@ -148,7 +151,8 @@ class AttendanceService {
       }
     }
 
-    return await _hydrateAttendance(list);
+    return await AttendanceSessionMetadata(_client)
+        .attach(await _hydrateAttendance(list));
   }
 
   /// Fetch attendance records for a date range (for monthly export and reports)
@@ -185,7 +189,8 @@ class AttendanceService {
         endDate: endDate,
       );
     }
-    return await _hydrateAttendance(list);
+    return await AttendanceSessionMetadata(_client)
+        .attach(await _hydrateAttendance(list));
   }
 
   /// Fetch all pending attendance regularization requests for Admin
@@ -213,7 +218,8 @@ class AttendanceService {
       list = await _getPendingRequestsFallback();
     }
     list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    return await _hydrateAttendance(list);
+    return await AttendanceSessionMetadata(_client)
+        .attach(await _hydrateAttendance(list));
   }
 
   /// Record Punch-In for staff member
@@ -229,21 +235,16 @@ class AttendanceService {
     double? longitude,
     String? address,
   }) async {
+    EntryDatePolicy.requireNotFuture(date);
+    EntryDatePolicy.requireNotFutureInstant(punchTime);
+
     final policy = await getShiftPolicy(siteId);
 
-    // Calculate late minutes based on policy shiftStartTime (HH:mm)
-    final startParts = policy.shiftStartTime.split(':');
-    final shiftStartHour = int.tryParse(startParts[0]) ?? 9;
-    final shiftStartMinute =
-        startParts.length > 1 ? (int.tryParse(startParts[1]) ?? 0) : 0;
-
-    final scheduledStartTime = DateTime(
-      punchTime.year,
-      punchTime.month,
-      punchTime.day,
-      shiftStartHour,
-      shiftStartMinute,
-    );
+    final workDay = AttendanceSessionPolicy.workDay(punchTime, policy);
+    final startMinutes = AttendanceSessionPolicy.minutes(policy.shiftStartTime);
+    final scheduledStartTime =
+        DateTime.utc(workDay.year, workDay.month, workDay.day)
+            .add(Duration(minutes: startMinutes - 330));
 
     final diffMinutes = punchTime.difference(scheduledStartTime).inMinutes;
 
@@ -315,7 +316,7 @@ class AttendanceService {
       staffId: staffId,
       staffName: staffName,
       staffRole: staffRole,
-      date: date,
+      date: workDay,
       punchInTime: punchTime,
       punchInLatitude: latitude,
       punchInLongitude: longitude,
@@ -334,10 +335,14 @@ class AttendanceService {
           .insert(record.toJson())
           .select()
           .single();
-      return AttendanceRecordModel.fromJson(res);
+      return AttendanceRecordModel.fromJson(res).copyWith(
+          sessionWorkDay: workDay,
+          sessionExpiresAt: AttendanceSessionPolicy.expiry(workDay, policy));
     } catch (e) {
       if (!isSchemaUnavailable(e)) rethrow;
-      return _saveAttendanceFallback(record);
+      return (await _saveAttendanceFallback(record)).copyWith(
+          sessionWorkDay: workDay,
+          sessionExpiresAt: AttendanceSessionPolicy.expiry(workDay, policy));
     }
   }
 
@@ -348,6 +353,23 @@ class AttendanceService {
     double? latitude,
     double? longitude,
   }) async {
+    EntryDatePolicy.requireNotFutureInstant(punchOutTime);
+    try {
+      final sessions = await _client
+          .from('skcpl_attendance_sessions')
+          .select('expires_at')
+          .eq('attendance_id', attendanceId)
+          .limit(1);
+      if (sessions.isNotEmpty &&
+          !punchOutTime.toUtc().isBefore(
+              DateTime.parse(sessions.first['expires_at'] as String).toUtc())) {
+        throw StateError(
+            'This session has automatically closed. Request attendance regularization to confirm the actual finish time.');
+      }
+    } catch (error) {
+      if (!isSchemaUnavailable(error)) rethrow;
+    }
+
     try {
       final res = await _client
           .from('attendance')
@@ -467,6 +489,10 @@ class AttendanceService {
     required String adminName,
     String? existingAttendanceId,
   }) async {
+    EntryDatePolicy.requireNotFuture(date);
+    EntryDatePolicy.requireNotFutureInstant(punchInTime);
+    EntryDatePolicy.requireNotFutureInstant(punchOutTime);
+
     final dateStr = DateFormat('yyyy-MM-dd').format(date);
     final id = (existingAttendanceId != null &&
             existingAttendanceId.isNotEmpty &&
@@ -540,6 +566,22 @@ class AttendanceService {
     required List<String> siteIds,
     required String createdBy,
   }) async {
+    // Future planning is restricted to a verified, active Admin session.
+    if (EntryDatePolicy.isFuture(date)) {
+      final userId = _client.auth.currentUser?.id;
+      if (userId == null) {
+        throw StateError('Only Admin can plan future holidays.');
+      }
+      final profile = await _client
+          .from('users')
+          .select('role, is_active')
+          .eq('id', userId)
+          .single();
+      if (profile['role'] != 'admin' || profile['is_active'] != true) {
+        throw StateError('Only Admin can plan future holidays.');
+      }
+    }
+
     final id = _uuid.v4();
     final holiday = HolidayModel(
       id: id,
@@ -613,12 +655,49 @@ class AttendanceService {
 
   /// Transmit live location ping
   Future<void> updateLiveLocation(StaffLiveLocationModel ping) async {
+    final age = DateTime.now().toUtc().difference(ping.timestamp.toUtc());
+    if (![ping.latitude, ping.longitude, ping.accuracyMeters ?? double.nan]
+            .every((v) => v.isFinite) ||
+        ping.latitude.abs() > 90 ||
+        ping.longitude.abs() > 180 ||
+        ping.accuracyMeters! < 0 ||
+        ping.accuracyMeters! > 100 ||
+        age > const Duration(minutes: 2) ||
+        age < const Duration(seconds: -30)) {
+      throw ArgumentError('Only fresh, accurate GPS fixes can be shared.');
+    }
     try {
-      await _client.from('staff_live_locations').upsert(
-            ping.toJson(),
-            onConflict: 'staff_id',
-          );
-    } catch (_) {
+      for (var attempt = 0; attempt < 2; attempt++) {
+        final rows = await _client
+            .from('staff_live_locations')
+            .select('staff_id,timestamp')
+            .eq('staff_id', ping.staffId)
+            .limit(1);
+        if (rows.isNotEmpty) {
+          final stamp = DateTime.tryParse('${rows.first['timestamp']}');
+          if (stamp != null && !ping.timestamp.toUtc().isAfter(stamp.toUtc())) {
+            return;
+          }
+          final updated = await _client
+              .from('staff_live_locations')
+              .update(ping.toJson())
+              .eq('staff_id', ping.staffId)
+              .eq('timestamp', rows.first['timestamp'])
+              .select('staff_id');
+          if (updated.isNotEmpty) return;
+        } else {
+          try {
+            await _client.from('staff_live_locations').insert(ping.toJson());
+            return;
+          } on PostgrestException catch (error) {
+            if (error.code != '23505') rethrow;
+          }
+        }
+      }
+      throw StateError(
+          'Location changed concurrently; retry on the next fresh fix.');
+    } catch (error) {
+      if (!isSchemaUnavailable(error)) rethrow;
       await _saveLiveLocFallback(ping);
     }
   }
@@ -630,16 +709,26 @@ class AttendanceService {
     try {
       var query = _client.from('staff_live_locations').select();
       if (siteId != null && siteId != 'all') {
-        query = query.eq('site_id', siteId);
+        query = shiftLocationKey(siteId) == canonicalOfficeShiftId
+            ? query.inFilter('site_id', reminderOfficeIds.toList())
+            : query.eq('site_id', siteId);
       }
       final data = await query.order('timestamp', ascending: false);
       list = (data as List)
           .map((json) => StaffLiveLocationModel.fromJson(json))
           .toList();
-    } catch (_) {
+    } catch (error) {
+      if (!isSchemaUnavailable(error)) rethrow;
       list = await _getLiveLocFallback(siteId);
     }
-    return await _hydrateLiveLocations(list);
+    final latest = <String, StaffLiveLocationModel>{};
+    for (final ping in list) {
+      final old = latest[ping.staffId];
+      if (old == null || ping.timestamp.isAfter(old.timestamp)) {
+        latest[ping.staffId] = ping;
+      }
+    }
+    return await _hydrateLiveLocations(latest.values.toList());
   }
 
   // ─────────────────────────────────────────────────────────────
@@ -745,21 +834,6 @@ class AttendanceService {
     return rawSiteId;
   }
 
-  Future<SiteShiftPolicyModel?> _getPolicyFallback(String siteId) async {
-    try {
-      final tag = 'SHIFT_POLICY:$siteId';
-      final rows =
-          await _client.from('tasks').select().eq('title', tag).limit(1);
-      if ((rows as List).isNotEmpty) {
-        final desc = rows.first['description'] as String?;
-        if (desc != null) {
-          return SiteShiftPolicyModel.fromJson(jsonDecode(desc));
-        }
-      }
-    } catch (_) {}
-    return null;
-  }
-
   Future<SiteShiftPolicyModel> _savePolicyFallback(
       SiteShiftPolicyModel policy) async {
     final tag = 'SHIFT_POLICY:${policy.siteId}';
@@ -782,7 +856,9 @@ class AttendanceService {
           'priority': 'low',
         });
       }
-    } catch (_) {}
+    } catch (_) {
+      rethrow;
+    }
     return policy;
   }
 
@@ -926,34 +1002,57 @@ class AttendanceService {
   }
 
   Future<void> _saveLiveLocFallback(StaffLiveLocationModel ping) async {
-    final tag = 'LIVELOC:${ping.siteId}:${ping.staffId}';
-    final payload = jsonEncode(ping.toJson());
-    try {
-      final validSiteId = _resolveSiteId(ping.siteId);
-      final existing =
-          await _client.from('tasks').select('id').eq('title', tag).limit(1);
-      if ((existing as List).isNotEmpty) {
-        await _client
+    final last = _legacyLocationWrites[ping.staffId];
+    if (last != null &&
+        DateTime.now().difference(last) < const Duration(minutes: 5)) {
+      return;
+    }
+    if (_legacyLocationWrites.length > 500) _legacyLocationWrites.clear();
+    final tag = 'LIVELOC:${shiftLocationKey(ping.siteId)}:${ping.staffId}';
+    for (var attempt = 0; attempt < 2; attempt++) {
+      final rows = await _client
+          .from('tasks')
+          .select('id,description')
+          .eq('title', tag)
+          .limit(1);
+      if (rows.isNotEmpty) {
+        final raw = rows.first['description'] as String;
+        final old = StaffLiveLocationModel.fromJson(
+            Map<String, dynamic>.from(jsonDecode(raw) as Map));
+        if (!ping.timestamp.toUtc().isAfter(old.timestamp.toUtc())) return;
+        final updated = await _client
             .from('tasks')
-            .update({'description': payload}).eq('id', existing.first['id']);
+            .update({'description': jsonEncode(ping.toJson())})
+            .eq('id', rows.first['id'])
+            .eq('description', raw)
+            .select('id');
+        if (updated.isNotEmpty) {
+          _legacyLocationWrites[ping.staffId] = DateTime.now();
+          return;
+        }
       } else {
         await _client.from('tasks').insert({
-          'site_id': validSiteId,
+          'site_id': _resolveSiteId(ping.siteId),
           'created_by': _defaultAdminUserId,
           'title': tag,
-          'description': payload,
+          'description': jsonEncode(ping.toJson()),
           'status': 'completed',
-          'priority': 'low',
+          'priority': 'low'
         });
+        _legacyLocationWrites[ping.staffId] = DateTime.now();
+        return;
       }
-    } catch (_) {}
+    }
   }
 
   Future<List<StaffLiveLocationModel>> _getLiveLocFallback(
       String? siteId) async {
     try {
-      final tagPrefix =
-          siteId != null && siteId != 'all' ? 'LIVELOC:$siteId:' : 'LIVELOC:';
+      final tagPrefix = siteId != null &&
+              siteId != 'all' &&
+              shiftLocationKey(siteId) != canonicalOfficeShiftId
+          ? 'LIVELOC:$siteId:'
+          : 'LIVELOC:';
       final rows =
           await _client.from('tasks').select().like('title', '$tagPrefix%');
       final list = <StaffLiveLocationModel>[];
@@ -965,8 +1064,14 @@ class AttendanceService {
           } catch (_) {}
         }
       }
-      return list;
-    } catch (_) {
+      return list
+          .where((p) =>
+              siteId == null ||
+              siteId == 'all' ||
+              shiftLocationKey(p.siteId) == shiftLocationKey(siteId))
+          .toList();
+    } catch (error) {
+      if (!isSchemaUnavailable(error)) rethrow;
       return [];
     }
   }

@@ -1,3 +1,4 @@
+import 'voucher_entry_details.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../core/constants/app_colors.dart';
@@ -198,6 +199,8 @@ class EntryDetailDialog extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        VoucherEntryIdentity(stock: tx),
+        const SizedBox(height: 12),
         if (displayAmount > 0)
           _amountHighlightCard(
             label: 'Total Amount',
@@ -261,6 +264,8 @@ class EntryDetailDialog extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        VoucherEntryIdentity(cash: tx),
+        const SizedBox(height: 12),
         _amountHighlightCard(
           label: isTopUp ? 'Cash Received (Top-up)' : 'Expense Amount',
           amountText: '₹${NumberFormat('#,##,###.##').format(primaryAmount)}',

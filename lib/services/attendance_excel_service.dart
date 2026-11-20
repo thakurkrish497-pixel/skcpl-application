@@ -45,7 +45,8 @@ class AttendanceExcelService {
       'Late (L)',
       'Half Day (HD)',
       'Absent (A)',
-      'Total Hrs',
+      'Recorded Hrs',
+      'Estimated Hrs (Review)',
     ];
 
     final allHeaders = [...baseHeaders, ...dayHeaders, ...summaryHeaders];
@@ -96,6 +97,7 @@ class AttendanceExcelService {
       int hdCount = 0;
       int aCount = 0;
       double totalHours = 0.0;
+      double estimatedHours = 0.0;
 
       // Populate each day
       for (int d = 1; d <= daysInMonth; d++) {
@@ -163,7 +165,8 @@ class AttendanceExcelService {
             colorHex = '#8B5CF6';
           }
 
-          cell.value = TextCellValue(code);
+          cell.value =
+              TextCellValue(dayRecord.isAutomaticallyClosed ? '$code*' : code);
           cell.cellStyle = CellStyle(
             bold: true,
             fontColorHex: ExcelColor.fromHexString(colorHex),
@@ -171,9 +174,14 @@ class AttendanceExcelService {
           );
 
           if (dayRecord.totalHoursWorked != null) {
-            totalHours += dayRecord.totalHoursWorked!;
+            if (dayRecord.punchOutTime != null) {
+              totalHours += dayRecord.totalHoursWorked!;
+            } else {
+              estimatedHours += dayRecord.totalHoursWorked!;
+            }
           } else if (dayRecord.punchInTime != null) {
-            totalHours += 8.0; // standard estimated
+            estimatedHours +=
+                8.0; // Explicit estimate, excluded from recorded hours.
           }
         }
       }
@@ -201,9 +209,19 @@ class AttendanceExcelService {
               columnIndex: summaryStart + 4, rowIndex: rowIdx))
           .value = DoubleCellValue(double.parse(totalHours.toStringAsFixed(1)));
 
+      sheet
+              .cell(CellIndex.indexByColumnRow(
+                  columnIndex: summaryStart + 5, rowIndex: rowIdx))
+              .value =
+          DoubleCellValue(double.parse(estimatedHours.toStringAsFixed(1)));
       rowIdx++;
     }
 
+    sheet
+            .cell(CellIndex.indexByColumnRow(columnIndex: 0, rowIndex: rowIdx + 1))
+            .value =
+        TextCellValue(
+            '* Auto-closed: estimated end; review required. Estimated hours are excluded from Recorded Hrs.');
     // Auto width adjustments
     sheet.setColumnWidth(0, 20.0);
     sheet.setColumnWidth(1, 14.0);
@@ -211,7 +229,7 @@ class AttendanceExcelService {
     for (int d = 0; d < daysInMonth; d++) {
       sheet.setColumnWidth(3 + d, 6.0);
     }
-    for (int s = 0; s < 5; s++) {
+    for (int s = 0; s < 6; s++) {
       sheet.setColumnWidth(3 + daysInMonth + s, 12.0);
     }
 
@@ -259,7 +277,7 @@ class AttendanceExcelService {
           : '-';
       final outTimeStr = rec.punchOutTime != null
           ? DateFormat('hh:mm a').format(rec.punchOutTime!)
-          : '-';
+          : (rec.isAutomaticallyClosed ? 'Auto-closed (estimated)' : '-');
       final gpsStr = rec.punchInLatitude != null && rec.punchInLongitude != null
           ? '${rec.punchInLatitude!.toStringAsFixed(4)}, ${rec.punchInLongitude!.toStringAsFixed(4)}'
           : 'No GPS';
@@ -283,7 +301,7 @@ class AttendanceExcelService {
           .value = TextCellValue(rec.siteName);
       logSheet
           .cell(CellIndex.indexByColumnRow(columnIndex: 4, rowIndex: logRow))
-          .value = TextCellValue(rec.status.displayName);
+          .value = TextCellValue(rec.displayStatusName);
       logSheet
           .cell(CellIndex.indexByColumnRow(columnIndex: 5, rowIndex: logRow))
           .value = TextCellValue(inTimeStr);
@@ -294,7 +312,7 @@ class AttendanceExcelService {
           .cell(CellIndex.indexByColumnRow(columnIndex: 7, rowIndex: logRow))
           .value = TextCellValue(rec.totalHoursWorked !=
               null
-          ? '${rec.totalHoursWorked!.toStringAsFixed(1)} hrs'
+          ? '${rec.totalHoursWorked!.toStringAsFixed(1)} hrs${rec.punchOutTime == null ? " (estimated; review)" : ""}'
           : '-');
       logSheet
           .cell(CellIndex.indexByColumnRow(columnIndex: 8, rowIndex: logRow))

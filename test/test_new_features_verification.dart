@@ -24,6 +24,8 @@ void main() {
       'fixture-public-key',
       httpClient: ErpTestBackend.instance.client,
     );
+    await client.auth.signInWithPassword(
+        email: 'admin@skcpl.com', password: 'fixture-password');
     final attendanceService = AttendanceService(client);
     final cashService = CashService(client);
     final siteReportService = SiteReportService(client);

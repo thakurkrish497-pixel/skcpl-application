@@ -1,3 +1,4 @@
+import '../services/entry_date_policy.dart';
 import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
@@ -99,6 +100,7 @@ class ReportSubmissionNotifier extends StateNotifier<ReportSubmissionState> {
     String? remarks,
   }) async {
     try {
+      EntryDatePolicy.requireNotFuture(date);
       state = state.copyWith(isUploadingAudio: audioBytes != null, error: null);
 
       String? audioUrl;

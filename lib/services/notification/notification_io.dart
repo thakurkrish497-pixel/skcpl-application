@@ -4,6 +4,26 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 final FlutterLocalNotificationsPlugin _localNotifications =
     FlutterLocalNotificationsPlugin();
+void Function(String)? _tapHandler;
+String? _pendingTap;
+void setPlatformNotificationTapHandler(void Function(String)? handler) {
+  _tapHandler = handler;
+  if (handler != null && _pendingTap != null) {
+    final payload = _pendingTap!;
+    _pendingTap = null;
+    Future<void>.microtask(() => handler(payload));
+  }
+}
+
+void _receiveTap(String? payload) {
+  if (payload == null) return;
+  if (_tapHandler == null) {
+    _pendingTap = payload;
+  } else {
+    _tapHandler!(payload);
+  }
+}
+
 bool _isInitialized = false;
 Future<void>? _initializing;
 
@@ -36,12 +56,21 @@ Future<void> _initialize() async {
       ),
     );
 
-    final initialized =
-        await _localNotifications.initialize(settings: initSettings);
+    final initialized = await _localNotifications.initialize(
+        settings: initSettings,
+        onDidReceiveNotificationResponse: (response) =>
+            _receiveTap(response.payload));
     if (initialized != true) {
       throw StateError('Native notifications could not initialize.');
     }
     _isInitialized = true;
+    try {
+      final launch =
+          await _localNotifications.getNotificationAppLaunchDetails();
+      if (launch?.didNotificationLaunchApp == true) {
+        _receiveTap(launch?.notificationResponse?.payload);
+      }
+    } catch (_) {/* Optional launch payload is unavailable on some desktops. */}
   } catch (e) {
     debugPrint('[NotificationIO] Initialization error: $e');
     rethrow;
@@ -120,6 +149,7 @@ Future<void> showPlatformNotification({
   required String body,
   String? tag,
   String? iconUrl,
+  String? payload,
 }) async {
   await _ensureInitialized();
 
@@ -159,6 +189,7 @@ Future<void> showPlatformNotification({
       title: title,
       body: body,
       notificationDetails: details,
+      payload: payload,
     );
   } catch (e) {
     debugPrint('[NotificationIO] Show notification error: $e');

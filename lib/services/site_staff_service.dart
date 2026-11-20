@@ -1,3 +1,4 @@
+import 'entry_date_policy.dart';
 import 'submission_support.dart';
 import 'dart:convert';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -82,6 +83,9 @@ class SiteStaffService {
 
   /// Add a new staff member to a site
   Future<SiteStaffModel> createStaff(SiteStaffModel staff) async {
+    if (staff.dateOfBirth != null) {
+      EntryDatePolicy.requireNotFuture(staff.dateOfBirth!);
+    }
     final staffId = staff.id.isEmpty ? _uuid.v4() : staff.id;
     final staffWithId = staff.copyWith(id: staffId);
     final payload = staffWithId.toJson();
@@ -99,6 +103,9 @@ class SiteStaffService {
 
   /// Update an existing staff member
   Future<SiteStaffModel> updateStaff(SiteStaffModel staff) async {
+    if (staff.dateOfBirth != null) {
+      EntryDatePolicy.requireNotFuture(staff.dateOfBirth!);
+    }
     final payload = staff.toJson();
     SiteStaffModel result;
     try {

@@ -1,3 +1,4 @@
+import 'entry_date_policy.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'role_access_service.dart';
 
@@ -18,6 +19,7 @@ Future<Map<String, dynamic>> prepareTransactionEdit(SupabaseClient client,
     ..remove('approved_by')
     ..remove('approved_at')
     ..remove('site_id');
+  EntryDatePolicy.requireDateValue(changes['date'] ?? current['date']);
   final auth = client.auth.currentUser;
   final profile = auth == null
       ? null

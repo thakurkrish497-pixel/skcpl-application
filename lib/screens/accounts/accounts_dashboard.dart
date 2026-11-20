@@ -1,10 +1,11 @@
+import '../../widgets/voucher_entry_details.dart';
+import '../../widgets/dsr_history_access.dart';
 import '../../widgets/sites_overview.dart';
 import '../../widgets/nonfinancial_review_queue.dart';
 import '../../widgets/responsive_toolbar_actions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:intl/intl.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_text_styles.dart';
 import '../../models/stock_transaction_model.dart';
@@ -16,7 +17,7 @@ import '../../providers/role_access_provider.dart';
 import '../../widgets/app_drawer.dart';
 import '../../widgets/status_badge.dart';
 import '../../widgets/responsive_layout.dart';
-import '../../widgets/sla_notification_bar.dart';
+import '../../widgets/workflow_monitor_panel.dart';
 import '../../widgets/skcpl_announcement_bar.dart';
 import '../../widgets/notice_board_dialog.dart';
 import '../../widgets/notification_bell_button.dart';
@@ -31,7 +32,8 @@ import 'transaction_review_screen.dart';
 
 /// Accounts Dashboard — Review and approve/reject worker submissions
 class AccountsDashboard extends ConsumerStatefulWidget {
-  const AccountsDashboard({super.key});
+  final int initialTab;
+  const AccountsDashboard({super.key, this.initialTab = 0});
 
   @override
   ConsumerState<AccountsDashboard> createState() => _AccountsDashboardState();
@@ -101,6 +103,7 @@ class _AccountsDashboardState extends ConsumerState<AccountsDashboard> {
     final canApproveCash = roleAccess.accountsCanApproveCash;
 
     return DefaultTabController(
+      initialIndex: widget.initialTab,
       length: 6,
       child: Scaffold(
         backgroundColor: AppColors.scaffoldDark,
@@ -192,7 +195,7 @@ class _AccountsDashboardState extends ConsumerState<AccountsDashboard> {
                   // ── In-App SLA Overdue Notification Bar (>36h) ──
                   const Padding(
                     padding: EdgeInsets.fromLTRB(16, 8, 16, 0),
-                    child: SlaNotificationBar(),
+                    child: WorkflowMonitorPanel(),
                   ),
                   // ── Interactive Site Finance & Live Balance Summary Header ──
                   SiteFinanceSummaryHeader(
@@ -258,22 +261,8 @@ class _AccountsDashboardState extends ConsumerState<AccountsDashboard> {
                                       : <StockTransactionModel>[];
                                   final batchCount = batchSiblings.length;
 
-                                  final effectiveStockAmount =
-                                      (tx.finalAmount != null &&
-                                              tx.finalAmount! > 0)
-                                          ? tx.finalAmount!
-                                          : tx.calculatedFinalAmount;
-
                                   return _ReviewableTile(
-                                    title:
-                                        '${tx.type.displayName}: ${tx.displayProductName} (${tx.quantity} ${tx.displayMetricUnitName})',
-                                    subtitle:
-                                        'Date: ${DateFormat('dd MMM yyyy').format(tx.date)}${tx.displayVendorName != 'None' ? ' • ${tx.displayVendorName}' : ''}${tx.billNo != null ? ' • Bill: #${tx.billNo}' : ''}${tx.cleanRemarks != null ? ' • ${tx.cleanRemarks}' : ''}',
-                                    amount: effectiveStockAmount > 0
-                                        ? effectiveStockAmount
-                                        : null,
-                                    submitter: tx.submitterName,
-                                    supervisorNote: tx.supervisorReviewNote,
+                                    details: VoucherEntryDetails(stock: tx),
                                     status: tx.status,
                                     batchId: tx.batchId,
                                     batchCount: batchCount,
@@ -468,9 +457,6 @@ class _AccountsDashboardState extends ConsumerState<AccountsDashboard> {
                                     const SizedBox(height: 10),
                                 itemBuilder: (context, index) {
                                   final tx = sortedCash[index];
-                                  final isCashReceived =
-                                      tx.amountReceived > 0 &&
-                                          tx.expenseAmount == 0;
                                   final batchSiblings = tx.batchId != null
                                       ? transactions
                                           .where((t) => t.batchId == tx.batchId)
@@ -479,17 +465,7 @@ class _AccountsDashboardState extends ConsumerState<AccountsDashboard> {
                                   final batchCount = batchSiblings.length;
 
                                   return _ReviewableTile(
-                                    title: isCashReceived
-                                        ? 'CASH RECEIVED (Top-up): ₹${NumberFormat('#,##,###').format(tx.amountReceived)}'
-                                        : '${tx.displayExpenseTypeName} — ₹${NumberFormat('#,##,###').format(tx.expenseAmount)}',
-                                    subtitle: isCashReceived
-                                        ? 'From: ${tx.customExpenseType ?? (tx.partyName ?? "Office")} • Date: ${DateFormat('dd MMM yyyy').format(tx.date)}${tx.billNo != null ? ' • Ref: #${tx.billNo}' : ''}${tx.cleanRemarks != null ? ' • ${tx.cleanRemarks}' : ''}'
-                                        : 'Date: ${DateFormat('dd MMM yyyy').format(tx.date)}${tx.partyName != null ? ' • ${tx.partyName}' : ''}${tx.billNo != null ? ' • Bill: #${tx.billNo}' : ''}${tx.cleanRemarks != null ? ' • ${tx.cleanRemarks}' : ''}',
-                                    amount: isCashReceived
-                                        ? tx.amountReceived
-                                        : tx.expenseAmount,
-                                    submitter: tx.submitterName,
-                                    supervisorNote: tx.supervisorReviewNote,
+                                    details: VoucherEntryDetails(cash: tx),
                                     status: tx.status,
                                     batchId: tx.batchId,
                                     batchCount: batchCount,
@@ -662,13 +638,15 @@ class _AccountsDashboardState extends ConsumerState<AccountsDashboard> {
                         title: 'Attendance approval is OFF',
                         message:
                             'This Accounts checkpoint is bypassed by Admin policy.'),
-                roleAccess.accountsCanApproveDSR
-                    ? NonFinancialReviewQueue(
-                        module: 'dsr', site: _selectedSiteId)
-                    : _buildExtractedPowerBanner(
-                        title: 'DSR approval is OFF',
-                        message:
-                            'This Accounts checkpoint is bypassed by Admin policy.'),
+                DsrHistoryAccess(
+                    siteId: _selectedSiteId,
+                    child: roleAccess.accountsCanApproveDSR
+                        ? NonFinancialReviewQueue(
+                            module: 'dsr', site: _selectedSiteId)
+                        : _buildExtractedPowerBanner(
+                            title: 'DSR approval is OFF',
+                            message:
+                                'This Accounts checkpoint is bypassed by Admin policy.')),
               ],
             ),
           ),
@@ -817,11 +795,7 @@ class _AccountsDashboardState extends ConsumerState<AccountsDashboard> {
 }
 
 class _ReviewableTile extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final String? submitter;
-  final String? supervisorNote;
-  final double? amount;
+  final Widget details;
   final TransactionStatus status;
   final VoidCallback onTap;
   final VoidCallback? onEdit;
@@ -832,11 +806,7 @@ class _ReviewableTile extends StatelessWidget {
   final VoidCallback? onApproveBatch;
 
   const _ReviewableTile({
-    required this.title,
-    required this.subtitle,
-    this.submitter,
-    this.supervisorNote,
-    this.amount,
+    required this.details,
     required this.status,
     required this.onTap,
     this.onEdit,
@@ -918,111 +888,9 @@ class _ReviewableTile extends StatelessWidget {
                     ),
                   ),
                 ],
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(title,
-                              style: AppTextStyles.labelLarge
-                                  .copyWith(color: AppColors.textPrimary)),
-                          const SizedBox(height: 4),
-                          Text(subtitle,
-                              style: AppTextStyles.bodySmall
-                                  .copyWith(color: AppColors.textTertiary)),
-                          if (submitter != null || supervisorNote != null) ...[
-                            const SizedBox(height: 6),
-                            Wrap(
-                              spacing: 6,
-                              runSpacing: 4,
-                              children: [
-                                if (submitter != null)
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.surfaceDark,
-                                      borderRadius: BorderRadius.circular(6),
-                                      border:
-                                          Border.all(color: AppColors.divider),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Icon(Icons.person_outline,
-                                            size: 11, color: AppColors.primary),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          'Entered by: $submitter',
-                                          style:
-                                              AppTextStyles.bodySmall.copyWith(
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w600,
-                                            color: AppColors.textPrimary,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                if (supervisorNote != null)
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: AppColors.primary
-                                          .withValues(alpha: 0.1),
-                                      borderRadius: BorderRadius.circular(6),
-                                      border: Border.all(
-                                          color: AppColors.primary
-                                              .withValues(alpha: 0.3)),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Icon(Icons.verified_outlined,
-                                            size: 11, color: AppColors.primary),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          'Supervisor: $supervisorNote',
-                                          style:
-                                              AppTextStyles.bodySmall.copyWith(
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w600,
-                                            color: AppColors.primary,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        if (amount != null && amount! > 0)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 4),
-                            child: Text(
-                              '₹${NumberFormat('#,##,###.##').format(amount)}',
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                          ),
-                        StatusBadge(status: status, compact: true),
-                      ],
-                    ),
-                  ],
-                ),
+                details,
+                const SizedBox(height: 8),
+                StatusBadge(status: status, compact: true),
                 if (onEdit != null ||
                     onApprove != null ||
                     onReject != null) ...[

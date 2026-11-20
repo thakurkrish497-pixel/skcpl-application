@@ -1,3 +1,4 @@
+import 'entry_date_policy.dart';
 import 'submission_support.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:convert';
@@ -55,6 +56,7 @@ class SiteReportService {
 
   /// Submits or updates a daily site report
   Future<DailySiteReportModel> saveReport(DailySiteReportModel report) async {
+    EntryDatePolicy.requireNotFuture(report.date);
     final data = report.toJson();
     try {
       // Primary: insert/upsert into daily_site_reports table

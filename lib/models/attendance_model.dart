@@ -178,6 +178,9 @@ class AttendanceRecordModel {
   final DateTime date;
   final DateTime? punchInTime;
   final DateTime? punchOutTime;
+  final DateTime? sessionExpiresAt;
+  final DateTime? sessionWorkDay;
+  final DateTime? automaticClosedAt;
   final double? punchInLatitude;
   final double? punchInLongitude;
   final String? punchInAddress;
@@ -203,6 +206,9 @@ class AttendanceRecordModel {
     required this.date,
     this.punchInTime,
     this.punchOutTime,
+    this.sessionExpiresAt,
+    this.sessionWorkDay,
+    this.automaticClosedAt,
     this.punchInLatitude,
     this.punchInLongitude,
     this.punchInAddress,
@@ -221,6 +227,17 @@ class AttendanceRecordModel {
 
   bool get isPunchedIn => punchInTime != null;
   bool get isPunchedOut => punchOutTime != null;
+  bool get isAutomaticallyClosed =>
+      punchOutTime == null &&
+      (automaticClosedAt != null ||
+          (sessionExpiresAt != null &&
+              !DateTime.now().toUtc().isBefore(sessionExpiresAt!)));
+  bool get isSessionClosed => isPunchedOut || isAutomaticallyClosed;
+  DateTime? get effectivePunchOutTime =>
+      punchOutTime ??
+      automaticClosedAt ??
+      (isAutomaticallyClosed ? sessionExpiresAt : null);
+
   bool get isHoliday => status == AttendanceStatus.holiday;
   bool get isPresent =>
       status == AttendanceStatus.presentOnTime ||
@@ -240,12 +257,14 @@ class AttendanceRecordModel {
   String get displayStatusName {
     if (isHoliday) return 'Holiday';
     if (isUnmarkedAbsent) return 'Absent (Not Marked)';
-    return status.displayName;
+    return isAutomaticallyClosed
+        ? '${status.displayName} • auto-closed (estimated; review required)'
+        : status.displayName;
   }
 
   Duration? get totalWorkingDuration {
     if (punchInTime == null) return null;
-    final end = punchOutTime ?? DateTime.now();
+    final end = effectivePunchOutTime ?? DateTime.now();
     return end.difference(punchInTime!);
   }
 
@@ -330,6 +349,9 @@ class AttendanceRecordModel {
     DateTime? date,
     DateTime? punchInTime,
     DateTime? punchOutTime,
+    DateTime? sessionExpiresAt,
+    DateTime? sessionWorkDay,
+    DateTime? automaticClosedAt,
     double? punchInLatitude,
     double? punchInLongitude,
     String? punchInAddress,
@@ -355,6 +377,9 @@ class AttendanceRecordModel {
       date: date ?? this.date,
       punchInTime: punchInTime ?? this.punchInTime,
       punchOutTime: punchOutTime ?? this.punchOutTime,
+      sessionExpiresAt: sessionExpiresAt ?? this.sessionExpiresAt,
+      sessionWorkDay: sessionWorkDay ?? this.sessionWorkDay,
+      automaticClosedAt: automaticClosedAt ?? this.automaticClosedAt,
       punchInLatitude: punchInLatitude ?? this.punchInLatitude,
       punchInLongitude: punchInLongitude ?? this.punchInLongitude,
       punchInAddress: punchInAddress ?? this.punchInAddress,
@@ -442,11 +467,10 @@ class StaffLiveLocationModel {
       siteName: json['site_name'] as String? ?? '',
       latitude: (json['latitude'] as num?)?.toDouble() ?? 0.0,
       longitude: (json['longitude'] as num?)?.toDouble() ?? 0.0,
-      isWithinSite: json['is_within_site'] as bool? ?? true,
+      isWithinSite: json['is_within_site'] as bool? ?? false,
       distanceMeters: (json['distance_meters'] as num?)?.toDouble() ?? 0.0,
-      timestamp: json['timestamp'] != null
-          ? DateTime.parse(json['timestamp'] as String)
-          : DateTime.now(),
+      timestamp: DateTime.tryParse('${json['timestamp']}') ??
+          DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
       accuracyMeters: (json['accuracy_meters'] as num?)?.toDouble(),
       address: json['address'] as String?,
     );

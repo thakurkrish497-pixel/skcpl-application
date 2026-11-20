@@ -20,7 +20,7 @@ import '../../widgets/skcpl_brand_logo.dart';
 import '../../widgets/skcpl_wave_widgets.dart';
 import '../../widgets/app_drawer.dart';
 import '../../widgets/responsive_layout.dart';
-import '../../widgets/sla_notification_bar.dart';
+import '../../widgets/workflow_monitor_panel.dart';
 import '../../widgets/skcpl_announcement_bar.dart';
 import '../../widgets/notice_board_dialog.dart';
 import '../../widgets/notification_bell_button.dart';
@@ -173,7 +173,7 @@ class AdminDashboard extends ConsumerWidget {
               const SkcplAnnouncementBar(),
 
               // ── In-App SLA Overdue Notification Bar (>36h) ──
-              const SlaNotificationBar(),
+              const WorkflowMonitorPanel(),
 
               // ── Live System Status & Greeting ──
               Container(

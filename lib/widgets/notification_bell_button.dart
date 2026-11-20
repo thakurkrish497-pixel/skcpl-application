@@ -1,3 +1,5 @@
+import '../providers/workflow_monitor_provider.dart';
+import 'workflow_monitor_panel.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/constants/app_colors.dart';
@@ -22,8 +24,7 @@ class NotificationBellButton extends ConsumerWidget {
         userRole == UserRole.accounts;
     if (!isApprovalAuthority) return const SizedBox.shrink();
 
-    final alerts = ref.watch(slaAlertsProvider);
-    final count = alerts.length;
+    final count = ref.watch(workflowMonitorProvider).valueOrNull?.count ?? 0;
 
     return Stack(
       alignment: Alignment.center,
@@ -39,7 +40,7 @@ class NotificationBellButton extends ConsumerWidget {
           tooltip: count > 0
               ? '$count Operational Alerts'
               : 'Notifications & Alerts',
-          onPressed: () => showSlaAlertsModal(context, ref),
+          onPressed: () => showWorkflowAlerts(context),
         ),
         if (count > 0)
           Positioned(

@@ -143,7 +143,7 @@ class _StockHistoryScreenState extends ConsumerState<StockHistoryScreen> {
                           .read(stockProvider.notifier)
                           .loadAllTransactions();
                     }
-                    await ref.read(autoSyncProvider.notifier).syncNow();
+                    await ref.read(autoSyncProvider.notifier).retryNow();
                   },
                   child: ListView.separated(
                     padding: const EdgeInsets.all(16),

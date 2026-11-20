@@ -1,3 +1,4 @@
+import 'entry_date_policy.dart';
 import 'inventory_math.dart';
 import 'transaction_mutation.dart';
 import 'role_access_service.dart';
@@ -70,6 +71,7 @@ class CashService {
       }
       return CashTransactionModel.fromJson(existing);
     }
+    EntryDatePolicy.requireNotFuture(transaction.date);
     final urls = List<String>.from(transaction.photoUrls);
     final storage = StorageService(_client);
     for (var i = 0; i < transaction.pendingPhotos.length; i++) {

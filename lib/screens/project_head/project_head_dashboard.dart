@@ -1,3 +1,6 @@
+import '../../widgets/status_badge.dart';
+import '../../widgets/voucher_entry_details.dart';
+import '../../widgets/dsr_history_access.dart';
 import '../../widgets/sites_overview.dart';
 import '../../services/management_support.dart';
 import '../../widgets/nonfinancial_review_queue.dart';
@@ -26,7 +29,7 @@ import '../../widgets/skcpl_brand_logo.dart';
 import '../../widgets/photo_thumbnail_strip.dart';
 import '../../widgets/entry_detail_dialog.dart';
 import '../../widgets/responsive_layout.dart';
-import '../../widgets/sla_notification_bar.dart';
+import '../../widgets/workflow_monitor_panel.dart';
 import '../../widgets/skcpl_announcement_bar.dart';
 import '../../widgets/notice_board_dialog.dart';
 import '../../widgets/notification_bell_button.dart';
@@ -41,7 +44,8 @@ import '../home/home_screen.dart';
 /// - Cash & Stock: Site Worker ➔ Project Head ➔ Accounts ➔ Admin
 /// - Attendance: Site Worker ➔ Project Head ➔ Admin (No Accounts required)
 class ProjectHeadDashboard extends ConsumerStatefulWidget {
-  const ProjectHeadDashboard({super.key});
+  final int initialTab;
+  const ProjectHeadDashboard({super.key, this.initialTab = 0});
 
   @override
   ConsumerState<ProjectHeadDashboard> createState() =>
@@ -56,7 +60,8 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 6, vsync: this);
+    _tabController =
+        TabController(length: 6, vsync: this, initialIndex: widget.initialTab);
     Future.microtask(() => _refreshAllData());
   }
 
@@ -243,7 +248,7 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
                   // ── In-App SLA Overdue Notification Bar (>36h) ──
                   const Padding(
                     padding: EdgeInsets.fromLTRB(16, 8, 16, 0),
-                    child: SlaNotificationBar(),
+                    child: WorkflowMonitorPanel(),
                   ),
 
                   // ── Interactive Site Finance & Live Balance Summary Header ──
@@ -361,8 +366,10 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
                     () => _buildAttendanceApprovalsList(pendingAttendance)),
 
                 // Tab 4: DSR Reports
-                _reviewQueueOrLegacy(
-                    'dsr', () => _buildDsrApprovalsList(pendingReports, sites)),
+                DsrHistoryAccess(
+                    siteId: _selectedSiteId,
+                    child: _reviewQueueOrLegacy('dsr',
+                        () => _buildDsrApprovalsList(pendingReports, sites))),
 
                 // Tab 5: Master Entry History
                 MasterEntryHistoryView(selectedSiteId: _selectedSiteId),
@@ -468,10 +475,7 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
       itemCount: list.length,
       itemBuilder: (ctx, i) {
         final tx = list[i];
-        final siteName = _getSiteName(sites, tx.siteId);
         final isCashReceived = tx.amountReceived > 0 && tx.expenseAmount == 0;
-        final displayAmount =
-            isCashReceived ? tx.amountReceived : tx.expenseAmount;
 
         return Card(
           color: AppColors.cardDark,
@@ -489,186 +493,9 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: AppColors.goldAccent.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            siteName,
-                            style: const TextStyle(
-                                color: AppColors.goldAccent,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12),
-                          ),
-                        ),
-                        if (DateTime.now()
-                                .difference(tx.createdAt ?? tx.date)
-                                .inHours >=
-                            36) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFEF4444),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.timer_outlined,
-                                    size: 12, color: Colors.white),
-                                const SizedBox(width: 4),
-                                Text(
-                                  'OVERDUE (${DateTime.now().difference(tx.createdAt ?? tx.date).inHours}h)',
-                                  style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w900,
-                                      fontSize: 10),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                    Text(
-                      DateFormat('dd MMM yyyy').format(tx.date),
-                      style: AppTextStyles.caption
-                          .copyWith(color: AppColors.textTertiary),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              if (isCashReceived) ...[
-                                Container(
-                                  margin: const EdgeInsets.only(right: 6),
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF10B981)
-                                        .withValues(alpha: 0.15),
-                                    borderRadius: BorderRadius.circular(6),
-                                    border: Border.all(
-                                        color: const Color(0xFF10B981)
-                                            .withValues(alpha: 0.4)),
-                                  ),
-                                  child: const Text(
-                                    'CASH RECEIVED',
-                                    style: TextStyle(
-                                        color: Color(0xFF10B981),
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold),
-                                  ),
-                                ),
-                              ],
-                              Expanded(
-                                child: Text(
-                                  isCashReceived
-                                      ? (tx.customExpenseType ??
-                                          (tx.partyName ?? "Office Top-up"))
-                                      : tx.displayExpenseTypeName,
-                                  style: AppTextStyles.h4.copyWith(
-                                      color: Colors.white, fontSize: 16),
-                                ),
-                              ),
-                            ],
-                          ),
-                          if (tx.partyName != null)
-                            Text(
-                              'Party: ${tx.partyName}',
-                              style: AppTextStyles.bodySmall
-                                  .copyWith(color: AppColors.textSecondary),
-                            ),
-                          if (tx.billNo != null)
-                            Text(
-                              'Bill / Voucher #: ${tx.billNo}',
-                              style: AppTextStyles.bodySmall
-                                  .copyWith(color: AppColors.textSecondary),
-                            ),
-                          if (tx.submitterName != null)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 4),
-                              child: Text(
-                                'Submitted By: ${tx.submitterName}',
-                                style: const TextStyle(
-                                    color: AppColors.waveCyan,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                          if (tx.batchId != null)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 4),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color:
-                                      AppColors.primary.withValues(alpha: 0.12),
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(
-                                      color: AppColors.primary
-                                          .withValues(alpha: 0.3)),
-                                ),
-                                child: Text(
-                                  '📦 Batch: ${tx.batchId}',
-                                  style: const TextStyle(
-                                      color: AppColors.primary,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                    Text(
-                      '${isCashReceived ? "+ " : ""}₹${displayAmount.toStringAsFixed(2)}',
-                      style: AppTextStyles.h3.copyWith(
-                        color: isCashReceived
-                            ? const Color(0xFF10B981)
-                            : AppColors.approved,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-
-                if (tx.cleanRemarks != null) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    'Notes: "${tx.cleanRemarks}"',
-                    style: AppTextStyles.bodySmall.copyWith(
-                        color: AppColors.textSecondary,
-                        fontStyle: FontStyle.italic),
-                  ),
-                ],
-
-                if (tx.photoUrls.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  PhotoThumbnailStrip(photoUrls: tx.photoUrls),
-                ],
-
+                VoucherEntryDetails(cash: tx),
+                const SizedBox(height: 8),
+                StatusBadge(status: tx.status, compact: true),
                 const SizedBox(height: 14),
                 const Divider(color: AppColors.divider, height: 1),
                 const SizedBox(height: 12),
@@ -807,7 +634,6 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
       itemCount: list.length,
       itemBuilder: (ctx, i) {
         final tx = list[i];
-        final siteName = _getSiteName(sites, tx.siteId);
         final isInbound = tx.type == TransactionType.inbound;
 
         return Card(
@@ -825,201 +651,9 @@ class _ProjectHeadDashboardState extends ConsumerState<ProjectHeadDashboard>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: isInbound
-                                ? AppColors.approved.withValues(alpha: 0.15)
-                                : AppColors.primary.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                  isInbound
-                                      ? Icons.arrow_downward_rounded
-                                      : Icons.arrow_upward_rounded,
-                                  size: 14,
-                                  color: isInbound
-                                      ? AppColors.approved
-                                      : AppColors.primary),
-                              const SizedBox(width: 4),
-                              Text(
-                                isInbound ? 'Inward' : 'Usage',
-                                style: TextStyle(
-                                    color: isInbound
-                                        ? AppColors.approved
-                                        : AppColors.primary,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 11),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: AppColors.goldAccent.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            siteName,
-                            style: const TextStyle(
-                                color: AppColors.goldAccent,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 11),
-                          ),
-                        ),
-                        if (DateTime.now()
-                                .difference(tx.createdAt ?? tx.date)
-                                .inHours >=
-                            36) ...[
-                          const SizedBox(width: 8),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFEF4444),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(Icons.timer_outlined,
-                                    size: 12, color: Colors.white),
-                                const SizedBox(width: 4),
-                                Text(
-                                  'OVERDUE (${DateTime.now().difference(tx.createdAt ?? tx.date).inHours}h)',
-                                  style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w900,
-                                      fontSize: 10),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                    Text(
-                      DateFormat('dd MMM yyyy').format(tx.date),
-                      style: AppTextStyles.caption
-                          .copyWith(color: AppColors.textTertiary),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            tx.displayProductName,
-                            style: AppTextStyles.h4
-                                .copyWith(color: Colors.white, fontSize: 16),
-                          ),
-                          Text(
-                            'Quantity: ${tx.quantity} ${tx.displayMetricUnitName}',
-                            style: AppTextStyles.bodyMedium.copyWith(
-                                color: AppColors.textPrimary,
-                                fontWeight: FontWeight.w600),
-                          ),
-                          if (tx.rate != null && tx.rate! > 0)
-                            Text(
-                              'Rate: ₹${tx.rate!.toStringAsFixed(2)} / ${tx.displayMetricUnitName}',
-                              style: AppTextStyles.bodySmall
-                                  .copyWith(color: AppColors.textSecondary),
-                            ),
-                          if (tx.displayVendorName.isNotEmpty &&
-                              tx.displayVendorName != 'None')
-                            Text(
-                              'Vendor: ${tx.displayVendorName}',
-                              style: AppTextStyles.bodySmall
-                                  .copyWith(color: AppColors.textSecondary),
-                            ),
-                          if (tx.submitterName != null)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 4),
-                              child: Text(
-                                'Submitted By: ${tx.submitterName}',
-                                style: const TextStyle(
-                                    color: AppColors.waveCyan,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                          if (tx.batchId != null)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 4),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color:
-                                      AppColors.primary.withValues(alpha: 0.12),
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(
-                                      color: AppColors.primary
-                                          .withValues(alpha: 0.3)),
-                                ),
-                                child: Text(
-                                  '📦 Batch: ${tx.batchId}',
-                                  style: const TextStyle(
-                                      color: AppColors.primary,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                    Builder(
-                      builder: (context) {
-                        final displayAmount =
-                            (tx.finalAmount != null && tx.finalAmount! > 0)
-                                ? tx.finalAmount!
-                                : tx.calculatedFinalAmount;
-                        if (displayAmount <= 0) return const SizedBox.shrink();
-                        return Text(
-                          '₹${displayAmount.toStringAsFixed(2)}',
-                          style: AppTextStyles.h3.copyWith(
-                              color: AppColors.waveCyan,
-                              fontWeight: FontWeight.bold),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-
-                if (tx.cleanRemarks != null) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    'Notes: "${tx.cleanRemarks}"',
-                    style: AppTextStyles.bodySmall.copyWith(
-                        color: AppColors.textSecondary,
-                        fontStyle: FontStyle.italic),
-                  ),
-                ],
-
-                if (tx.photoUrls.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  PhotoThumbnailStrip(photoUrls: tx.photoUrls),
-                ],
-
+                VoucherEntryDetails(stock: tx),
+                const SizedBox(height: 8),
+                StatusBadge(status: tx.status, compact: true),
                 const SizedBox(height: 14),
                 const Divider(color: AppColors.divider, height: 1),
                 const SizedBox(height: 12),

@@ -1,3 +1,6 @@
+import '../../widgets/staff_location_session.dart';
+import '../../widgets/entry_date_picker.dart';
+import '../../models/staff_reminder_model.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
@@ -58,7 +61,7 @@ class _RecordSiteReportScreenState
   final List<XFile> _selectedPhotos = [];
   final List<Uint8List> _photoBytesList = [];
 
-  DateTime _selectedDate = DateTime.now();
+  DateTime _selectedDate = EntryDatePolicy.today();
   SiteModel? _selectedSite;
   SiteStaffModel? _selectedStaff;
 
@@ -403,7 +406,7 @@ class _RecordSiteReportScreenState
       return;
     }
 
-    const reportRemarks = '[Project Head Review: Pending]';
+    final reportRemarks = staffReportRemarks(activeStaff?.id);
 
     final submittedBy = activeStaff != null
         ? '${activeStaff.name} (${activeStaff.role.displayName})'
@@ -575,807 +578,825 @@ class _RecordSiteReportScreenState
       }
     }
 
-    return Scaffold(
-      backgroundColor: AppColors.scaffoldDark,
-      appBar: AppBar(
-        title: Text(
-            context.tr('daily_work_report', defaultText: 'Daily Work Report')),
-        actions: [
-          const Padding(
-            padding: EdgeInsets.only(right: 6),
-            child: LanguageToggleButton(isCompact: true),
+    return StaffLocationSession(
+        site: site,
+        staff: _selectedStaff,
+        child: Scaffold(
+          backgroundColor: AppColors.scaffoldDark,
+          appBar: AppBar(
+            title: Text(context.tr('daily_work_report',
+                defaultText: 'Daily Work Report')),
+            actions: [
+              const Padding(
+                padding: EdgeInsets.only(right: 6),
+                child: LanguageToggleButton(isCompact: true),
+              ),
+              IconButton(
+                icon: const Icon(Icons.settings_voice_rounded),
+                tooltip:
+                    context.tr('voice_settings', defaultText: 'Voice Settings'),
+                onPressed: () => WhisperSettingsDialog.show(context),
+              ),
+              IconButton(
+                icon: const Icon(Icons.calendar_today_rounded),
+                tooltip: context.tr('date', defaultText: 'Select Report Date'),
+                onPressed: () async {
+                  final picked = await showEntryDatePicker(
+                    context: context,
+                    initialDate: _selectedDate,
+                    firstDate: DateTime(2024),
+                  );
+                  if (picked != null) setState(() => _selectedDate = picked);
+                },
+              ),
+            ],
           ),
-          IconButton(
-            icon: const Icon(Icons.settings_voice_rounded),
-            tooltip:
-                context.tr('voice_settings', defaultText: 'Voice Settings'),
-            onPressed: () => WhisperSettingsDialog.show(context),
-          ),
-          IconButton(
-            icon: const Icon(Icons.calendar_today_rounded),
-            tooltip: context.tr('date', defaultText: 'Select Report Date'),
-            onPressed: () async {
-              final picked = await showDatePicker(
-                context: context,
-                initialDate: _selectedDate,
-                firstDate: DateTime(2024),
-                lastDate: DateTime.now().add(const Duration(days: 1)),
-              );
-              if (picked != null) setState(() => _selectedDate = picked);
-            },
-          ),
-        ],
-      ),
-      body: Stack(
-        children: [
-          SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Site Banner (with Site Switcher if multiple sites)
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: AppColors.cardDark,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppColors.divider),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: AppColors.primarySurface,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Icon(
-                          (site?.isHeadOffice ?? false)
-                              ? Icons.apartment_rounded
-                              : Icons.location_city_rounded,
-                          color: AppColors.primary,
-                          size: 24,
-                        ),
+          body: Stack(
+            children: [
+              SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Site Banner (with Site Switcher if multiple sites)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: AppColors.cardDark,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: AppColors.divider),
                       ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (sitesList.length > 1)
-                              DropdownButtonHideUnderline(
-                                child: DropdownButton<String>(
-                                  value: site?.id,
-                                  isDense: true,
-                                  dropdownColor: AppColors.surfaceDark,
-                                  icon: const Icon(Icons.arrow_drop_down,
-                                      color: AppColors.primary),
-                                  style: AppTextStyles.h4
-                                      .copyWith(color: AppColors.textPrimary),
-                                  items: sitesList.map((s) {
-                                    return DropdownMenuItem<String>(
-                                      value: s.id,
-                                      child: Text(
-                                        s.isHeadOffice
-                                            ? '${s.name} (Head Office)'
-                                            : s.name,
-                                        style: AppTextStyles.h4.copyWith(
-                                            color: AppColors.textPrimary,
-                                            fontSize: 15),
-                                      ),
-                                    );
-                                  }).toList(),
-                                  onChanged: (newSiteId) {
-                                    if (newSiteId != null) {
-                                      setState(() {
-                                        _selectedSite = sitesList.firstWhere(
-                                            (s) => s.id == newSiteId);
-                                        _selectedStaff = null;
-                                      });
-                                    }
-                                  },
-                                ),
-                              )
-                            else
-                              Text(
-                                site?.name ?? 'Site',
-                                style: AppTextStyles.h4
-                                    .copyWith(color: AppColors.textPrimary),
-                              ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'Date: ${DateFormat('dd MMMM yyyy').format(_selectedDate)}',
-                              style: AppTextStyles.caption
-                                  .copyWith(color: AppColors.textSecondary),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: AppColors.primarySurface,
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                          ],
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          context.tr('dsr_entry', defaultText: 'DSR Entry'),
-                          style: AppTextStyles.caption.copyWith(
+                            child: Icon(
+                              (site?.isHeadOffice ?? false)
+                                  ? Icons.apartment_rounded
+                                  : Icons.location_city_rounded,
                               color: AppColors.primary,
-                              fontWeight: FontWeight.bold),
+                              size: 24,
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (sitesList.length > 1)
+                                  DropdownButtonHideUnderline(
+                                    child: DropdownButton<String>(
+                                      value: site?.id,
+                                      isDense: true,
+                                      dropdownColor: AppColors.surfaceDark,
+                                      icon: const Icon(Icons.arrow_drop_down,
+                                          color: AppColors.primary),
+                                      style: AppTextStyles.h4.copyWith(
+                                          color: AppColors.textPrimary),
+                                      items: sitesList.map((s) {
+                                        return DropdownMenuItem<String>(
+                                          value: s.id,
+                                          child: Text(
+                                            s.isHeadOffice
+                                                ? '${s.name} (Head Office)'
+                                                : s.name,
+                                            style: AppTextStyles.h4.copyWith(
+                                                color: AppColors.textPrimary,
+                                                fontSize: 15),
+                                          ),
+                                        );
+                                      }).toList(),
+                                      onChanged: (newSiteId) {
+                                        if (newSiteId != null) {
+                                          setState(() {
+                                            _selectedSite =
+                                                sitesList.firstWhere(
+                                                    (s) => s.id == newSiteId);
+                                            _selectedStaff = null;
+                                          });
+                                        }
+                                      },
+                                    ),
+                                  )
+                                else
+                                  Text(
+                                    site?.name ?? 'Site',
+                                    style: AppTextStyles.h4
+                                        .copyWith(color: AppColors.textPrimary),
+                                  ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Date: ${DateFormat('dd MMMM yyyy').format(_selectedDate)}',
+                                  style: AppTextStyles.caption
+                                      .copyWith(color: AppColors.textSecondary),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppColors.primary.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              context.tr('dsr_entry', defaultText: 'DSR Entry'),
+                              style: AppTextStyles.caption.copyWith(
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ).animate().fadeIn(),
+
+                    const SizedBox(height: 16),
+
+                    // ── Reporting Staff Selector ──
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppColors.cardDark,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: AppColors.primary.withValues(alpha: 0.35),
+                          width: 1.2,
                         ),
                       ),
-                    ],
-                  ),
-                ).animate().fadeIn(),
-
-                const SizedBox(height: 16),
-
-                // ── Reporting Staff Selector ──
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppColors.cardDark,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: AppColors.primary.withValues(alpha: 0.35),
-                      width: 1.2,
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Icon(Icons.badge_rounded,
-                                  color: AppColors.primary, size: 20),
-                              const SizedBox(width: 8),
-                              Text(
-                                context.tr('reporting_staff',
-                                    defaultText:
-                                        'REPORTING STAFF (SUBMITTED BY)'),
-                                style: AppTextStyles.overline.copyWith(
-                                  color: AppColors.primary,
-                                  fontWeight: FontWeight.bold,
-                                  letterSpacing: 1.1,
-                                ),
+                              Row(
+                                children: [
+                                  const Icon(Icons.badge_rounded,
+                                      color: AppColors.primary, size: 20),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    context.tr('reporting_staff',
+                                        defaultText:
+                                            'REPORTING STAFF (SUBMITTED BY)'),
+                                    style: AppTextStyles.overline.copyWith(
+                                      color: AppColors.primary,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 1.1,
+                                    ),
+                                  ),
+                                ],
                               ),
+                              if (_selectedStaff != null)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary
+                                        .withValues(alpha: 0.18),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    _selectedStaff!.role.displayName,
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.primary,
+                                    ),
+                                  ),
+                                ),
                             ],
                           ),
-                          if (_selectedStaff != null)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(
-                                color:
-                                    AppColors.primary.withValues(alpha: 0.18),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                _selectedStaff!.role.displayName,
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppColors.primary,
+                          const SizedBox(height: 6),
+                          Text(
+                            context.tr('select_reporting_staff',
+                                defaultText:
+                                    'Select who is entering this Daily Site Report. The approved report will be stamped with this person\'s name.'),
+                            style: AppTextStyles.bodySmall.copyWith(
+                                color: AppColors.textSecondary, fontSize: 11.5),
+                          ),
+                          const SizedBox(height: 12),
+                          if (staffState?.isLoading ?? false)
+                            const Center(
+                              child: Padding(
+                                padding: EdgeInsets.all(10),
+                                child: SizedBox(
+                                  width: 22,
+                                  height: 22,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2, color: AppColors.primary),
                                 ),
                               ),
+                            )
+                          else if (availableStaff.isEmpty)
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: AppColors.surfaceDark,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.info_outline,
+                                      size: 18, color: AppColors.textTertiary),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'No staff assigned to ${site?.name ?? "this site"}. Submitting as general staff.',
+                                      style: AppTextStyles.bodySmall.copyWith(
+                                          color: AppColors.textSecondary),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          else
+                            Wrap(
+                              spacing: 10,
+                              runSpacing: 10,
+                              children: availableStaff.map((staff) {
+                                final isSelected =
+                                    _selectedStaff?.id == staff.id;
+                                return InkWell(
+                                  onTap: () {
+                                    setState(() {
+                                      _selectedStaff = staff;
+                                    });
+                                    if (site != null) {
+                                      ref
+                                          .read(activeStaffProvider.notifier)
+                                          .setActiveStaff(
+                                            staff,
+                                            siteId: site.id,
+                                            module: StaffModule.report,
+                                            remember: true,
+                                          );
+                                    }
+                                  },
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 14, vertical: 10),
+                                    decoration: BoxDecoration(
+                                      color: isSelected
+                                          ? AppColors.primary
+                                              .withValues(alpha: 0.2)
+                                          : AppColors.surfaceDark,
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: isSelected
+                                            ? AppColors.primary
+                                            : AppColors.divider,
+                                        width: isSelected ? 1.6 : 1,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          isSelected
+                                              ? Icons.check_circle_rounded
+                                              : Icons.person_outline_rounded,
+                                          color: isSelected
+                                              ? AppColors.primary
+                                              : AppColors.textSecondary,
+                                          size: 18,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              staff.name,
+                                              style: AppTextStyles.bodyMedium
+                                                  .copyWith(
+                                                color: isSelected
+                                                    ? AppColors.textPrimary
+                                                    : AppColors.textSecondary,
+                                                fontWeight: isSelected
+                                                    ? FontWeight.bold
+                                                    : FontWeight.normal,
+                                              ),
+                                            ),
+                                            Text(
+                                              staff.role.displayName +
+                                                  (staff.description != null &&
+                                                          staff.description!
+                                                              .isNotEmpty
+                                                      ? ' • ${staff.description}'
+                                                      : ''),
+                                              style: TextStyle(
+                                                fontSize: 10.5,
+                                                color: isSelected
+                                                    ? AppColors.primary
+                                                    : AppColors.textTertiary,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
                             ),
                         ],
                       ),
-                      const SizedBox(height: 6),
-                      Text(
-                        context.tr('select_reporting_staff',
-                            defaultText:
-                                'Select who is entering this Daily Site Report. The approved report will be stamped with this person\'s name.'),
-                        style: AppTextStyles.bodySmall.copyWith(
-                            color: AppColors.textSecondary, fontSize: 11.5),
+                    ).animate().fadeIn().slideY(begin: 0.05),
+
+                    const SizedBox(height: 20),
+
+                    // ── Voice-to-Text Centerpiece ──
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: AppColors.cardDark,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: _isListening
+                              ? Colors.redAccent.withValues(alpha: 0.6)
+                              : AppColors.primary.withValues(alpha: 0.3),
+                        ),
                       ),
-                      const SizedBox(height: 12),
-                      if (staffState?.isLoading ?? false)
-                        const Center(
-                          child: Padding(
-                            padding: EdgeInsets.all(10),
-                            child: SizedBox(
-                              width: 22,
-                              height: 22,
-                              child: CircularProgressIndicator(
-                                  strokeWidth: 2, color: AppColors.primary),
+                      child: Column(
+                        children: [
+                          // Engine Selector Tabs: Whisper AI (Extreme Accuracy) vs Live Dictation
+                          Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: AppColors.surfaceDark,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: AppColors.divider),
                             ),
-                          ),
-                        )
-                      else if (availableStaff.isEmpty)
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: AppColors.surfaceDark,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.info_outline,
-                                  size: 18, color: AppColors.textTertiary),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  'No staff assigned to ${site?.name ?? "this site"}. Submitting as general staff.',
-                                  style: AppTextStyles.bodySmall
-                                      .copyWith(color: AppColors.textSecondary),
-                                ),
-                              ),
-                            ],
-                          ),
-                        )
-                      else
-                        Wrap(
-                          spacing: 10,
-                          runSpacing: 10,
-                          children: availableStaff.map((staff) {
-                            final isSelected = _selectedStaff?.id == staff.id;
-                            return InkWell(
-                              onTap: () {
-                                setState(() {
-                                  _selectedStaff = staff;
-                                });
-                                if (site != null) {
-                                  ref
-                                      .read(activeStaffProvider.notifier)
-                                      .setActiveStaff(
-                                        staff,
-                                        siteId: site.id,
-                                        module: StaffModule.report,
-                                        remember: true,
-                                      );
-                                }
-                              },
-                              borderRadius: BorderRadius.circular(12),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 14, vertical: 10),
-                                decoration: BoxDecoration(
-                                  color: isSelected
-                                      ? AppColors.primary.withValues(alpha: 0.2)
-                                      : AppColors.surfaceDark,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: isSelected
-                                        ? AppColors.primary
-                                        : AppColors.divider,
-                                    width: isSelected ? 1.6 : 1,
-                                  ),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      isSelected
-                                          ? Icons.check_circle_rounded
-                                          : Icons.person_outline_rounded,
-                                      color: isSelected
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                GestureDetector(
+                                  onTap: _isListening
+                                      ? null
+                                      : () => setState(
+                                          () => _useWhisperEngine = true),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 14, vertical: 7),
+                                    decoration: BoxDecoration(
+                                      color: _useWhisperEngine
                                           ? AppColors.primary
-                                          : AppColors.textSecondary,
-                                      size: 18,
+                                          : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(10),
                                     ),
-                                    const SizedBox(width: 8),
-                                    Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
+                                    child: Row(
                                       children: [
+                                        Icon(Icons.auto_awesome,
+                                            size: 14,
+                                            color: _useWhisperEngine
+                                                ? Colors.black
+                                                : Colors.white70),
+                                        const SizedBox(width: 6),
                                         Text(
-                                          staff.name,
-                                          style:
-                                              AppTextStyles.bodyMedium.copyWith(
-                                            color: isSelected
-                                                ? AppColors.textPrimary
-                                                : AppColors.textSecondary,
-                                            fontWeight: isSelected
-                                                ? FontWeight.bold
-                                                : FontWeight.normal,
-                                          ),
-                                        ),
-                                        Text(
-                                          staff.role.displayName +
-                                              (staff.description != null &&
-                                                      staff.description!
-                                                          .isNotEmpty
-                                                  ? ' • ${staff.description}'
-                                                  : ''),
+                                          'Whisper AI (Extreme Accuracy)',
                                           style: TextStyle(
-                                            fontSize: 10.5,
-                                            color: isSelected
-                                                ? AppColors.primary
-                                                : AppColors.textTertiary,
+                                            color: _useWhisperEngine
+                                                ? Colors.black
+                                                : Colors.white70,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
                                           ),
                                         ),
                                       ],
                                     ),
-                                  ],
+                                  ),
                                 ),
-                              ),
-                            );
-                          }).toList(),
-                        ),
-                    ],
-                  ),
-                ).animate().fadeIn().slideY(begin: 0.05),
-
-                const SizedBox(height: 20),
-
-                // ── Voice-to-Text Centerpiece ──
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: AppColors.cardDark,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: _isListening
-                          ? Colors.redAccent.withValues(alpha: 0.6)
-                          : AppColors.primary.withValues(alpha: 0.3),
-                    ),
-                  ),
-                  child: Column(
-                    children: [
-                      // Engine Selector Tabs: Whisper AI (Extreme Accuracy) vs Live Dictation
-                      Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceDark,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: AppColors.divider),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            GestureDetector(
-                              onTap: _isListening
-                                  ? null
-                                  : () =>
-                                      setState(() => _useWhisperEngine = true),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 14, vertical: 7),
-                                decoration: BoxDecoration(
-                                  color: _useWhisperEngine
-                                      ? AppColors.primary
-                                      : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.auto_awesome,
-                                        size: 14,
-                                        color: _useWhisperEngine
-                                            ? Colors.black
-                                            : Colors.white70),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      'Whisper AI (Extreme Accuracy)',
-                                      style: TextStyle(
-                                        color: _useWhisperEngine
-                                            ? Colors.black
-                                            : Colors.white70,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                      ),
+                                const SizedBox(width: 4),
+                                GestureDetector(
+                                  onTap: _isListening
+                                      ? null
+                                      : () => setState(
+                                          () => _useWhisperEngine = false),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 14, vertical: 7),
+                                    decoration: BoxDecoration(
+                                      color: !_useWhisperEngine
+                                          ? AppColors.primary
+                                          : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(10),
                                     ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            GestureDetector(
-                              onTap: _isListening
-                                  ? null
-                                  : () =>
-                                      setState(() => _useWhisperEngine = false),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 14, vertical: 7),
-                                decoration: BoxDecoration(
-                                  color: !_useWhisperEngine
-                                      ? AppColors.primary
-                                      : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(Icons.mic,
-                                        size: 14,
-                                        color: !_useWhisperEngine
-                                            ? Colors.black
-                                            : Colors.white70),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      'Live Dictation',
-                                      style: TextStyle(
-                                        color: !_useWhisperEngine
-                                            ? Colors.black
-                                            : Colors.white70,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                      ),
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.mic,
+                                            size: 14,
+                                            color: !_useWhisperEngine
+                                                ? Colors.black
+                                                : Colors.white70),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          'Live Dictation',
+                                          style: TextStyle(
+                                            color: !_useWhisperEngine
+                                                ? Colors.black
+                                                : Colors.white70,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                  ],
+                                  ),
                                 ),
-                              ),
+                              ],
                             ),
-                          ],
-                        ),
-                      ),
-
-                      const SizedBox(height: 14),
-
-                      // Language Selector Pills (Hindi, Hinglish, English)
-                      Wrap(
-                        alignment: WrapAlignment.center,
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          _buildLanguagePill(
-                            id: 'hindi',
-                            flag: '🇮🇳',
-                            title: 'हिन्दी (Hindi)',
-                            example: 'आज 50 बैग सीमेंट लगा',
                           ),
-                          _buildLanguagePill(
-                            id: 'hinglish',
-                            flag: '🇮🇳',
-                            title: 'Hinglish',
-                            example: 'Aaj 50 bag cement laga',
+
+                          const SizedBox(height: 14),
+
+                          // Language Selector Pills (Hindi, Hinglish, English)
+                          Wrap(
+                            alignment: WrapAlignment.center,
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              _buildLanguagePill(
+                                id: 'hindi',
+                                flag: '🇮🇳',
+                                title: 'हिन्दी (Hindi)',
+                                example: 'आज 50 बैग सीमेंट लगा',
+                              ),
+                              _buildLanguagePill(
+                                id: 'hinglish',
+                                flag: '🇮🇳',
+                                title: 'Hinglish',
+                                example: 'Aaj 50 bag cement laga',
+                              ),
+                              _buildLanguagePill(
+                                id: 'english',
+                                flag: '🇬🇧',
+                                title: 'English',
+                                example: '50 bags cement used',
+                              ),
+                            ],
                           ),
-                          _buildLanguagePill(
-                            id: 'english',
-                            flag: '🇬🇧',
-                            title: 'English',
-                            example: '50 bags cement used',
+
+                          const SizedBox(height: 8),
+
+                          // Language note
+                          Text(
+                            _languageDescription,
+                            style: const TextStyle(
+                              color: Colors.white54,
+                              fontSize: 11,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+
+                          const SizedBox(height: 20),
+
+                          Text(
+                            _isTranscribing
+                                ? '⚡ Groq Whisper converting speech to text...'
+                                : (_isListening
+                                    ? '🔴 Recording... Boliye'
+                                    : (_notesController.text.isNotEmpty
+                                        ? 'Tap to Speak More'
+                                        : 'Tap Mic to Speak Today\'s Work')),
+                            style: AppTextStyles.h3.copyWith(
+                              color: _isListening
+                                  ? Colors.redAccent
+                                  : AppColors.textPrimary,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            _isListening
+                                ? 'Duration: ${_formatTimer(_recordDurationSeconds)} — Tap again to finish & convert to text'
+                                : (_useWhisperEngine
+                                    ? 'Groq Whisper turbo engine active • Zero cloud audio stored'
+                                    : 'Live word-by-word streaming dictation'),
+                            style: AppTextStyles.bodySmall.copyWith(
+                              color: _isListening
+                                  ? Colors.redAccent
+                                  : AppColors.textTertiary,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+
+                          const SizedBox(height: 22),
+
+                          // Large Circular Mic Button
+                          GestureDetector(
+                            onTap: _isTranscribing
+                                ? null
+                                : () {
+                                    if (_useWhisperEngine) {
+                                      if (_isListening) {
+                                        _stopWhisperRecordingAndTranscribe();
+                                      } else {
+                                        _recordAndTranscribeWithWhisper();
+                                      }
+                                    } else {
+                                      _toggleLiveVoiceToText();
+                                    }
+                                  },
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
+                                if (_isListening)
+                                  Container(
+                                    width: 130,
+                                    height: 130,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: Colors.redAccent
+                                          .withValues(alpha: 0.2),
+                                    ),
+                                  )
+                                      .animate(
+                                          onPlay: (c) =>
+                                              c.repeat(reverse: true))
+                                      .scale(
+                                        begin: const Offset(1.0, 1.0),
+                                        end: const Offset(1.25, 1.25),
+                                        duration: 800.ms,
+                                      ),
+                                Container(
+                                  width: 90,
+                                  height: 90,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    gradient: _isListening
+                                        ? const LinearGradient(colors: [
+                                            Colors.redAccent,
+                                            Colors.red
+                                          ])
+                                        : AppColors.primaryGradient,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: (_isListening
+                                                ? Colors.red
+                                                : AppColors.primary)
+                                            .withValues(alpha: 0.4),
+                                        blurRadius: 18,
+                                        spreadRadius: 2,
+                                      ),
+                                    ],
+                                  ),
+                                  child: _isTranscribing
+                                      ? const Center(
+                                          child: CircularProgressIndicator(
+                                              color: Colors.white,
+                                              strokeWidth: 3),
+                                        )
+                                      : Icon(
+                                          _isListening
+                                              ? Icons.stop_rounded
+                                              : Icons.mic_rounded,
+                                          color: Colors.white,
+                                          size: 42,
+                                        ),
+                                ),
+                              ],
+                            ),
                           ),
                         ],
                       ),
+                    ),
 
-                      const SizedBox(height: 8),
+                    const SizedBox(height: 24),
 
-                      // Language note
-                      Text(
-                        _languageDescription,
-                        style: const TextStyle(
-                          color: Colors.white54,
-                          fontSize: 11,
+                    // ── Converted Text / Notes Field ──
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'WORK REPORT (VOICE-TO-TEXT)',
+                          style: AppTextStyles.overline
+                              .copyWith(color: AppColors.textTertiary),
                         ),
-                        textAlign: TextAlign.center,
-                      ),
-
-                      const SizedBox(height: 20),
-
-                      Text(
-                        _isTranscribing
-                            ? '⚡ Groq Whisper converting speech to text...'
-                            : (_isListening
-                                ? '🔴 Recording... Boliye'
-                                : (_notesController.text.isNotEmpty
-                                    ? 'Tap to Speak More'
-                                    : 'Tap Mic to Speak Today\'s Work')),
-                        style: AppTextStyles.h3.copyWith(
-                          color: _isListening
-                              ? Colors.redAccent
-                              : AppColors.textPrimary,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        _isListening
-                            ? 'Duration: ${_formatTimer(_recordDurationSeconds)} — Tap again to finish & convert to text'
-                            : (_useWhisperEngine
-                                ? 'Groq Whisper turbo engine active • Zero cloud audio stored'
-                                : 'Live word-by-word streaming dictation'),
-                        style: AppTextStyles.bodySmall.copyWith(
-                          color: _isListening
-                              ? Colors.redAccent
-                              : AppColors.textTertiary,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-
-                      const SizedBox(height: 22),
-
-                      // Large Circular Mic Button
-                      GestureDetector(
-                        onTap: _isTranscribing
-                            ? null
-                            : () {
-                                if (_useWhisperEngine) {
-                                  if (_isListening) {
-                                    _stopWhisperRecordingAndTranscribe();
-                                  } else {
-                                    _recordAndTranscribeWithWhisper();
-                                  }
-                                } else {
-                                  _toggleLiveVoiceToText();
-                                }
-                              },
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            if (_isListening)
-                              Container(
-                                width: 130,
-                                height: 130,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color:
-                                      Colors.redAccent.withValues(alpha: 0.2),
-                                ),
-                              )
-                                  .animate(
-                                      onPlay: (c) => c.repeat(reverse: true))
-                                  .scale(
-                                    begin: const Offset(1.0, 1.0),
-                                    end: const Offset(1.25, 1.25),
-                                    duration: 800.ms,
-                                  ),
-                            Container(
-                              width: 90,
-                              height: 90,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                gradient: _isListening
-                                    ? const LinearGradient(
-                                        colors: [Colors.redAccent, Colors.red])
-                                    : AppColors.primaryGradient,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: (_isListening
-                                            ? Colors.red
-                                            : AppColors.primary)
-                                        .withValues(alpha: 0.4),
-                                    blurRadius: 18,
-                                    spreadRadius: 2,
-                                  ),
-                                ],
-                              ),
-                              child: _isTranscribing
-                                  ? const Center(
-                                      child: CircularProgressIndicator(
-                                          color: Colors.white, strokeWidth: 3),
-                                    )
-                                  : Icon(
-                                      _isListening
-                                          ? Icons.stop_rounded
-                                          : Icons.mic_rounded,
-                                      color: Colors.white,
-                                      size: 42,
-                                    ),
+                        if (_notesController.text.isNotEmpty)
+                          GestureDetector(
+                            onTap: () =>
+                                setState(() => _notesController.clear()),
+                            child: Text(
+                              'Clear Text',
+                              style: AppTextStyles.caption
+                                  .copyWith(color: AppColors.rejected),
                             ),
-                          ],
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: _notesController,
+                      maxLines: 4,
+                      style: const TextStyle(
+                          color: Colors.white, fontSize: 14, height: 1.4),
+                      decoration: InputDecoration(
+                        hintText:
+                            'Spoken text will automatically appear here. You can also edit or type manually...',
+                        hintStyle: AppTextStyles.bodySmall
+                            .copyWith(color: AppColors.textTertiary),
+                        filled: true,
+                        fillColor: AppColors.cardDark,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide:
+                              const BorderSide(color: AppColors.divider),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide:
+                              const BorderSide(color: AppColors.divider),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          borderSide:
+                              const BorderSide(color: AppColors.primary),
                         ),
                       ),
-                    ],
-                  ),
-                ),
+                    ),
 
-                const SizedBox(height: 24),
+                    const SizedBox(height: 24),
 
-                // ── Converted Text / Notes Field ──
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
+                    // ── Site Photos Section ──
                     Text(
-                      'WORK REPORT (VOICE-TO-TEXT)',
+                      'SITE PHOTOS (EVIDENCE)',
                       style: AppTextStyles.overline
                           .copyWith(color: AppColors.textTertiary),
                     ),
-                    if (_notesController.text.isNotEmpty)
-                      GestureDetector(
-                        onTap: () => setState(() => _notesController.clear()),
-                        child: Text(
-                          'Clear Text',
-                          style: AppTextStyles.caption
-                              .copyWith(color: AppColors.rejected),
-                        ),
-                      ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                TextField(
-                  controller: _notesController,
-                  maxLines: 4,
-                  style: const TextStyle(
-                      color: Colors.white, fontSize: 14, height: 1.4),
-                  decoration: InputDecoration(
-                    hintText:
-                        'Spoken text will automatically appear here. You can also edit or type manually...',
-                    hintStyle: AppTextStyles.bodySmall
-                        .copyWith(color: AppColors.textTertiary),
-                    filled: true,
-                    fillColor: AppColors.cardDark,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: const BorderSide(color: AppColors.divider),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: const BorderSide(color: AppColors.divider),
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: const BorderSide(color: AppColors.primary),
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-
-                // ── Site Photos Section ──
-                Text(
-                  'SITE PHOTOS (EVIDENCE)',
-                  style: AppTextStyles.overline
-                      .copyWith(color: AppColors.textTertiary),
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => _pickPhotos(ImageSource.camera),
-                        icon: const Icon(Icons.camera_alt_rounded),
-                        label: const Text('Take Camera Photo'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.textPrimary,
-                          side: const BorderSide(color: AppColors.divider),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12)),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => _pickPhotos(ImageSource.gallery),
-                        icon: const Icon(Icons.photo_library_rounded),
-                        label: const Text('Add from Gallery'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.textPrimary,
-                          side: const BorderSide(color: AppColors.divider),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12)),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-
-                // Selected Photos Preview Carousel
-                if (_selectedPhotos.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    height: 90,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: _selectedPhotos.length,
-                      separatorBuilder: (_, __) => const SizedBox(width: 10),
-                      itemBuilder: (context, index) {
-                        return Stack(
-                          children: [
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(12),
-                              child: Container(
-                                width: 90,
-                                height: 90,
-                                color: AppColors.surfaceDark,
-                                child: Image.memory(
-                                  _photoBytesList[index],
-                                  fit: BoxFit.cover,
-                                ),
-                              ),
-                            ),
-                            Positioned(
-                              top: 4,
-                              right: 4,
-                              child: GestureDetector(
-                                onTap: () {
-                                  setState(() {
-                                    _selectedPhotos.removeAt(index);
-                                    _photoBytesList.removeAt(index);
-                                  });
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.all(4),
-                                  decoration: const BoxDecoration(
-                                    color: Colors.black87,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(Icons.close,
-                                      color: Colors.white, size: 14),
-                                ),
-                              ),
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-                  ),
-                ],
-
-                const SizedBox(height: 36),
-
-                // ── Submit Button ──
-                SizedBox(
-                  width: double.infinity,
-                  height: 56,
-                  child: ElevatedButton(
-                    onPressed: submissionState.isLoading ? null : _handleSubmit,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16)),
-                      elevation: 4,
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                    const SizedBox(height: 10),
+                    Row(
                       children: [
-                        const Icon(Icons.send_rounded, color: Colors.white),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () => _pickPhotos(ImageSource.camera),
+                            icon: const Icon(Icons.camera_alt_rounded),
+                            label: const Text('Take Camera Photo'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.textPrimary,
+                              side: const BorderSide(color: AppColors.divider),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
+                            ),
+                          ),
+                        ),
                         const SizedBox(width: 10),
-                        Text(
-                          'Submit',
-                          style: AppTextStyles.button.copyWith(fontSize: 16),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () => _pickPhotos(ImageSource.gallery),
+                            icon: const Icon(Icons.photo_library_rounded),
+                            label: const Text('Add from Gallery'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.textPrimary,
+                              side: const BorderSide(color: AppColors.divider),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
+                            ),
+                          ),
                         ),
                       ],
                     ),
-                  ),
-                ),
 
-                const SizedBox(height: 40),
-              ],
-            ),
-          ),
-
-          // Loading Overlay with dynamic status text
-          if (submissionState.isLoading)
-            Container(
-              color: Colors.black.withValues(alpha: 0.75),
-              child: Center(
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
-                  margin: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: AppColors.cardDark,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                        color: AppColors.primary.withValues(alpha: 0.5)),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const CircularProgressIndicator(color: AppColors.primary),
-                      const SizedBox(height: 20),
-                      Text(
-                        submissionState.loadingStatusText,
-                        style: AppTextStyles.bodyMedium.copyWith(
-                            color: Colors.white, fontWeight: FontWeight.bold),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Saving daily work report and site photos',
-                        style: AppTextStyles.caption
-                            .copyWith(color: AppColors.textTertiary),
-                        textAlign: TextAlign.center,
+                    // Selected Photos Preview Carousel
+                    if (_selectedPhotos.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        height: 90,
+                        child: ListView.separated(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: _selectedPhotos.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(width: 10),
+                          itemBuilder: (context, index) {
+                            return Stack(
+                              children: [
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Container(
+                                    width: 90,
+                                    height: 90,
+                                    color: AppColors.surfaceDark,
+                                    child: Image.memory(
+                                      _photoBytesList[index],
+                                      fit: BoxFit.cover,
+                                    ),
+                                  ),
+                                ),
+                                Positioned(
+                                  top: 4,
+                                  right: 4,
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      setState(() {
+                                        _selectedPhotos.removeAt(index);
+                                        _photoBytesList.removeAt(index);
+                                      });
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.all(4),
+                                      decoration: const BoxDecoration(
+                                        color: Colors.black87,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(Icons.close,
+                                          color: Colors.white, size: 14),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
                       ),
                     ],
-                  ),
+
+                    const SizedBox(height: 36),
+
+                    // ── Submit Button ──
+                    SizedBox(
+                      width: double.infinity,
+                      height: 56,
+                      child: ElevatedButton(
+                        onPressed:
+                            submissionState.isLoading ? null : _handleSubmit,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16)),
+                          elevation: 4,
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.send_rounded, color: Colors.white),
+                            const SizedBox(width: 10),
+                            Text(
+                              'Submit',
+                              style:
+                                  AppTextStyles.button.copyWith(fontSize: 16),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 40),
+                  ],
                 ),
               ),
-            ),
-        ],
-      ),
-    );
+
+              // Loading Overlay with dynamic status text
+              if (submissionState.isLoading)
+                Container(
+                  color: Colors.black.withValues(alpha: 0.75),
+                  child: Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 28, vertical: 24),
+                      margin: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: AppColors.cardDark,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                            color: AppColors.primary.withValues(alpha: 0.5)),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const CircularProgressIndicator(
+                              color: AppColors.primary),
+                          const SizedBox(height: 20),
+                          Text(
+                            submissionState.loadingStatusText,
+                            style: AppTextStyles.bodyMedium.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Saving daily work report and site photos',
+                            style: AppTextStyles.caption
+                                .copyWith(color: AppColors.textTertiary),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ));
   }
 }

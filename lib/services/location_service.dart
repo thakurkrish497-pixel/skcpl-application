@@ -22,6 +22,10 @@ class LocationFetchResult {
 /// Service providing live GPS coordinates, Geofence distance calculations,
 /// and resilient browser/device diagnostic fallbacks.
 class LocationService {
+  static Future<LocationFetchResult>? _fetchFlight;
+  static Stream<Position> positionStream() => Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high, distanceFilter: 10));
   static bool isUsableAttendancePosition(Position position, {DateTime? now}) {
     final age = (now ?? DateTime.now()).difference(position.timestamp);
     return !position.isMocked &&
@@ -31,6 +35,7 @@ class LocationService {
         position.longitude.abs() <= 180 &&
         position.accuracy.isFinite &&
         position.accuracy >= 0 &&
+        position.accuracy <= 100 &&
         age >= const Duration(seconds: -30) &&
         age <= const Duration(minutes: 2);
   }
@@ -42,7 +47,21 @@ class LocationService {
   }
 
   /// Request GPS with granular diagnostics to explain why signal was blocked
-  static Future<LocationFetchResult> getCurrentLocationDetailed() async {
+  static Future<LocationFetchResult> getCurrentLocationDetailed() =>
+      _fetchFlight ??=
+          _fetchValidated().whenComplete(() => _fetchFlight = null);
+  static Future<LocationFetchResult> _fetchValidated() async {
+    final result = await _fetchRaw();
+    if (result.position != null &&
+        !isUsableAttendancePosition(result.position!)) {
+      return const LocationFetchResult(
+          errorMessage:
+              'GPS fix is stale, approximate or unverified. Improve the GPS signal and retry; inaccurate coordinates were not shared.');
+    }
+    return result;
+  }
+
+  static Future<LocationFetchResult> _fetchRaw() async {
     // 1. If running on Web, use native HTML5 Geolocation directly!
     // This completely avoids MissingPluginException and works directly with browser permissions.
     if (kIsWeb) {

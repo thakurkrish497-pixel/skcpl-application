@@ -1,3 +1,4 @@
+import '../../widgets/entry_date_picker.dart';
 import '../../providers/role_access_provider.dart';
 import '../../widgets/nonfinancial_review_queue.dart';
 import 'package:flutter/material.dart';
@@ -32,7 +33,7 @@ class DailySiteReportsScreen extends ConsumerStatefulWidget {
 class _DailySiteReportsScreenState
     extends ConsumerState<DailySiteReportsScreen> {
   String? _selectedSiteId;
-  DateTime _selectedDate = DateTime.now();
+  DateTime _selectedDate = EntryDatePolicy.today();
 
   @override
   void initState() {
@@ -50,14 +51,16 @@ class _DailySiteReportsScreenState
   }
 
   void _changeDateBy(int days) {
+    final next = _selectedDate.add(Duration(days: days));
+    if (EntryDatePolicy.isFuture(next)) return;
     setState(() {
-      _selectedDate = _selectedDate.add(Duration(days: days));
+      _selectedDate = next;
     });
   }
 
   void _resetToToday() {
     setState(() {
-      _selectedDate = DateTime.now();
+      _selectedDate = EntryDatePolicy.today();
     });
   }
 
@@ -267,6 +270,10 @@ class _DailySiteReportsScreenState
             context.tr('daily_site_report', defaultText: 'Daily Site Reports')),
         actions: [
           IconButton(
+              tooltip: 'DSR History',
+              icon: const Icon(Icons.history),
+              onPressed: () => Navigator.of(context).pushNamed('/dsr-history')),
+          IconButton(
               tooltip: 'Verified DSR review queue',
               icon: const Icon(Icons.fact_check_outlined),
               onPressed: () => Navigator.of(context).push(MaterialPageRoute(
@@ -409,12 +416,10 @@ class _DailySiteReportsScreenState
                             Expanded(
                               child: InkWell(
                                 onTap: () async {
-                                  final picked = await showDatePicker(
+                                  final picked = await showEntryDatePicker(
                                     context: context,
                                     initialDate: _selectedDate,
                                     firstDate: DateTime(2024),
-                                    lastDate: DateTime.now()
-                                        .add(const Duration(days: 1)),
                                   );
                                   if (picked != null) {
                                     setState(() => _selectedDate = picked);
@@ -491,7 +496,10 @@ class _DailySiteReportsScreenState
 
                             // Next Day Button
                             InkWell(
-                              onTap: () => _changeDateBy(1),
+                              onTap: EntryDatePolicy.isFuture(_selectedDate
+                                      .add(const Duration(days: 1)))
+                                  ? null
+                                  : () => _changeDateBy(1),
                               borderRadius: BorderRadius.circular(10),
                               child: Container(
                                 padding: const EdgeInsets.symmetric(

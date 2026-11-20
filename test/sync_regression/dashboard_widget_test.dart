@@ -258,7 +258,17 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
     }
     expect(find.text('Fuel'), findsOneWidget);
+    final historyList = find
+        .descendant(
+            of: find.byType(MasterEntryHistoryView),
+            matching: find.byWidgetPredicate((w) =>
+                w is Scrollable && w.axisDirection == AxisDirection.down))
+        .last;
+    await tester.scrollUntilVisible(find.textContaining('Steel'), 200,
+        scrollable: historyList);
     expect(find.textContaining('Steel'), findsOneWidget);
+    await tester.scrollUntilVisible(find.textContaining('Diesel'), 200,
+        scrollable: historyList);
     expect(find.textContaining('Diesel'), findsOneWidget);
     await tester.ensureVisible(find.text('Stock IN (Inbound)'));
     await tester.tap(find.text('Stock IN (Inbound)'));

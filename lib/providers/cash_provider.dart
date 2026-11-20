@@ -1,3 +1,4 @@
+import '../services/entry_date_policy.dart';
 import 'stock_provider.dart';
 import '../services/submission_support.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -94,6 +95,7 @@ class CashNotifier extends StateNotifier<CashState> {
     }
     CashTransactionModel? queued;
     try {
+      EntryDatePolicy.requireNotFuture(transaction.date);
       queued = await OfflineService.queueCashTransaction(
           transaction.copyWith(id: submissionId(transaction.id)));
       final created = await _cashService.submitTransaction(queued);
@@ -105,6 +107,9 @@ class CashNotifier extends StateNotifier<CashState> {
               .where((t) => t.id != created.id && t.id != queued!.id)
         ], isLoading: false);
       }
+      // A fetch started before this acknowledgement must not restore stale rows.
+      ++_loadRevision;
+      if (mounted && state.isLoading) state = state.copyWith(isLoading: false);
       return true;
     } catch (e) {
       if (queued != null && isRetryableSubmissionError(e)) {
@@ -113,6 +118,11 @@ class CashNotifier extends StateNotifier<CashState> {
             queued,
             ...state.transactions.where((t) => t.id != queued!.id)
           ], isLoading: false, error: 'OFFLINE_SAVED');
+        }
+        // A fetch started before this acknowledgement must not restore stale rows.
+        ++_loadRevision;
+        if (mounted && state.isLoading) {
+          state = state.copyWith(isLoading: false);
         }
         return true;
       }
@@ -136,6 +146,7 @@ class CashNotifier extends StateNotifier<CashState> {
     // Handle offline queued transactions
     if (txId != null && await OfflineService.isQueuedCash(txId)) {
       try {
+        EntryDatePolicy.requireNotFuture(transaction.date);
         if (transaction.status == TransactionStatus.rejected) {
           if (txId.isNotEmpty) {
             await OfflineService.removeQueuedCashTransaction(txId);
@@ -150,6 +161,11 @@ class CashNotifier extends StateNotifier<CashState> {
                 .toList(),
             isLoading: false,
           );
+        }
+        // A fetch started before this acknowledgement must not restore stale rows.
+        ++_loadRevision;
+        if (mounted && state.isLoading) {
+          state = state.copyWith(isLoading: false);
         }
         return true;
       } catch (e) {
@@ -176,6 +192,9 @@ class CashNotifier extends StateNotifier<CashState> {
           isLoading: false,
         );
       }
+      // A fetch started before this acknowledgement must not restore stale rows.
+      ++_loadRevision;
+      if (mounted && state.isLoading) state = state.copyWith(isLoading: false);
       return true;
     } catch (e) {
       if (mounted) {
@@ -201,6 +220,9 @@ class CashNotifier extends StateNotifier<CashState> {
           transactions: state.transactions.where((t) => t.id != txId).toList(),
         );
       }
+      // A fetch started before this acknowledgement must not restore stale rows.
+      ++_loadRevision;
+      if (mounted && state.isLoading) state = state.copyWith(isLoading: false);
       return true;
     } catch (e) {
       if (mounted) {
@@ -224,6 +246,9 @@ class CashNotifier extends StateNotifier<CashState> {
               .toList(),
         );
       }
+      // A fetch started before this acknowledgement must not restore stale rows.
+      ++_loadRevision;
+      if (mounted && state.isLoading) state = state.copyWith(isLoading: false);
       return true;
     } catch (e) {
       if (mounted) {
@@ -246,6 +271,9 @@ class CashNotifier extends StateNotifier<CashState> {
               .toList(),
         );
       }
+      // A fetch started before this acknowledgement must not restore stale rows.
+      ++_loadRevision;
+      if (mounted && state.isLoading) state = state.copyWith(isLoading: false);
       return true;
     } catch (e) {
       if (mounted) {
@@ -274,6 +302,9 @@ class CashNotifier extends StateNotifier<CashState> {
               .toList(),
         );
       }
+      // A fetch started before this acknowledgement must not restore stale rows.
+      ++_loadRevision;
+      if (mounted && state.isLoading) state = state.copyWith(isLoading: false);
       return true;
     } catch (e) {
       if (mounted) {

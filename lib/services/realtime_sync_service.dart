@@ -1,6 +1,8 @@
+import 'package:flutter/widgets.dart';
+import 'live_refresh_scheduler.dart';
+import 'auto_sync_engine.dart';
 import 'dart:async';
 import 'transaction_refresh.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../providers/auth_provider.dart';
@@ -10,10 +12,35 @@ import '../providers/site_provider.dart';
 import '../providers/role_access_provider.dart';
 
 /// Service managing Supabase Realtime WebSocket channels
-class RealtimeSyncService {
+class RealtimeSyncService with WidgetsBindingObserver {
   final Ref _ref;
   final SupabaseClient _client;
   bool _disposed = false;
+  bool _foreground = true;
+  late final LiveRefreshScheduler _refresh;
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _foreground = state == AppLifecycleState.resumed;
+    if (_foreground && !_disposed) {
+      _refresh.request();
+      unawaited(_ref.read(autoSyncProvider.notifier).syncNow());
+    }
+  }
+
+  Future<void> _refreshGraph() async {
+    if (_disposed || !_foreground) return;
+    invalidateTransactionViews(_ref.invalidate);
+    _ref.invalidate(activeSitesProvider);
+    _ref.invalidate(allSitesProvider);
+    final siteId = _ref.read(authProvider).activeSite?.id;
+    await Future.wait([
+      _ref.read(cashProvider.notifier).refresh(),
+      _ref.read(stockProvider.notifier).refresh(),
+      if (siteId != null)
+        _ref.read(stockProvider.notifier).loadCurrentStock(siteId),
+    ]);
+  }
+
   RealtimeChannel? _cashChannel;
   RealtimeChannel? _stockChannel;
   RealtimeChannel? _sitesChannel;
@@ -23,13 +50,20 @@ class RealtimeSyncService {
   final _reviewChannels = <RealtimeChannel>[];
 
   RealtimeSyncService(this._ref, this._client, {bool enabled = true}) {
-    if (enabled) _subscribe();
+    _refresh = LiveRefreshScheduler(
+        refresh: _refreshGraph, active: () => !_disposed && _foreground);
+    if (enabled) {
+      _foreground = WidgetsBinding.instance.lifecycleState == null ||
+          WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
+      WidgetsBinding.instance.addObserver(this);
+      _subscribe();
+    }
   }
 
   void _refreshPolicy() {
-    if (_disposed) return;
+    if (_disposed || !_foreground) return;
     _ref.read(roleAccessProvider.notifier).loadPermissions(forceRefresh: true);
-    invalidateTransactionViews(_ref.invalidate);
+    _refresh.request();
   }
 
   void _subscribe() {
@@ -57,7 +91,7 @@ class RealtimeSyncService {
                 schema: 'public',
                 table: table,
                 callback: (_) {
-                  if (!_disposed) invalidateTransactionViews(_ref.invalidate);
+                  if (!_disposed) _refresh.request();
                 })
               ..subscribe());
       }
@@ -70,48 +104,35 @@ class RealtimeSyncService {
               if (_disposed) return;
               debugPrint(
                   '⚡ [Realtime] Cash transaction event: ${payload.eventType}');
-              invalidateTransactionViews(_ref.invalidate);
-              _ref.read(cashProvider.notifier).refresh();
+              _refresh.request();
             },
           )..subscribe((status, error) {
           if (!_disposed && status == RealtimeSubscribeStatus.subscribed) {
-            invalidateTransactionViews(_ref.invalidate);
-            _ref.read(cashProvider.notifier).refresh();
-            _ref.read(stockProvider.notifier).refresh();
+            _refresh.request();
           } else if (error != null) {
             debugPrint('Realtime subscription unavailable: $status');
           }
         });
 
       // 2. Live stream on stock_transactions
-      _stockChannel = _client
-          .channel('public:realtime_stock')
-          .onPostgresChanges(
-            event: PostgresChangeEvent.all,
-            schema: 'public',
-            table: 'stock_transactions',
-            callback: (payload) {
-              if (_disposed) return;
-              debugPrint(
-                  '⚡ [Realtime] Stock transaction event: ${payload.eventType}');
-              invalidateTransactionViews(_ref.invalidate);
-              _ref.read(stockProvider.notifier).refresh();
-              final siteId =
-                  payload.newRecord['site_id'] ?? payload.oldRecord['site_id'];
-              if (siteId is String &&
-                  siteId == _ref.read(authProvider).activeSite?.id) {
-                _ref.read(stockProvider.notifier).loadCurrentStock(siteId);
+      _stockChannel =
+          _client.channel('public:realtime_stock').onPostgresChanges(
+                event: PostgresChangeEvent.all,
+                schema: 'public',
+                table: 'stock_transactions',
+                callback: (payload) {
+                  if (_disposed) return;
+                  debugPrint(
+                      '⚡ [Realtime] Stock transaction event: ${payload.eventType}');
+                  _refresh.request();
+                },
+              )..subscribe((status, error) {
+              if (!_disposed && status == RealtimeSubscribeStatus.subscribed) {
+                _refresh.request();
+              } else if (error != null) {
+                debugPrint('Realtime subscription unavailable: $status');
               }
-            },
-          )..subscribe((status, error) {
-          if (!_disposed && status == RealtimeSubscribeStatus.subscribed) {
-            invalidateTransactionViews(_ref.invalidate);
-            _ref.read(cashProvider.notifier).refresh();
-            _ref.read(stockProvider.notifier).refresh();
-          } else if (error != null) {
-            debugPrint('Realtime subscription unavailable: $status');
-          }
-        });
+            });
 
       // 3. Live stream on sites (new sites, renames, budget changes)
       _sitesChannel =
@@ -123,15 +144,11 @@ class RealtimeSyncService {
                   if (_disposed) return;
                   debugPrint(
                       '⚡ [Realtime] Site update event: ${payload.eventType}');
-                  invalidateTransactionViews(_ref.invalidate);
-                  _ref.invalidate(activeSitesProvider);
-                  _ref.invalidate(allSitesProvider);
+                  _refresh.request();
                 },
               )..subscribe((status, error) {
               if (!_disposed && status == RealtimeSubscribeStatus.subscribed) {
-                invalidateTransactionViews(_ref.invalidate);
-                _ref.read(cashProvider.notifier).refresh();
-                _ref.read(stockProvider.notifier).refresh();
+                _refresh.request();
               } else if (error != null) {
                 debugPrint('Realtime subscription unavailable: $status');
               }
@@ -145,15 +162,15 @@ class RealtimeSyncService {
                 table: 'tasks',
                 callback: (payload) {
                   if (_disposed) return;
-                  invalidateTransactionViews(_ref.invalidate);
+                  final title =
+                      payload.newRecord['title'] ?? payload.oldRecord['title'];
+                  if (title is String && title.startsWith('LIVELOC:')) return;
                   debugPrint('Realtime permissions refresh');
                   _refreshPolicy();
                 },
               )..subscribe((status, error) {
               if (!_disposed && status == RealtimeSubscribeStatus.subscribed) {
-                invalidateTransactionViews(_ref.invalidate);
-                _ref.read(cashProvider.notifier).refresh();
-                _ref.read(stockProvider.notifier).refresh();
+                _refresh.request();
               } else if (error != null) {
                 debugPrint('Realtime subscription unavailable: $status');
               }
@@ -165,6 +182,8 @@ class RealtimeSyncService {
 
   Future<void> dispose() async {
     _disposed = true;
+    _refresh.dispose();
+    WidgetsBinding.instance.removeObserver(this);
     _policyPoll?.cancel();
     for (final channel in [
       _cashChannel,
@@ -174,7 +193,11 @@ class RealtimeSyncService {
       _managementChannel,
       ..._reviewChannels,
     ]) {
-      if (channel != null) await _client.removeChannel(channel);
+      if (channel != null) {
+        try {
+          await _client.removeChannel(channel);
+        } catch (_) {/* Continue cleanup. */}
+      }
     }
   }
 }

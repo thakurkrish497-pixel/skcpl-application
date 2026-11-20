@@ -1,3 +1,6 @@
+import 'screens/workflow_action_screen.dart';
+import 'models/workflow_monitor_model.dart';
+import 'screens/site_reports/dsr_history_screen.dart';
 import 'package:flutter/material.dart';
 import 'models/user_model.dart';
 import 'widgets/role_gate.dart';
@@ -24,6 +27,8 @@ import 'screens/project_head/project_head_dashboard.dart';
 import 'screens/admin/admin_backup_screen.dart';
 
 Map<String, WidgetBuilder> buildAppRoutes() => {
+      '/workflow-action': (context) => WorkflowActionScreen(
+          action: ModalRoute.of(context)!.settings.arguments as WorkflowAction),
       '/role-login': (context) => const RoleLoginScreen(),
       '/stock-choice': (context) => const StockChoiceScreen(),
       '/add-product': (context) => const AddProductScreen(),
@@ -43,6 +48,11 @@ Map<String, WidgetBuilder> buildAppRoutes() => {
           allowedRoles: [UserRole.admin], child: AdminCashflowScreen()),
       '/daily-site-reports': (context) => const RoleGate(
           allowedRoles: [UserRole.admin], child: DailySiteReportsScreen()),
+      '/dsr-history': (context) => const RoleGate(allowedRoles: [
+            UserRole.admin,
+            UserRole.projectHead,
+            UserRole.accounts
+          ], child: DsrHistoryScreen()),
       '/site-report': (context) => const RecordSiteReportScreen(),
       '/tasks': (context) => const TaskListScreen(),
       '/admin-attendance': (context) => const RoleGate(

@@ -1,3 +1,4 @@
+import '../../widgets/staff_location_session.dart';
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -39,7 +40,7 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
   bool _isLoadingLocation = false;
   String? _locationError;
   Timer? _clockTimer;
-  Timer? _locationPingTimer;
+
   DateTime _now = DateTime.now();
 
   SiteModel? get _site => widget.site ?? ref.read(authProvider).activeSite;
@@ -57,66 +58,18 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
       final currentSite = _site;
       final currentStaff = _staff;
       if (currentSite != null && currentStaff != null) {
-        ref
-            .read(staffPunchProvider.notifier)
-            .loadTodayRecord(
+        ref.read(staffPunchProvider.notifier).loadTodayRecord(
               siteId: currentSite.id,
               staffId: currentStaff.id,
-            )
-            .then((_) {
-          final rec = ref.read(staffPunchProvider).todayRecord;
-          if (rec?.punchInTime != null && rec?.punchOutTime == null) {
-            _startPeriodicLocationPing(currentSite, currentStaff);
-          }
-        });
-      }
-    });
-  }
-
-  void _startPeriodicLocationPing(SiteModel site, SiteStaffModel staff) {
-    _locationPingTimer?.cancel();
-    // Periodically update live location every 5 minutes while shift is active
-    _locationPingTimer = Timer.periodic(const Duration(minutes: 5), (_) async {
-      try {
-        final pos = await LocationService.getCurrentLocation();
-        if (pos != null) {
-          final policy =
-              await ref.read(attendanceServiceProvider).getShiftPolicy(site.id);
-          double? dist;
-          bool isWithin = true;
-          if (policy.latitude != null && policy.longitude != null) {
-            dist = LocationService.calculateDistanceMeters(
-              userLat: pos.latitude,
-              userLng: pos.longitude,
-              siteLat: policy.latitude!,
-              siteLng: policy.longitude!,
             );
-            isWithin = dist <= policy.allowedRadiusMeters;
-          }
-          await ref.read(attendanceServiceProvider).updateLiveLocation(
-                StaffLiveLocationModel(
-                  staffId: staff.id,
-                  staffName: staff.name,
-                  staffRole: staff.role.displayName,
-                  siteId: site.id,
-                  siteName: site.name,
-                  latitude: pos.latitude,
-                  longitude: pos.longitude,
-                  accuracyMeters: pos.accuracy,
-                  isWithinSite: isWithin,
-                  distanceMeters: dist ?? 0,
-                  timestamp: DateTime.now(),
-                ),
-              );
-        }
-      } catch (_) {}
+      }
     });
   }
 
   @override
   void dispose() {
     _clockTimer?.cancel();
-    _locationPingTimer?.cancel();
+
     super.dispose();
   }
 
@@ -372,7 +325,7 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
     try {
       final policy = await ref
           .read(attendanceServiceProvider)
-          .getShiftPolicy(currentSite.id);
+          .getShiftPolicy(currentStaff.siteId);
       final isHeadOffice = currentSite.isHeadOffice ||
           currentSite.name.toLowerCase().contains('head office') ||
           currentSite.name.toLowerCase().contains('indore office') ||
@@ -456,28 +409,6 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
             longitude: _currentPosition?.longitude,
           );
 
-      // Start periodic live location pings
-      _startPeriodicLocationPing(currentSite, currentStaff);
-
-      // Transmit initial live location ping
-      if (_currentPosition != null) {
-        ref.read(attendanceServiceProvider).updateLiveLocation(
-              StaffLiveLocationModel(
-                staffId: currentStaff.id,
-                staffName: currentStaff.name,
-                staffRole: currentStaff.role.displayName,
-                siteId: currentSite.id,
-                siteName: currentSite.name,
-                latitude: _currentPosition!.latitude,
-                longitude: _currentPosition!.longitude,
-                accuracyMeters: _currentPosition!.accuracy,
-                isWithinSite: record.isWithinSite,
-                distanceMeters: record.distanceMeters ?? 0,
-                timestamp: DateTime.now(),
-              ),
-            );
-      }
-
       if (mounted) {
         if (record.status == AttendanceStatus.absentLateLockout) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -516,8 +447,6 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
             latitude: _currentPosition?.latitude,
             longitude: _currentPosition?.longitude,
           );
-
-      _locationPingTimer?.cancel();
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -568,9 +497,12 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
     }
 
     final punchState = ref.watch(staffPunchProvider);
-    final policyAsync = ref.watch(shiftPolicyForSiteProvider(currentSite.id));
+    final policyAsync =
+        ref.watch(shiftPolicyForSiteProvider(currentStaff.siteId));
     final policy = policyAsync.valueOrNull;
-    final todayRecord = punchState.todayRecord;
+    final todayRecord = punchState.todayRecord?.staffId == currentStaff.id
+        ? punchState.todayRecord
+        : null;
 
     final holidays = ref.watch(holidaysProvider).valueOrNull ?? [];
     final isHeadOffice = currentSite.isHeadOffice;
@@ -591,120 +523,134 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
         ? 'Sunday Off (Head Office)'
         : (declaredHoliday?.title ?? 'Holiday');
 
-    return Scaffold(
-      backgroundColor: AppColors.scaffoldDark,
-      appBar: AppBar(
-        title: Row(
-          children: [
-            const SkcplBrandLogo(variant: LogoVariant.compact, customSize: 30),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                '${currentSite.name} — ${context.tr('attendance_punch')}',
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 8, horizontal: 4),
-            child: LanguageToggleButton(isCompact: true),
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded),
-            tooltip: context.tr('refresh', defaultText: 'Refresh'),
-            onPressed: () {
-              _fetchLocation();
-              ref.read(staffPunchProvider.notifier).loadTodayRecord(
-                    siteId: currentSite.id,
-                    staffId: currentStaff.id,
-                  );
-            },
-          ),
-        ],
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Staff Profile Card
-              _buildStaffHeaderCard(currentSite, currentStaff),
-
-              const SizedBox(height: 16),
-
-              // Holiday Announcement Banner
-              if (isHolidayToday) ...[
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF0284C7).withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                        color: const Color(0xFF0284C7).withValues(alpha: 0.4)),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.beach_access_rounded,
-                          color: Color(0xFF38BDF8), size: 28),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Today is a Holiday — $holidayName',
-                              style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13),
-                            ),
-                            const SizedBox(height: 2),
-                            const Text(
-                              'Attendance is optional today. You are not marked absent. If you are working today, you may still punch in below.',
-                              style: TextStyle(
-                                  color: Color(0xFFBAE6FD), fontSize: 11),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+    return StaffLocationSession(
+        site: currentSite,
+        staff: currentStaff,
+        onPosition: (fix) {
+          if (mounted) {
+            setState(() {
+              _currentPosition = fix;
+              _locationError = null;
+            });
+          }
+        },
+        child: Scaffold(
+          backgroundColor: AppColors.scaffoldDark,
+          appBar: AppBar(
+            title: Row(
+              children: [
+                const SkcplBrandLogo(
+                    variant: LogoVariant.compact, customSize: 30),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    '${currentSite.name} — ${context.tr('attendance_punch')}',
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                const SizedBox(height: 16),
               ],
-
-              // Live Digital Clock & Date
-              _buildLiveClockCard(),
-
-              const SizedBox(height: 16),
-
-              // Shift Timing & Policy Card
-              if (policy != null) _buildPolicyCard(policy),
-
-              const SizedBox(height: 16),
-
-              // GPS Geofence Status Card
-              _buildLocationStatusCard(policy),
-
-              const SizedBox(height: 24),
-
-              // Attendance Status & Big Action Button
-              if (punchState.isLoading)
-                const Center(
-                    child: CircularProgressIndicator(color: AppColors.primary))
-              else
-                _buildPunchActionButton(todayRecord, policy),
-
-              const SizedBox(height: 20),
+            ),
+            actions: [
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                child: LanguageToggleButton(isCompact: true),
+              ),
+              IconButton(
+                icon: const Icon(Icons.refresh_rounded),
+                tooltip: context.tr('refresh', defaultText: 'Refresh'),
+                onPressed: () {
+                  _fetchLocation();
+                  ref.read(staffPunchProvider.notifier).loadTodayRecord(
+                        siteId: currentSite.id,
+                        staffId: currentStaff.id,
+                      );
+                },
+              ),
             ],
           ),
-        ),
-      ),
-    );
+          body: SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Staff Profile Card
+                  _buildStaffHeaderCard(currentSite, currentStaff),
+
+                  const SizedBox(height: 16),
+
+                  // Holiday Announcement Banner
+                  if (isHolidayToday) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0284C7).withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                            color:
+                                const Color(0xFF0284C7).withValues(alpha: 0.4)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.beach_access_rounded,
+                              color: Color(0xFF38BDF8), size: 28),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Today is a Holiday — $holidayName',
+                                  style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13),
+                                ),
+                                const SizedBox(height: 2),
+                                const Text(
+                                  'Attendance is optional today. You are not marked absent. If you are working today, you may still punch in below.',
+                                  style: TextStyle(
+                                      color: Color(0xFFBAE6FD), fontSize: 11),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // Live Digital Clock & Date
+                  _buildLiveClockCard(),
+
+                  const SizedBox(height: 16),
+
+                  // Shift Timing & Policy Card
+                  if (policy != null) _buildPolicyCard(policy),
+
+                  const SizedBox(height: 16),
+
+                  // GPS Geofence Status Card
+                  _buildLocationStatusCard(policy),
+
+                  const SizedBox(height: 24),
+
+                  // Attendance Status & Big Action Button
+                  if (punchState.isLoading)
+                    const Center(
+                        child:
+                            CircularProgressIndicator(color: AppColors.primary))
+                  else
+                    _buildPunchActionButton(todayRecord, policy),
+
+                  const SizedBox(height: 20),
+                ],
+              ),
+            ),
+          ),
+        ));
   }
 
   Widget _buildStaffHeaderCard(SiteModel site, SiteStaffModel staff) {
@@ -1064,8 +1010,8 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
     final inTimeStr = record.punchInTime != null
         ? DateFormat('hh:mm a').format(record.punchInTime!)
         : '--';
-    final outTimeStr = record.punchOutTime != null
-        ? DateFormat('hh:mm a').format(record.punchOutTime!)
+    final outTimeStr = record.effectivePunchOutTime != null
+        ? DateFormat('hh:mm a').format(record.effectivePunchOutTime!)
         : null;
 
     final isLockout = record.status == AttendanceStatus.absentLateLockout;
@@ -1102,7 +1048,7 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
-                  record.status.displayName,
+                  record.displayStatusName,
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
@@ -1142,7 +1088,10 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
                       style: TextStyle(
                           color: AppColors.textTertiary, fontSize: 11)),
                   const SizedBox(height: 2),
-                  Text(outTimeStr ?? 'Shift Active',
+                  Text(
+                      record.isAutomaticallyClosed
+                          ? 'Auto-closed (estimated) • $outTimeStr'
+                          : outTimeStr ?? 'Shift Active',
                       style: TextStyle(
                           color: outTimeStr != null
                               ? Colors.white
@@ -1216,7 +1165,7 @@ class _PunchAttendanceScreenState extends ConsumerState<PunchAttendanceScreen> {
             ),
           ],
 
-          if (record.punchOutTime == null && !isLockout) ...[
+          if (!record.isSessionClosed && !isLockout) ...[
             const SizedBox(height: 20),
             ElevatedButton(
               style: ElevatedButton.styleFrom(

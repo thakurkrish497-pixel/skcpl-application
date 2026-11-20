@@ -1,6 +1,6 @@
+import '../../widgets/voucher_entry_details.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_text_styles.dart';
 import '../../models/stock_transaction_model.dart';
@@ -9,7 +9,6 @@ import '../../providers/auth_provider.dart';
 import '../../providers/stock_provider.dart';
 import '../../providers/cash_provider.dart';
 import '../../widgets/status_badge.dart';
-import '../../widgets/photo_thumbnail_strip.dart';
 import '../../widgets/cache_manager_dialog.dart';
 import '../../widgets/entry_detail_dialog.dart';
 import '../../widgets/responsive_layout.dart';
@@ -19,7 +18,8 @@ import '../cashbook/expense_form_screen.dart';
 
 /// Admin approval screen — Final approval for pending_admin transactions
 class AdminReviewScreen extends ConsumerWidget {
-  const AdminReviewScreen({super.key});
+  final int initialTab;
+  const AdminReviewScreen({super.key, this.initialTab = 0});
 
   Future<String?> _showRejectionDialog(BuildContext context) async {
     final controller = TextEditingController();
@@ -66,6 +66,7 @@ class AdminReviewScreen extends ConsumerWidget {
     final pendingCashAsync = ref.watch(pendingCashAdminProvider);
 
     return DefaultTabController(
+      initialIndex: initialTab,
       length: 2,
       child: Scaffold(
         backgroundColor: AppColors.scaffoldDark,
@@ -112,22 +113,8 @@ class AdminReviewScreen extends ConsumerWidget {
                                 : <StockTransactionModel>[];
                             final batchCount = batchSiblings.length;
 
-                            final effectiveStockAmount =
-                                (tx.finalAmount != null && tx.finalAmount! > 0)
-                                    ? tx.finalAmount!
-                                    : tx.calculatedFinalAmount;
-
                             return _AdminReviewTile(
-                              title:
-                                  '${tx.type.displayName}: ${tx.displayProductName} (${tx.quantity} ${tx.displayMetricUnitName})',
-                              subtitle:
-                                  '${DateFormat('dd MMM yyyy').format(tx.date)}${tx.displayVendorName != 'None' ? ' • Party: ${tx.displayVendorName}' : ''}${tx.billNo != null ? ' • Bill: #${tx.billNo}' : ''}${tx.cleanRemarks != null ? ' • ${tx.cleanRemarks}' : ''}',
-                              amount: effectiveStockAmount > 0
-                                  ? effectiveStockAmount
-                                  : null,
-                              photoUrls: tx.photoUrls,
-                              submitter: tx.submitterName,
-                              supervisorNote: tx.supervisorReviewNote,
+                              details: VoucherEntryDetails(stock: tx),
                               batchId: tx.batchId,
                               batchCount: batchCount,
                               onApproveBatch: batchCount > 1
@@ -297,8 +284,6 @@ class AdminReviewScreen extends ConsumerWidget {
                               const SizedBox(height: 10),
                           itemBuilder: (context, index) {
                             final tx = sortedCash[index];
-                            final isCashReceived =
-                                tx.amountReceived > 0 && tx.expenseAmount == 0;
                             final batchSiblings = tx.batchId != null
                                 ? transactions
                                     .where((t) => t.batchId == tx.batchId)
@@ -307,18 +292,7 @@ class AdminReviewScreen extends ConsumerWidget {
                             final batchCount = batchSiblings.length;
 
                             return _AdminReviewTile(
-                              title: isCashReceived
-                                  ? 'CASH RECEIVED (Top-up): ₹${NumberFormat('#,##,###').format(tx.amountReceived)}'
-                                  : '${tx.displayExpenseTypeName}: ₹${NumberFormat('#,##,###').format(tx.expenseAmount)}',
-                              subtitle: isCashReceived
-                                  ? 'From: ${tx.customExpenseType ?? (tx.partyName ?? "Office")} • ${DateFormat('dd MMM yyyy').format(tx.date)}${tx.billNo != null ? ' • Ref: #${tx.billNo}' : ''}${tx.cleanRemarks != null ? ' • ${tx.cleanRemarks}' : ''}'
-                                  : '${DateFormat('dd MMM yyyy').format(tx.date)}${tx.partyName != null ? ' • Party: ${tx.partyName}' : ''}${tx.billNo != null ? ' • Bill: #${tx.billNo}' : ''}${tx.cleanRemarks != null ? ' • ${tx.cleanRemarks}' : ''}',
-                              amount: isCashReceived
-                                  ? tx.amountReceived
-                                  : tx.expenseAmount,
-                              photoUrls: tx.photoUrls,
-                              submitter: tx.submitterName,
-                              supervisorNote: tx.supervisorReviewNote,
+                              details: VoucherEntryDetails(cash: tx),
                               batchId: tx.batchId,
                               batchCount: batchCount,
                               onApproveBatch: batchCount > 1
@@ -466,14 +440,9 @@ class AdminReviewScreen extends ConsumerWidget {
 }
 
 class _AdminReviewTile extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final double? amount;
-  final List<String> photoUrls;
+  final Widget details;
   final VoidCallback onApprove;
   final VoidCallback onReject;
-  final String? submitter;
-  final String? supervisorNote;
   final VoidCallback? onEdit;
   final VoidCallback? onView;
   final String? batchId;
@@ -481,12 +450,7 @@ class _AdminReviewTile extends StatelessWidget {
   final VoidCallback? onApproveBatch;
 
   const _AdminReviewTile({
-    required this.title,
-    required this.subtitle,
-    this.amount,
-    this.photoUrls = const [],
-    this.submitter,
-    this.supervisorNote,
+    required this.details,
     required this.onApprove,
     required this.onReject,
     this.onEdit,
@@ -564,109 +528,10 @@ class _AdminReviewTile extends StatelessWidget {
                 ),
               ),
             ],
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(title,
-                          style: AppTextStyles.labelLarge
-                              .copyWith(color: AppColors.textPrimary)),
-                      const SizedBox(height: 2),
-                      Text(subtitle,
-                          style: AppTextStyles.bodySmall
-                              .copyWith(color: AppColors.textTertiary)),
-                      if (submitter != null || supervisorNote != null) ...[
-                        const SizedBox(height: 6),
-                        Wrap(
-                          spacing: 6,
-                          runSpacing: 4,
-                          children: [
-                            if (submitter != null)
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: AppColors.surfaceDark,
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(color: AppColors.divider),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(Icons.person_outline,
-                                        size: 11, color: AppColors.primary),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      'Entered by: $submitter',
-                                      style: AppTextStyles.bodySmall.copyWith(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w600,
-                                        color: AppColors.textPrimary,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            if (supervisorNote != null)
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 6, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color:
-                                      AppColors.primary.withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(6),
-                                  border: Border.all(
-                                      color: AppColors.primary
-                                          .withValues(alpha: 0.3)),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(Icons.verified_outlined,
-                                        size: 11, color: AppColors.primary),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      'Supervisor: $supervisorNote',
-                                      style: AppTextStyles.bodySmall.copyWith(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w600,
-                                        color: AppColors.primary,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                          ],
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    if (amount != null && amount! > 0)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 4),
-                        child: Text(
-                          '₹${NumberFormat('#,##,###.##').format(amount)}',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textPrimary,
-                          ),
-                        ),
-                      ),
-                    const StatusBadge(
-                        status: TransactionStatus.pendingAdmin, compact: true),
-                  ],
-                ),
-              ],
-            ),
-            if (photoUrls.isNotEmpty) PhotoThumbnailStrip(photoUrls: photoUrls),
+            details,
+            const SizedBox(height: 8),
+            const StatusBadge(
+                status: TransactionStatus.pendingAdmin, compact: true),
             const SizedBox(height: 14),
             Row(
               children: [

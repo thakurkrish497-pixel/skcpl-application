@@ -1,3 +1,4 @@
+import 'entry_date_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -61,15 +62,14 @@ class _DailySummaryDialogState extends ConsumerState<DailySummaryDialog> {
   @override
   void initState() {
     super.initState();
-    _selectedDate = DateTime.now();
+    _selectedDate = EntryDatePolicy.today();
   }
 
   Future<void> _pickDate() async {
-    final picked = await showDatePicker(
+    final picked = await showEntryDatePicker(
       context: context,
       initialDate: _selectedDate,
       firstDate: DateTime(2024),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
       builder: (context, child) {
         return Theme(
           data: ThemeData.dark().copyWith(

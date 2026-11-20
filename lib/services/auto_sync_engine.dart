@@ -75,11 +75,18 @@ class AutoSyncNotifier extends StateNotifier<SyncState> {
   }
 
   /// Triggers a silent or active sync attempt
-  Future<SyncResult> syncNow() => _flight ??= _syncOnce().whenComplete(() {
+  Future<SyncResult> retryNow() async {
+    await _flight;
+    return syncNow(retryPermissionFailures: true);
+  }
+
+  Future<SyncResult> syncNow({bool retryPermissionFailures = false}) =>
+      _flight ??= _syncOnce(retryPermissionFailures: retryPermissionFailures)
+          .whenComplete(() {
         _flight = null;
       });
 
-  Future<SyncResult> _syncOnce() async {
+  Future<SyncResult> _syncOnce({bool retryPermissionFailures = false}) async {
     state = state.copyWith(isSyncing: true);
     int pending = 0;
     try {
@@ -111,6 +118,7 @@ class AutoSyncNotifier extends StateNotifier<SyncState> {
       final result = await OfflineService.syncAllQueued(
         stockService: stockService,
         cashService: cashService,
+        retryPermissionFailures: retryPermissionFailures,
       );
 
       final remaining = await OfflineService.getPendingSyncCount();

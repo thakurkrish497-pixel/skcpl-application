@@ -1,3 +1,4 @@
+import '../../widgets/voucher_entry_details.dart';
 import '../../services/review_access.dart';
 import '../../providers/role_access_provider.dart';
 import 'package:flutter/material.dart';
@@ -283,6 +284,8 @@ class _TransactionReviewScreenState
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
+          VoucherEntryIdentity(cash: cashTx, stock: stockTx),
+          const SizedBox(height: 12),
           // ── Transaction Details ──
           Container(
             padding: const EdgeInsets.all(20),

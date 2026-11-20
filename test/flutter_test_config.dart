@@ -46,7 +46,9 @@ Future<void> testExecutable(FutureOr<void> Function() testMain) async {
       publishableKey: 'fixture-public-key',
       httpClient: backend.client,
       authOptions: const FlutterAuthClientOptions(
-          autoRefreshToken: false, localStorage: EmptyLocalStorage()));
+          autoRefreshToken: false,
+          detectSessionInUri: false,
+          localStorage: EmptyLocalStorage()));
   setUp(() async {
     backend.reset();
     SharedPreferences.setMockInitialValues({});

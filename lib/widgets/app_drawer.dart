@@ -101,6 +101,15 @@ class AppDrawer extends StatelessWidget {
             child: ListView(
               padding: const EdgeInsets.symmetric(vertical: 8),
               children: [
+                if ([UserRole.admin, UserRole.projectHead, UserRole.accounts]
+                    .contains(user?.role))
+                  _DrawerItem(
+                      icon: Icons.history,
+                      label: 'DSR History',
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.pushNamed(context, '/dsr-history');
+                      }),
                 _DrawerItem(
                   icon: Icons.home_rounded,
                   label: context.tr('home', defaultText: 'Home'),
@@ -121,7 +130,12 @@ class AppDrawer extends StatelessWidget {
                   label: context.tr('daily_site_report'),
                   onTap: () {
                     Navigator.pop(context);
-                    Navigator.pushNamed(context, '/daily-site-reports');
+                    Navigator.pushNamed(
+                        context,
+                        [UserRole.accounts, UserRole.projectHead]
+                                .contains(user?.role)
+                            ? '/dsr-history'
+                            : '/daily-site-reports');
                   },
                 ),
                 _DrawerItem(

@@ -1,3 +1,5 @@
+import '../../services/shift_policy_resolver.dart';
+import '../../widgets/entry_date_picker.dart';
 import '../../widgets/nonfinancial_review_queue.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -36,10 +38,9 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
   late TabController _tabController;
   String _selectedSiteFilter = 'all';
   String _selectedLiveSiteFilter = 'all';
-  DateTime _selectedDate =
-      DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+  DateTime _selectedDate = EntryDatePolicy.today();
   DateTime _calendarMonth =
-      DateTime(DateTime.now().year, DateTime.now().month, 1);
+      DateTime(EntryDatePolicy.today().year, EntryDatePolicy.today().month, 1);
   bool _isMonthCalendarExpanded = false;
   String _rosterStatusFilter = 'all'; // 'all', 'present', 'absent', 'pending'
 
@@ -75,6 +76,7 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
         ? 'Company Default Shift'
         : 'Shift Policy: ${site?.name ?? policy.siteName}';
 
+    bool isSavingPolicy = false;
     bool isCapturingGps = false;
     String? gpsCaptureStatus;
 
@@ -327,36 +329,59 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
             ElevatedButton(
               style:
                   ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
-              onPressed: () async {
-                Navigator.pop(ctx);
-                final updated = policy.copyWith(
-                  shiftStartTime: startTimeController.text.trim(),
-                  shiftEndTime: endTimeController.text.trim(),
-                  graceMinutes: int.tryParse(graceController.text.trim()) ?? 15,
-                  lateCutoffMinutes:
-                      int.tryParse(lateCutoffController.text.trim()) ?? 40,
-                  allowedRadiusMeters:
-                      double.tryParse(radiusController.text.trim()) ?? 10000.0,
-                  latitude: double.tryParse(latController.text.trim()),
-                  longitude: double.tryParse(lngController.text.trim()),
-                );
+              onPressed: isSavingPolicy
+                  ? null
+                  : () async {
+                      setDialogState(() => isSavingPolicy = true);
+                      try {
+                        final updated = policy.copyWith(
+                          shiftStartTime: startTimeController.text.trim(),
+                          shiftEndTime: endTimeController.text.trim(),
+                          graceMinutes: int.parse(graceController.text.trim()),
+                          lateCutoffMinutes:
+                              int.tryParse(lateCutoffController.text.trim()) ??
+                                  40,
+                          allowedRadiusMeters:
+                              double.tryParse(radiusController.text.trim()) ??
+                                  10000.0,
+                          latitude: double.tryParse(latController.text.trim()),
+                          longitude: double.tryParse(lngController.text.trim()),
+                        );
 
-                await ref
-                    .read(attendanceServiceProvider)
-                    .saveShiftPolicy(updated);
-                ref.invalidate(shiftPolicyForSiteProvider(updated.siteId));
+                        await ref
+                            .read(attendanceServiceProvider)
+                            .saveShiftPolicy(updated);
+                        ref.invalidate(shiftPolicyForSiteProvider);
+                        if (ctx.mounted) Navigator.pop(ctx);
 
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                          'Shift timing & GPS pin saved for ${updated.siteName}!'),
-                      backgroundColor: AppColors.approved,
-                    ),
-                  );
-                }
-              },
-              child: const Text('Save Policy'),
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                  'Shift timing & GPS pin saved for ${updated.siteName}!'),
+                              backgroundColor: AppColors.approved,
+                            ),
+                          );
+                        }
+                      } catch (error) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                              content:
+                                  Text('Shift settings were not saved: $error'),
+                              backgroundColor: AppColors.rejected));
+                        }
+                      } finally {
+                        if (ctx.mounted) {
+                          setDialogState(() => isSavingPolicy = false);
+                        }
+                      }
+                    },
+              child: isSavingPolicy
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Text('Save Policy'),
             ),
           ],
         ),
@@ -456,8 +481,8 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
   void _showExportExcelDialog() async {
     final sites = ref.read(activeSitesProvider).valueOrNull ?? [];
     String selectedSiteId = _selectedSiteFilter;
-    DateTime selectedMonth =
-        DateTime(DateTime.now().year, DateTime.now().month, 1);
+    DateTime selectedMonth = DateTime(
+        EntryDatePolicy.today().year, EntryDatePolicy.today().month, 1);
     bool isExporting = false;
 
     await showDialog(
@@ -499,11 +524,10 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                     style: TextStyle(
                         color: AppColors.textSecondary, fontSize: 12)),
                 onTap: () async {
-                  final picked = await showDatePicker(
+                  final picked = await showEntryDatePicker(
                     context: context,
                     initialDate: selectedMonth,
                     firstDate: DateTime(2024),
-                    lastDate: DateTime.now(),
                     initialDatePickerMode: DatePickerMode.year,
                   );
                   if (picked != null) {
@@ -1061,11 +1085,10 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                         style: TextStyle(
                             color: AppColors.textSecondary, fontSize: 10)),
                     onTap: () async {
-                      final picked = await showDatePicker(
+                      final picked = await showEntryDatePicker(
                         context: context,
                         initialDate: selectedDate,
                         firstDate: DateTime(2024),
-                        lastDate: DateTime.now(),
                       );
                       if (picked != null) {
                         setDialogState(() => selectedDate = picked);
@@ -1418,11 +1441,10 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
   }
 
   Future<void> _pickDate(BuildContext context) async {
-    final picked = await showDatePicker(
+    final picked = await showEntryDatePicker(
       context: context,
       initialDate: _selectedDate,
       firstDate: DateTime(2024),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
     );
     if (picked != null) {
       setState(() {
@@ -1793,7 +1815,7 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
   // ─────────────────────────────────────────────────────────────
 
   Widget _buildCalendarHeader(BuildContext context) {
-    final now = DateTime.now();
+    final now = EntryDatePolicy.today();
     final isCurrentMonth =
         _calendarMonth.year == now.year && _calendarMonth.month == now.month;
 
@@ -1841,12 +1863,15 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(),
           tooltip: 'Next Month',
-          onPressed: () {
-            setState(() {
-              _calendarMonth =
-                  DateTime(_calendarMonth.year, _calendarMonth.month + 1, 1);
-            });
-          },
+          onPressed: EntryDatePolicy.isFuture(
+                  DateTime(_calendarMonth.year, _calendarMonth.month + 1, 1))
+              ? null
+              : () {
+                  setState(() {
+                    _calendarMonth = DateTime(
+                        _calendarMonth.year, _calendarMonth.month + 1, 1);
+                  });
+                },
         ),
         const Spacer(),
 
@@ -1975,7 +2000,7 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                 final cellDate =
                     DateTime(_calendarMonth.year, _calendarMonth.month, dayNum);
                 final isSelected = _isSameDay(cellDate, _selectedDate);
-                final isToday = _isSameDay(cellDate, DateTime.now());
+                final isToday = _isSameDay(cellDate, EntryDatePolicy.today());
 
                 final dayPunches = monthlyRecords
                     .where((r) => _isSameDay(r.date, cellDate))
@@ -1986,9 +2011,11 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                 return Expanded(
                   child: InkWell(
                     borderRadius: BorderRadius.circular(8),
-                    onTap: () {
-                      setState(() => _selectedDate = cellDate);
-                    },
+                    onTap: EntryDatePolicy.isFuture(cellDate)
+                        ? null
+                        : () {
+                            setState(() => _selectedDate = cellDate);
+                          },
                     child: Container(
                       height: 32,
                       decoration: BoxDecoration(
@@ -2077,7 +2104,7 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
       children: List.generate(7, (i) {
         final dayDate = startOfWeek.add(Duration(days: i));
         final isSelected = _isSameDay(dayDate, _selectedDate);
-        final isToday = _isSameDay(dayDate, DateTime.now());
+        final isToday = _isSameDay(dayDate, EntryDatePolicy.today());
 
         final dayPunches =
             monthlyRecords.where((r) => _isSameDay(r.date, dayDate)).toList();
@@ -2087,14 +2114,17 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
         return Expanded(
           child: InkWell(
             borderRadius: BorderRadius.circular(8),
-            onTap: () {
-              setState(() {
-                _selectedDate = dayDate;
-                if (dayDate.month != _calendarMonth.month) {
-                  _calendarMonth = DateTime(dayDate.year, dayDate.month, 1);
-                }
-              });
-            },
+            onTap: EntryDatePolicy.isFuture(dayDate)
+                ? null
+                : () {
+                    setState(() {
+                      _selectedDate = dayDate;
+                      if (dayDate.month != _calendarMonth.month) {
+                        _calendarMonth =
+                            DateTime(dayDate.year, dayDate.month, 1);
+                      }
+                    });
+                  },
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 6),
               margin: const EdgeInsets.symmetric(horizontal: 1.5),
@@ -2233,7 +2263,9 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
         : null;
     final outStr = r.punchOutTime != null
         ? DateFormat('hh:mm a').format(r.punchOutTime!)
-        : (r.isPunchedIn ? 'Active' : null);
+        : (r.isAutomaticallyClosed
+            ? 'Auto-closed (estimated)'
+            : (r.isPunchedIn ? 'Active' : null));
 
     final phone = staffInfo?.phone;
 
@@ -2588,7 +2620,9 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
         final pings = _selectedLiveSiteFilter == 'all'
             ? allPings
             : allPings
-                .where((p) => p.siteId == _selectedLiveSiteFilter)
+                .where((p) =>
+                    shiftLocationKey(p.siteId) ==
+                    shiftLocationKey(_selectedLiveSiteFilter))
                 .toList();
 
         return RefreshIndicator(
@@ -2694,7 +2728,10 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                 ...pings.map((ping) {
                   final isInside = ping.isWithinSite;
                   final timeDiff = DateTime.now().difference(ping.timestamp);
-                  final isLiveNow = timeDiff.inMinutes <= 15;
+                  final isLiveNow = timeDiff >= const Duration(seconds: -30) &&
+                      timeDiff <= const Duration(minutes: 2) &&
+                      ping.accuracyMeters != null &&
+                      ping.accuracyMeters! <= 100;
                   final relativeTimeStr = timeDiff.inMinutes < 1
                       ? 'Just now'
                       : (timeDiff.inMinutes < 60
@@ -2943,7 +2980,9 @@ class _AdminAttendanceScreenState extends ConsumerState<AdminAttendanceScreen>
                                       size: 13, color: AppColors.textTertiary),
                                   const SizedBox(width: 6),
                                   Text(
-                                    'GPS Accuracy: ±${ping.accuracyMeters != null ? ping.accuracyMeters!.toStringAsFixed(0) : '5'} meters',
+                                    ping.accuracyMeters == null
+                                        ? 'GPS accuracy unavailable'
+                                        : 'GPS Accuracy: ±${ping.accuracyMeters!.toStringAsFixed(0)} meters',
                                     style: AppTextStyles.caption.copyWith(
                                         color: AppColors.textTertiary,
                                         fontSize: 11),

@@ -1,3 +1,4 @@
+import 'entry_date_policy.dart';
 import 'dart:convert';
 import 'submission_support.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -76,6 +77,9 @@ class SiteAnnouncementService {
   /// Create a company-wide or site-specific announcement
   Future<SiteAnnouncementModel> createAnnouncement(
       SiteAnnouncementModel announcement) async {
+    if (announcement.scheduledAt != null) {
+      EntryDatePolicy.requireNotFutureInstant(announcement.scheduledAt!);
+    }
     final effectiveId = announcement.id.isEmpty ? _uuid.v4() : announcement.id;
     final toSave = announcement.copyWith(
       id: effectiveId,

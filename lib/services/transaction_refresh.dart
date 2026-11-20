@@ -1,3 +1,4 @@
+import '../providers/dsr_history_provider.dart';
 import '../providers/management_review_provider.dart';
 import '../providers/attendance_provider.dart';
 import '../providers/site_report_provider.dart';
@@ -10,6 +11,9 @@ void invalidateTransactionViews(void Function(ProviderOrFamily) invalidate) {
   invalidate(managementReviewQueueProvider);
   invalidate(pendingRegularizationRequestsProvider);
   invalidate(todayAttendanceForSiteProvider);
+  invalidate(attendanceForDateAndSiteProvider);
+  invalidate(monthlyAttendanceProvider);
+  invalidate(dsrHistoryProvider);
   invalidate(allDailyReportsProvider);
   invalidate(siteReportsForSiteProvider);
   invalidate(siteReportsForDateProvider);

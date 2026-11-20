@@ -198,6 +198,7 @@ void main() {
         longitude: 75.8577,
         isWithinSite: true,
         distanceMeters: 12.5,
+        accuracyMeters: 10,
         timestamp: DateTime.now(),
       );
 

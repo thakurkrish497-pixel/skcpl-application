@@ -142,7 +142,7 @@ class SiteListScreen extends ConsumerWidget {
             backgroundColor: AppColors.cardDark,
             onRefresh: () async {
               ref.invalidate(activeSitesProvider);
-              await ref.read(autoSyncProvider.notifier).syncNow();
+              await ref.read(autoSyncProvider.notifier).retryNow();
             },
             child: ResponsiveContainer(
               maxWidth: 1200,

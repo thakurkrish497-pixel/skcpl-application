@@ -10,6 +10,8 @@ for(const primary of [false,true]) {
  create table public.tasks(id text primary key,title text,description text,created_at timestamptz default now(),updated_at timestamptz default now());
  ${primary?`create table public.attendance(id text primary key,site_id text,staff_id text,date date,punch_in_time timestamptz,punch_out_time timestamptz,status text,late_minutes integer,created_at timestamptz default now(),updated_at timestamptz default now());create table public.site_shift_policies(site_id text primary key,shift_start_time text,shift_end_time text,updated_at timestamptz default now());`:''}`);
  await db.exec(sql);
+ await db.exec(await fs.readFile(repository+'/supabase/migrations/202611200004_legacy_attendance_timezone.sql','utf8'));
+ assert.equal((await db.query("select public.skcpl_attendance_instant('2026-11-20T09:00:00') as instant")).rows[0].instant.toISOString(),'2026-11-20T03:30:00.000Z');
  async function policy(site,start,end) {
   if(primary)await db.query('insert into public.site_shift_policies values($1,$2,$3,now()) on conflict(site_id) do update set shift_start_time=$2,shift_end_time=$3,updated_at=now()',[site,start,end]);
   else await db.query("insert into public.tasks values($1,$2,$3,now(),now()) on conflict(id) do update set description=$3,updated_at=now()",['policy-'+site,'SHIFT_POLICY:'+site,JSON.stringify({site_id:site,shift_start_time:start,shift_end_time:end})]);
@@ -47,7 +49,7 @@ for(const primary of [false,true]) {
  // Fresh overnight punches after midnight belong to the previous shift day.
  await policy('night','20:00','06:00');
  await record('night-after-midnight','night','2026-11-21T19:30:00+05:30','2026-11-21');
- await record('early-night','night','2026-11-21T01:00:00+05:30','2026-11-21');
+ await record('early-night','night',primary?'2026-11-21T01:00:00+05:30':'2026-11-21T01:00:00','2026-11-21');
  assert.equal(String((await db.query("select work_day::text from public.skcpl_attendance_sessions where attendance_id='early-night'")).rows[0].work_day).slice(0,10),'2026-11-20');
  assert.equal((await job('2026-11-21T00:30:00Z')).closed,1);
  const postInsert=await digest();await job('2026-11-22T04:00:00Z');assert.equal(await digest(),postInsert);

@@ -1,3 +1,4 @@
+import '../core/utils/attendance_time.dart';
 import 'package:flutter/material.dart';
 
 /// Shift policy for a site or head office
@@ -289,10 +290,10 @@ class AttendanceRecordModel {
       staffRole: json['staff_role'] as String? ?? 'Worker',
       date: parseDate(json['date']),
       punchInTime: json['punch_in_time'] != null
-          ? parseDate(json['punch_in_time'])
+          ? parseAttendanceInstant(json['punch_in_time'])
           : null,
       punchOutTime: json['punch_out_time'] != null
-          ? parseDate(json['punch_out_time'])
+          ? parseAttendanceInstant(json['punch_out_time'])
           : null,
       punchInLatitude: (json['punch_in_latitude'] as num?)?.toDouble(),
       punchInLongitude: (json['punch_in_longitude'] as num?)?.toDouble(),
@@ -320,8 +321,8 @@ class AttendanceRecordModel {
       'staff_name': staffName,
       'staff_role': staffRole,
       'date': date.toIso8601String().split('T').first,
-      'punch_in_time': punchInTime?.toIso8601String(),
-      'punch_out_time': punchOutTime?.toIso8601String(),
+      'punch_in_time': punchInTime?.toUtc().toIso8601String(),
+      'punch_out_time': punchOutTime?.toUtc().toIso8601String(),
       'punch_in_latitude': punchInLatitude,
       'punch_in_longitude': punchInLongitude,
       'punch_in_address': punchInAddress,

@@ -1,3 +1,4 @@
+import 'package:skcpl_app/core/utils/attendance_time.dart';
 import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:geolocator/geolocator.dart';
@@ -47,6 +48,17 @@ AttendanceRecordModel record(
         createdAt: DateTime(2020),
         updatedAt: DateTime(2020));
 void main() {
+  test('Legacy offset-free punches are India time on every device', () {
+    expect(parseAttendanceInstant('2026-11-20T09:00:00').toUtc(),
+        DateTime.parse('2026-11-20T03:30:00Z'));
+    expect(parseAttendanceInstant('2026-11-20T09:00:00+05:30').toUtc(),
+        DateTime.parse('2026-11-20T03:30:00Z'));
+    final raw = record().toJson()..['punch_in_time'] = '2020-12-31T09:30:00';
+    expect(AttendanceRecordModel.fromJson(raw).punchInTime!.toUtc(),
+        DateTime.parse('2020-12-31T04:00:00Z'));
+    expect(raw['punch_in_time'], '2020-12-31T09:30:00');
+  });
+
   test('India midnight/year rollover independent of device timezone', () {
     final before = DateTime.parse('2026-12-31T18:29:59Z');
     final after = DateTime.parse('2026-12-31T18:30:00Z');

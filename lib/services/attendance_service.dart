@@ -317,7 +317,7 @@ class AttendanceService {
       staffName: staffName,
       staffRole: staffRole,
       date: workDay,
-      punchInTime: punchTime,
+      punchInTime: punchTime.toUtc(),
       punchInLatitude: latitude,
       punchInLongitude: longitude,
       punchInAddress: address,
@@ -374,7 +374,7 @@ class AttendanceService {
       final res = await _client
           .from('attendance')
           .update({
-            'punch_out_time': punchOutTime.toIso8601String(),
+            'punch_out_time': punchOutTime.toUtc().toIso8601String(),
             'punch_out_latitude': latitude,
             'punch_out_longitude': longitude,
             'updated_at': DateTime.now().toIso8601String(),
@@ -509,8 +509,8 @@ class AttendanceService {
       staffName: staffName,
       staffRole: staffRole,
       date: DateTime(date.year, date.month, date.day),
-      punchInTime: punchInTime,
-      punchOutTime: punchOutTime,
+      punchInTime: punchInTime.toUtc(),
+      punchOutTime: punchOutTime.toUtc(),
       status: AttendanceStatus.regularizedPresent,
       lateMinutes: 0,
       isWithinSite: true,
@@ -952,7 +952,7 @@ class AttendanceService {
           final rec = AttendanceRecordModel.fromJson(jsonDecode(desc));
           if (rec.id == attendanceId) {
             final updated = rec.copyWith(
-              punchOutTime: punchOutTime,
+              punchOutTime: punchOutTime.toUtc(),
               punchOutLatitude: latitude,
               punchOutLongitude: longitude,
               updatedAt: DateTime.now(),

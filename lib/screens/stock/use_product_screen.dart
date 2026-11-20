@@ -1,3 +1,4 @@
+import '../../providers/rejected_entry_provider.dart';
 import '../../widgets/entry_date_picker.dart';
 import '../../services/inventory_math.dart';
 import '../../services/draft_store.dart';
@@ -544,6 +545,22 @@ class _UseProductScreenState extends ConsumerState<UseProductScreen> {
           pendingPhotos: widget.existingTransaction!.pendingPhotos,
         );
 
+        if (widget.existingTransaction!.status == TransactionStatus.rejected) {
+          final correction = transaction.copyWith(
+              pendingPhotos: _selectedPhotos
+                  .map((p) => PendingPhoto(bytes: p.bytes, name: p.name))
+                  .toList());
+          await ref.read(rejectedEntryServiceProvider).resubmitStock(
+              widget.existingTransaction!, correction,
+              staff: ref.read(activeStaffProvider));
+          if (!mounted) return;
+          await refreshRejectedEntries(ref);
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text('Corrected entry submitted for fresh approval.')));
+          Navigator.pop(context, true);
+          return;
+        }
         List<String> uploadedUrls = List.from(transaction.photoUrls);
         if (transaction.id?.startsWith('offline_') == true) {
           transaction = transaction.copyWith(
@@ -1223,7 +1240,10 @@ class _UseProductScreenState extends ConsumerState<UseProductScreen> {
                       label: Text(
                         (_isSubmitting || stockState.isLoading)
                             ? 'Saving Changes...'
-                            : 'Save Changes',
+                            : widget.existingTransaction?.status ==
+                                    TransactionStatus.rejected
+                                ? 'Resubmit for approval'
+                                : 'Save Changes',
                         style: const TextStyle(
                             fontWeight: FontWeight.bold, fontSize: 16),
                       ),

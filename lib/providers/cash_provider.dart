@@ -1,3 +1,4 @@
+import '../services/rejected_entry_service.dart';
 import '../services/entry_date_policy.dart';
 import 'stock_provider.dart';
 import '../services/submission_support.dart';
@@ -112,6 +113,20 @@ class CashNotifier extends StateNotifier<CashState> {
       if (mounted && state.isLoading) state = state.copyWith(isLoading: false);
       return true;
     } catch (e) {
+      if (e is HandledRejectedSubmission && queued != null) {
+        await OfflineService.removeQueuedCashTransaction(queued.id!);
+        ++_loadRevision;
+        if (mounted) {
+          state = state.copyWith(
+              transactions: state.transactions
+                  .where((t) => submissionId(t.id) != e.id)
+                  .toList(),
+              isLoading: false,
+              error: e.toString());
+        }
+        return false;
+      }
+
       if (queued != null && isRetryableSubmissionError(e)) {
         if (mounted) {
           state = state.copyWith(transactions: [

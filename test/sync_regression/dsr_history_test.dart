@@ -94,6 +94,49 @@ void main() {
     expect(requests.every((r) => r.method == 'GET'), isTrue);
   });
   test(
+      'Site history scopes both storage formats without reading management-only review audits',
+      () async {
+    final requests = <http.Request>[];
+    final original = report('own', site: 'site-a');
+    final before = jsonEncode(original);
+    final c = clientWith((r) async {
+      requests.add(r);
+      if (r.url.path.endsWith('/tasks')) {
+        expect(r.url.queryParameters['site_id'], 'eq.site-a');
+        return response(r, [
+          {
+            'id': 'legacy',
+            'description': jsonEncode(report('legacy', site: 'site-a'))
+          },
+          {
+            'id': 'malformed-owner',
+            'description': jsonEncode(report('other', site: 'site-b'))
+          },
+        ]);
+      }
+      if (r.url.path.endsWith('/daily_site_reports')) {
+        expect(r.url.queryParameters['site_id'], 'eq.site-a');
+        return response(r, [original]);
+      }
+      fail('Site history must never query the management review audit');
+    });
+    addTearDown(c.dispose);
+    final result = await DsrHistoryService(c).loadForSite('site-a');
+    expect(result.entries.map((e) => e.report.id).toSet(), {'own', 'legacy'});
+    expect(result.entries.first.reviewAuditAvailable, isFalse);
+    expect(jsonEncode(original), before);
+    expect(requests.every((r) => r.method == 'GET'), isTrue);
+    expect(() => DsrHistoryService(c).loadForSite('all'), throwsArgumentError);
+  });
+  test('An empty site archive never fetches unrelated review audits', () async {
+    final c = clientWith((r) async {
+      expect(r.url.path.endsWith('/skcpl_entry_reviews'), isFalse);
+      return response(r, []);
+    });
+    addTearDown(c.dispose);
+    expect((await DsrHistoryService(c).loadForSite('empty')).entries, isEmpty);
+  });
+  test(
       'Keyset pagination loads more than the usual 1000-row limit, with no duplicate reports',
       () async {
     final rows =
@@ -197,20 +240,32 @@ void main() {
       expect(service.loads, 1);
     });
   }
-  test('Workers cannot fetch management history', () async {
+  test('Site sessions load only their site, never the management archive',
+      () async {
     final service = _FakeHistory();
     final c = ProviderContainer(overrides: [
       authProvider.overrideWith((ref) => FixedAuth(UserRole.worker)),
       dsrHistoryServiceProvider.overrideWithValue(service)
     ]);
     addTearDown(c.dispose);
-    await expectLater(c.read(dsrHistoryProvider.future), throwsStateError);
+    expect((await c.read(dsrHistoryProvider.future)).entries, isEmpty);
     expect(service.loads, 0);
+    expect(service.siteLoads, 1);
+    expect(service.lastSite, isNotEmpty);
   });
 }
 
 class _FakeHistory extends DsrHistoryService {
   int loads = 0;
+  int siteLoads = 0;
+  String? lastSite;
+  @override
+  Future<DsrHistorySnapshot> loadForSite(String siteId) async {
+    siteLoads++;
+    lastSite = siteId;
+    return const DsrHistorySnapshot([]);
+  }
+
   _FakeHistory() : super(Supabase.instance.client);
   @override
   Future<DsrHistorySnapshot> load() async {

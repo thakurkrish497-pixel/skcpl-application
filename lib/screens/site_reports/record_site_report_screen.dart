@@ -1,3 +1,4 @@
+import 'dsr_history_screen.dart';
 import '../../widgets/staff_location_session.dart';
 import '../../widgets/entry_date_picker.dart';
 import '../../models/staff_reminder_model.dart';
@@ -587,6 +588,15 @@ class _RecordSiteReportScreenState
             title: Text(context.tr('daily_work_report',
                 defaultText: 'Daily Work Report')),
             actions: [
+              IconButton(
+                tooltip: 'DSR History',
+                icon: const Icon(Icons.history),
+                onPressed: site == null
+                    ? null
+                    : () => Navigator.of(context).push(MaterialPageRoute(
+                        builder: (_) =>
+                            DsrHistoryScreen(initialSiteId: site.id))),
+              ),
               const Padding(
                 padding: EdgeInsets.only(right: 6),
                 child: LanguageToggleButton(isCompact: true),

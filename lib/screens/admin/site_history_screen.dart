@@ -1,3 +1,4 @@
+import '../../widgets/rejected_entry_actions.dart';
 import '../../widgets/universal_sync_button.dart';
 import '../../widgets/voucher_entry_details.dart';
 import '../../widgets/entry_date_picker.dart';
@@ -426,9 +427,15 @@ class _SiteHistoryScreenState extends ConsumerState<SiteHistoryScreen>
                                 Text(tx.status.displayName,
                                     style: AppTextStyles.caption),
                                 VoucherEntryIdentity(stock: tx),
+                                if (tx.status == TransactionStatus.rejected)
+                                  Text(
+                                      'Rejection reason: ${tx.rejectionNote ?? "Not recorded"}'),
+                                RejectedEntryActions(stock: tx),
                                 if (tx.photoUrls.isNotEmpty)
                                   PhotoThumbnailStrip(photoUrls: tx.photoUrls),
-                                if (ref.read(authProvider).isAdmin) ...[
+                                if (ref.read(authProvider).isAdmin &&
+                                    tx.status !=
+                                        TransactionStatus.rejected) ...[
                                   const Divider(
                                       color: AppColors.divider, height: 16),
                                   Row(
@@ -621,9 +628,15 @@ class _SiteHistoryScreenState extends ConsumerState<SiteHistoryScreen>
                                 Text(tx.status.displayName,
                                     style: AppTextStyles.caption),
                                 VoucherEntryIdentity(cash: tx),
+                                if (tx.status == TransactionStatus.rejected)
+                                  Text(
+                                      'Rejection reason: ${tx.rejectionNote ?? "Not recorded"}'),
+                                RejectedEntryActions(cash: tx),
                                 if (tx.photoUrls.isNotEmpty)
                                   PhotoThumbnailStrip(photoUrls: tx.photoUrls),
-                                if (ref.read(authProvider).isAdmin) ...[
+                                if (ref.read(authProvider).isAdmin &&
+                                    tx.status !=
+                                        TransactionStatus.rejected) ...[
                                   const Divider(
                                       color: AppColors.divider, height: 16),
                                   Row(

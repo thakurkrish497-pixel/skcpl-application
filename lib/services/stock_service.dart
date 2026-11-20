@@ -1,3 +1,4 @@
+import 'rejected_entry_service.dart';
 import 'entry_date_policy.dart';
 import 'inventory_math.dart';
 import 'transaction_mutation.dart';
@@ -67,6 +68,10 @@ class StockService {
     return clean;
   }
 
+  Future<void> checkHandledQueueCopy(Map<String, dynamic> payload) =>
+      RejectedEntryService(_client).checkHandledSubmission(
+          'stock', payload['id'] as String, payload);
+
   /// Submit a new stock transaction (inbound or outbound)
   Future<StockTransactionModel> submitTransaction(
       StockTransactionModel transaction) async {
@@ -92,10 +97,18 @@ class StockService {
     EntryDatePolicy.requireNotFuture(transaction.date);
     final urls = List<String>.from(transaction.photoUrls);
     final storage = StorageService(_client);
-    for (var i = 0; i < transaction.pendingPhotos.length; i++) {
-      final photo = transaction.pendingPhotos[i];
-      urls.add(await storage.uploadPhotoBytes(photo.bytes,
-          fileName: photo.name, submissionPath: 'photos/stock/$id/$i.jpg'));
+    try {
+      for (var i = 0; i < transaction.pendingPhotos.length; i++) {
+        final photo = transaction.pendingPhotos[i];
+        urls.add(await storage.uploadPhotoBytes(photo.bytes,
+            fileName: photo.name, submissionPath: 'photos/stock/$id/$i.jpg'));
+      }
+    } on StorageException catch (error) {
+      if (error.statusCode == '403') {
+        await RejectedEntryService(_client)
+            .checkHandledSubmission('stock', id, transaction.toJson());
+      }
+      rethrow;
     }
     final cleanData = _cleanPayload(transaction.toJson());
     cleanData['id'] = id;
@@ -115,7 +128,13 @@ class StockService {
           .from('stock_transactions')
           .select(_stockSelectQuery)
           .eq('id', id)
-          .single();
+          .maybeSingle();
+      if (data == null) {
+        await RejectedEntryService(_client)
+            .checkHandledSubmission('stock', id, transaction.toJson());
+        throw StateError(
+            'A conflicting submission could not be reconciled. The device entry remains preserved.');
+      }
       return StockTransactionModel.fromJson(data);
     }
   }
@@ -157,6 +176,11 @@ class StockService {
           .select()
           .eq('id', id)
           .maybeSingle();
+      if (existing?['status'] == 'rejected') {
+        await RejectedEntryService(_client).dismiss(
+            'stock', id, DateTime.tryParse('${existing!['updated_at']}'));
+        return;
+      }
       if (existing != null) {
         await AuditService.captureDeletedRecord(
           entity: 'stock',

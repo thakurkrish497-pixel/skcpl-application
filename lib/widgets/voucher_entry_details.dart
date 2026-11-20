@@ -1,3 +1,4 @@
+import 'rejected_entry_actions.dart';
 import '../models/user_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -226,6 +227,7 @@ class VoucherEntryDetails extends StatelessWidget {
             SizedBox(width: width, child: Text('${item.key}: ${item.value}'))
         ]);
       }),
+      RejectedEntryActions(cash: cash, stock: stock),
       if (photos.isNotEmpty)
         PhotoThumbnailStrip(
             photoUrls: photos, title: 'Entry photos • Tap to zoom'),

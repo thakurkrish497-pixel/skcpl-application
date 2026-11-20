@@ -9,7 +9,7 @@ import '../../providers/dsr_history_provider.dart';
 import '../../providers/site_provider.dart';
 import '../../widgets/photo_thumbnail_strip.dart';
 
-/// All management roles share this read-only archive, regardless of approval power.
+/// Management archive and signed-in site history share a read-only presentation.
 class DsrHistoryScreen extends ConsumerStatefulWidget {
   final String? initialSiteId;
   const DsrHistoryScreen({super.key, this.initialSiteId});
@@ -35,16 +35,23 @@ class _DsrHistoryScreenState extends ConsumerState<DsrHistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (!canViewDsrHistory(ref.watch(authProvider).user?.role)) {
+    final auth = ref.watch(authProvider);
+    if (!canAccessDsrHistory(auth)) {
       return const Scaffold(
           body: Center(
-              child:
-                  Text('Management sign-in is required to view DSR history.')));
+              child: Text(
+                  'Management sign-in or a site session is required to view DSR history.')));
     }
     final history = ref.watch(dsrHistoryProvider);
-    final sites = ref.watch(allSitesProvider).valueOrNull ?? [];
+    final management = canViewDsrHistory(auth.user?.role);
+    final siteScope = management ? null : auth.activeSite!;
+    final sites = management
+        ? ref.watch(allSitesProvider).valueOrNull ?? []
+        : [siteScope!];
+    if (siteScope != null) _site = siteScope.id;
     final names = {for (final site in sites) site.id: site.name};
     for (final entry in history.valueOrNull?.entries ?? <DsrHistoryEntry>[]) {
+      if (siteScope != null && entry.report.siteId != siteScope.id) continue;
       names.putIfAbsent(entry.report.siteId,
           () => entry.report.siteName ?? entry.report.siteId);
     }
@@ -83,9 +90,10 @@ class _DsrHistoryScreenState extends ConsumerState<DsrHistoryScreen> {
                                         decoration: const InputDecoration(
                                             labelText: 'Site'),
                                         items: [
-                                          const DropdownMenuItem(
-                                              value: 'all',
-                                              child: Text('All sites')),
+                                          if (management)
+                                            const DropdownMenuItem(
+                                                value: 'all',
+                                                child: Text('All sites')),
                                           ...ordered.map((id) =>
                                               DropdownMenuItem(
                                                   value: id,
@@ -154,8 +162,9 @@ class _DsrHistoryScreenState extends ConsumerState<DsrHistoryScreen> {
                           final filtered = snapshot.entries.where((e) {
                             final d = e.report.date;
                             final day = DateTime(d.year, d.month, d.day);
-                            return (_site == 'all' ||
-                                    e.report.siteId == _site) &&
+                            return (siteScope == null ||
+                                    e.report.siteId == siteScope.id) &&
+                                (_site == 'all' || e.report.siteId == _site) &&
                                 (_dates == null ||
                                     (!day.isBefore(_dates!.start) &&
                                         !day.isAfter(_dates!.end))) &&
@@ -219,11 +228,12 @@ class DsrHistoryDetailsScreen extends ConsumerWidget {
       {super.key, required this.entry, required this.siteName});
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (!canViewDsrHistory(ref.watch(authProvider).user?.role)) {
+    if (!canAccessDsrHistory(ref.watch(authProvider),
+        siteId: entry.report.siteId)) {
       return const Scaffold(
           body: Center(
-              child:
-                  Text('Management sign-in is required to view DSR history.')));
+              child: Text(
+                  'Management sign-in or a site session is required to view DSR history.')));
     }
     final r = entry.report;
     String stamp(DateTime d) =>
@@ -330,10 +340,12 @@ class DsrHistoryDetailsScreen extends ConsumerWidget {
                           Text('Review history',
                               style: Theme.of(context).textTheme.titleLarge),
                           if (reviews.isEmpty)
-                            const Padding(
-                                padding: EdgeInsets.symmetric(vertical: 12),
-                                child: Text(
-                                    'Detailed review timestamps were not recorded for this legacy report. Existing approval labels are preserved above.')),
+                            Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 12),
+                                child: Text(entry.reviewAuditAvailable
+                                    ? 'Detailed review timestamps were not recorded for this legacy report. Existing approval labels are preserved above.'
+                                    : 'Detailed management review audit is restricted. Report approval labels are shown above.')),
                           for (final review in reviews) ...[
                             const Divider(),
                             field(

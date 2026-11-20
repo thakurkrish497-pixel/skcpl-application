@@ -1,7 +1,7 @@
 name: skcpl_app
 description: SKCPL Construction Management — Stock Inventory & Cash Book
 publish_to: 'none'
-version: 1.0.5+6
+version: 1.0.6+7
 
 environment:
   sdk: '>=3.1.0 <4.0.0'

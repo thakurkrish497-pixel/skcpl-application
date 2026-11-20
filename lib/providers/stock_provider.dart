@@ -1,3 +1,4 @@
+import '../services/rejected_entry_service.dart';
 import '../services/entry_date_policy.dart';
 import '../services/submission_support.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -132,6 +133,20 @@ class StockNotifier extends StateNotifier<StockState> {
       if (mounted && state.isLoading) state = state.copyWith(isLoading: false);
       return true;
     } catch (e) {
+      if (e is HandledRejectedSubmission && queued != null) {
+        await OfflineService.removeQueuedStockTransaction(queued.id!);
+        ++_loadRevision;
+        if (mounted) {
+          state = state.copyWith(
+              transactions: state.transactions
+                  .where((t) => submissionId(t.id) != e.id)
+                  .toList(),
+              isLoading: false,
+              error: e.toString());
+        }
+        return false;
+      }
+
       if (queued != null && isRetryableSubmissionError(e)) {
         if (mounted) {
           state = state.copyWith(transactions: [

@@ -49,13 +49,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Verify attendance and location migrations in isolated PostgreSQL
+      - name: Verify additive migrations in isolated PostgreSQL
         shell: bash
         run: |
           verification_dir="$(mktemp -d)"
           npm install --prefix "$verification_dir" --ignore-scripts --no-audit --no-fund @electric-sql/pglite@0.5.17
-          cp supabase/tests/attendance_location.test.mjs "$verification_dir/test.mjs"
-          SKCPL_REPO="$GITHUB_WORKSPACE" node "$verification_dir/test.mjs"
+          cp supabase/tests/*.test.mjs "$verification_dir/"
+          for verification_test in "$verification_dir/"*.test.mjs; do
+            SKCPL_REPO="$GITHUB_WORKSPACE" node "$verification_test"
+          done
       - uses: denoland/setup-deno@v2
         with:
           deno-version: '2.9.8'

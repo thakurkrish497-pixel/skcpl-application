@@ -133,7 +133,7 @@ class AutoSyncNotifier extends StateNotifier<SyncState> {
         );
 
         // If any records were successfully pushed to Supabase, refresh caches
-        if (result.syncedCount > 0) {
+        if (result.syncedCount > 0 || result.retiredCount > 0) {
           invalidateTransactionViews(_ref.invalidate);
           _ref.read(cashProvider.notifier).loadAllTransactions();
           _ref.read(stockProvider.notifier).loadAllTransactions();

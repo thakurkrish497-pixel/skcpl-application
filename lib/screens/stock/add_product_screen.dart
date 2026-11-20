@@ -1,3 +1,4 @@
+import '../../providers/rejected_entry_provider.dart';
 import '../../widgets/entry_date_picker.dart';
 import '../../services/inventory_math.dart';
 import '../../services/draft_store.dart';
@@ -619,6 +620,22 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
           pendingPhotos: _transaction!.pendingPhotos,
         );
 
+        if (_transaction!.status == TransactionStatus.rejected) {
+          final correction = submission.copyWith(
+              pendingPhotos: _selectedPhotos
+                  .map((p) => PendingPhoto(bytes: p.bytes, name: p.name))
+                  .toList());
+          await ref.read(rejectedEntryServiceProvider).resubmitStock(
+              _transaction!, correction,
+              staff: ref.read(activeStaffProvider));
+          if (!mounted) return;
+          await refreshRejectedEntries(ref);
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text('Corrected entry submitted for fresh approval.')));
+          Navigator.pop(context, true);
+          return;
+        }
         List<String> uploadedUrls = List.from(submission.photoUrls);
         if (submission.id?.startsWith('offline_') == true) {
           submission = submission.copyWith(
@@ -1426,7 +1443,10 @@ class _AddProductScreenState extends ConsumerState<AddProductScreen> {
                       label: Text(
                         (_isSubmitting || stockState.isLoading)
                             ? 'Saving Changes...'
-                            : 'Save Changes',
+                            : widget.existingTransaction?.status ==
+                                    TransactionStatus.rejected
+                                ? 'Resubmit for approval'
+                                : 'Save Changes',
                         style: const TextStyle(
                             fontWeight: FontWeight.bold, fontSize: 16),
                       ),

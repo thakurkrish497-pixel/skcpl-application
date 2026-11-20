@@ -1,3 +1,4 @@
+import 'rejected_entry_service.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:convert';
 import 'dart:async';
@@ -248,7 +249,7 @@ class OfflineService {
 
   static Future<SyncResult> _flush(StockService stockService,
       CashService cashService, bool retryPermissionFailures) async {
-    var synced = 0;
+    var synced = 0, retired = 0;
     final errors = <String>[];
     for (final key in [_keyStockQueue, _keyCashQueue]) {
       final snapshot = await _locked(() async {
@@ -260,6 +261,18 @@ class OfflineService {
         try {
           final data = Map<String, dynamic>.from(jsonDecode(raw));
           id = data['id'] as String?;
+          if (data['sync_paused'] == true &&
+              data['sync_version'] == 2 &&
+              id != null &&
+              RegExp(r'^offline_(cash|stock)_[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$')
+                  .hasMatch(id)) {
+            // A READ-only receipt check never retries an invalid upload or changes its payload.
+            if (key == _keyCashQueue) {
+              await cashService.checkHandledQueueCopy(data);
+            } else {
+              await stockService.checkHandledQueueCopy(data);
+            }
+          }
           if (data['sync_paused'] == true &&
               !(retryPermissionFailures && canRetryPermissionFailure(data))) {
             // Report a paused failure without rewrapping and rewriting it every tick.
@@ -294,6 +307,16 @@ class OfflineService {
           });
           synced++;
         } catch (e) {
+          if (e is HandledRejectedSubmission) {
+            await _locked(() async {
+              final prefs = await SharedPreferences.getInstance();
+              final current = List<String>.from(prefs.getStringList(key) ?? []);
+              current.remove(raw);
+              await _write(prefs, key, current);
+            });
+            retired++;
+            continue;
+          }
           errors.add(e.toString());
           if (id != null && !isRetryableSubmissionError(e)) {
             await _pause(key, id, e);
@@ -305,6 +328,7 @@ class OfflineService {
     }
     return SyncResult(
         syncedCount: synced,
+        retiredCount: retired,
         remainingCount: await getPendingSyncCount(),
         errors: errors);
   }
@@ -312,11 +336,13 @@ class OfflineService {
 
 class SyncResult {
   final int syncedCount;
+  final int retiredCount;
   final int remainingCount;
   final List<String> errors;
   const SyncResult(
       {required this.syncedCount,
       required this.remainingCount,
+      this.retiredCount = 0,
       this.errors = const []});
   bool get hasRemaining => remainingCount > 0;
 }

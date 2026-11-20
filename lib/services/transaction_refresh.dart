@@ -1,3 +1,4 @@
+import '../providers/rejected_entry_ownership_provider.dart';
 import '../providers/dsr_history_provider.dart';
 import '../providers/management_review_provider.dart';
 import '../providers/attendance_provider.dart';
@@ -8,6 +9,7 @@ import '../providers/stock_provider.dart';
 
 /// All table events, completed retries and manual refreshes use the same dependencies.
 void invalidateTransactionViews(void Function(ProviderOrFamily) invalidate) {
+  invalidate(rejectedResubmissionOwnersProvider);
   invalidate(managementReviewQueueProvider);
   invalidate(pendingRegularizationRequestsProvider);
   invalidate(todayAttendanceForSiteProvider);

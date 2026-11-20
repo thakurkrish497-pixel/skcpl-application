@@ -515,11 +515,14 @@ class EntryDetailDialog extends StatelessWidget {
   }
 
   Widget _buildFooter(BuildContext context) {
+    final rejectedVoucher =
+        stockTransaction?.status == TransactionStatus.rejected ||
+            cashTransaction?.status == TransactionStatus.rejected;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       child: Row(
         children: [
-          if (onEdit != null) ...[
+          if (onEdit != null && !rejectedVoucher) ...[
             OutlinedButton.icon(
               onPressed: () {
                 Navigator.pop(context);
@@ -534,7 +537,7 @@ class EntryDetailDialog extends StatelessWidget {
             ),
             const SizedBox(width: 8),
           ],
-          if (onDelete != null) ...[
+          if (onDelete != null && !rejectedVoucher) ...[
             OutlinedButton.icon(
               onPressed: () {
                 Navigator.pop(context);
@@ -549,7 +552,7 @@ class EntryDetailDialog extends StatelessWidget {
             ),
             const SizedBox(width: 8),
           ],
-          if (onReject != null) ...[
+          if (onReject != null && !rejectedVoucher) ...[
             OutlinedButton.icon(
               onPressed: () {
                 Navigator.pop(context);
@@ -564,7 +567,7 @@ class EntryDetailDialog extends StatelessWidget {
             ),
             const SizedBox(width: 8),
           ],
-          if (onApprove != null) ...[
+          if (onApprove != null && !rejectedVoucher) ...[
             ElevatedButton.icon(
               onPressed: () {
                 Navigator.pop(context);

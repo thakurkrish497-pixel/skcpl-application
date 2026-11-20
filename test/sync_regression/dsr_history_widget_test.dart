@@ -14,6 +14,18 @@ import 'dsr_history_test.dart' show report, audit;
 class Archive extends DsrHistoryService {
   int loads = 0;
   bool fail = false;
+  String? lastSite;
+  @override
+  Future<DsrHistorySnapshot> loadForSite(String siteId) async {
+    lastSite = siteId;
+    return DsrHistorySnapshot([
+      DsrHistoryEntry(report('own', site: siteId), {},
+          reviewAuditAvailable: false),
+      // Defence in depth: even a stale/mis-scoped snapshot cannot expose another site.
+      DsrHistoryEntry(report('other', site: 'unrelated-site'), {}),
+    ]);
+  }
+
   Archive() : super(Supabase.instance.client);
   @override
   Future<DsrHistorySnapshot> load() async {
@@ -195,15 +207,38 @@ void main() {
     expect(t.takeException(), isNull);
     await closePage(t);
   });
-  testWidgets('Worker cannot open history or a stale management detail view',
+  for (final size in [
+    const Size(320, 740),
+    const Size(844, 390),
+    const Size(1440, 1000)
+  ]) {
+    testWidgets(
+        'Worker DSR history is site-scoped and read-only at ${size.width}px',
+        (t) async {
+      final service = Archive();
+      await showPage(t, const DsrHistoryScreen(), UserRole.worker, size,
+          overrides: [dsrHistoryServiceProvider.overrideWithValue(service)]);
+      expect(service.loads, 0);
+      expect(service.lastSite, isNotEmpty);
+      expect(find.text('1 report(s)'), findsOneWidget);
+      expect(find.text('All sites'), findsNothing);
+      expect(find.textContaining('unrelated-site'), findsNothing);
+      await t.tap(find.byIcon(Icons.chevron_right));
+      await t.pump(const Duration(milliseconds: 500));
+      await pulse(t);
+      expect(find.text('Slab casting complete'), findsOneWidget);
+      expect(find.byType(PhotoThumbnailStrip), findsOneWidget);
+      expect(find.text('Masons: 3; Helpers: 7'), findsOneWidget);
+      expect(find.text('Reviewed at'), findsNothing);
+      expect(find.textContaining('review audit is restricted'), findsOneWidget);
+      expect(find.text('Delete'), findsNothing);
+      expect(find.text('Approve'), findsNothing);
+      expect(t.takeException(), isNull);
+      await closePage(t);
+    });
+  }
+  testWidgets('Site session cannot open a stale detail from another site',
       (t) async {
-    final service = Archive();
-    await showPage(
-        t, const DsrHistoryScreen(), UserRole.worker, const Size(390, 844),
-        overrides: [dsrHistoryServiceProvider.overrideWithValue(service)]);
-    expect(service.loads, 0);
-    expect(find.textContaining('Management sign-in'), findsOneWidget);
-    await closePage(t);
     await showPage(
         t,
         DsrHistoryDetailsScreen(

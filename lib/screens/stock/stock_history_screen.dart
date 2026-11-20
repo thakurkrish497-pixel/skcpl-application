@@ -1,3 +1,4 @@
+import '../../widgets/rejected_entry_actions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -152,7 +153,8 @@ class _StockHistoryScreenState extends ConsumerState<StockHistoryScreen> {
                     itemBuilder: (context, index) {
                       final tx = stockState.transactions[index];
                       final isAdmin = ref.watch(authProvider).isAdmin;
-                      final canEdit = tx.isEditable;
+                      final canEdit = tx.isEditable &&
+                          tx.status != TransactionStatus.rejected;
 
                       void openEdit() {
                         final screen = tx.type == TransactionType.inbound
@@ -183,9 +185,11 @@ class _StockHistoryScreenState extends ConsumerState<StockHistoryScreen> {
                             openEdit();
                           } else {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                  content: Text(
-                                      'This submission has been reviewed and is locked.')),
+                              SnackBar(
+                                  content: Text(tx.status ==
+                                          TransactionStatus.rejected
+                                      ? 'Read the rejection reason below. Ask Admin to dismiss this entry if it is no longer needed.'
+                                      : 'This submission has been reviewed and is locked.')),
                             );
                           }
                         },
@@ -464,7 +468,9 @@ class _TransactionTile extends StatelessWidget {
           ],
           if (transaction.photoUrls.isNotEmpty)
             PhotoThumbnailStrip(photoUrls: transaction.photoUrls),
-          if (onEdit != null || onDelete != null) ...[
+          RejectedEntryActions(stock: transaction),
+          if (transaction.status != TransactionStatus.rejected &&
+              (onEdit != null || onDelete != null)) ...[
             const Divider(color: AppColors.divider, height: 16),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,

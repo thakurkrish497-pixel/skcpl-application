@@ -1,3 +1,4 @@
+import 'rejected_entry_service.dart';
 import 'entry_date_policy.dart';
 import 'inventory_math.dart';
 import 'transaction_mutation.dart';
@@ -50,6 +51,10 @@ class CashService {
     return clean;
   }
 
+  Future<void> checkHandledQueueCopy(Map<String, dynamic> payload) =>
+      RejectedEntryService(_client).checkHandledSubmission(
+          'cash', payload['id'] as String, payload);
+
   /// Submit a new cash transaction
   Future<CashTransactionModel> submitTransaction(
       CashTransactionModel transaction) async {
@@ -74,10 +79,18 @@ class CashService {
     EntryDatePolicy.requireNotFuture(transaction.date);
     final urls = List<String>.from(transaction.photoUrls);
     final storage = StorageService(_client);
-    for (var i = 0; i < transaction.pendingPhotos.length; i++) {
-      final photo = transaction.pendingPhotos[i];
-      urls.add(await storage.uploadPhotoBytes(photo.bytes,
-          fileName: photo.name, submissionPath: 'photos/cash/$id/$i.jpg'));
+    try {
+      for (var i = 0; i < transaction.pendingPhotos.length; i++) {
+        final photo = transaction.pendingPhotos[i];
+        urls.add(await storage.uploadPhotoBytes(photo.bytes,
+            fileName: photo.name, submissionPath: 'photos/cash/$id/$i.jpg'));
+      }
+    } on StorageException catch (error) {
+      if (error.statusCode == '403') {
+        await RejectedEntryService(_client)
+            .checkHandledSubmission('cash', id, transaction.toJson());
+      }
+      rethrow;
     }
     final cleanData = _cleanPayload(transaction.toJson());
     cleanData['id'] = id;
@@ -97,7 +110,13 @@ class CashService {
           .from('cash_transactions')
           .select('*, dropdown_items:expense_type_id(value)')
           .eq('id', id)
-          .single();
+          .maybeSingle();
+      if (data == null) {
+        await RejectedEntryService(_client)
+            .checkHandledSubmission('cash', id, transaction.toJson());
+        throw StateError(
+            'A conflicting submission could not be reconciled. The device entry remains preserved.');
+      }
       return CashTransactionModel.fromJson(data);
     }
   }
@@ -139,6 +158,11 @@ class CashService {
           .select()
           .eq('id', id)
           .maybeSingle();
+      if (existing?['status'] == 'rejected') {
+        await RejectedEntryService(_client).dismiss(
+            'cash', id, DateTime.tryParse('${existing!['updated_at']}'));
+        return;
+      }
       if (existing != null) {
         await AuditService.captureDeletedRecord(
           entity: 'cash',

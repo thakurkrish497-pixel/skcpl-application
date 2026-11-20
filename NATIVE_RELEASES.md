@@ -1,16 +1,16 @@
 # SKCPL native releases
 
-## Current release: 1.0.5, build 6
+## Current release: 1.0.6, build 7
 
-Includes restored cash/stock/site realtime publication, coalesced foreground/reconnect cache refresh, safe explicit retries of permission-paused entries, full site transaction history with status filters, DSR history across management roles, uniform voucher identity, shift inheritance, date restrictions, workflow reminders and foreground GPS quality checks. Midnight closures are estimated audit records; scheduled overnight shifts remain open until their captured end. Existing uploaded source records and actual punch timestamps are preserved. Older offset-free attendance values are interpreted as India time on every platform; new writes use explicit UTC instants. Legacy Admin shift values such as 10.00 are interpreted as 10:00 without rewriting saved policies.
+Adds site-user DSR History with date/status filters, original progress notes, labour details and progress photos. Site sessions read only their signed-in site's reports; management keeps the existing all-sites archive. No report or review is modified by the archive.
 
-Validation: 412 Flutter tests, 46 protected-backend tests, 8 packaging tests, and isolated PostgreSQL checks for primary and legacy attendance/GPS. Flutter analysis is clean. These checks do not substitute for physical-device field acceptance.
+Adds explicit rejected cash/stock handling: Admin can dismiss rejected entries; worker actions remain disabled for this release as requested. The correction/resubmission path is retained for a separately approved access rollout. Original feedback remains visible until the operation succeeds. Removal hides the rejected source from normal history while retaining protected audit evidence and photos. Durable corrections, stable retry IDs and verified receipts prevent acknowledgement-loss duplicates and handled queue resurrection. Approved entries are unaffected.
 
-Android preserves the existing application ID and signing key. Update over the installed app; do not uninstall or clear application data. Queued entries and drafts stay on their original device. After updating, tap Sync Now to retry entries paused by the repaired photo permissions; ambiguous legacy entries remain preserved for reconciliation.
+Deploy the matching additive rejected-entry migration before enabling these actions. Shared Site ID + PIN cleanup is disabled by default and requires a separately reviewed activation because legacy sessions are shared. All worker actions, including authenticated owners, are disabled by default; Admin uses a server-checked path. No existing financial rows are backfilled or deleted by deployment.
 
-Windows includes the complete x64 EXE and runtime bundle. macOS includes Apple Silicon and Intel architectures; consult the release manifest for signing/notarization status. Closed-app remote push remains deferred. Foreground GPS depends on device permissions and accuracy. The separately deployed attendance job records estimated cutoffs once per minute, without filling actual punch-out timestamps.
+Retains existing sync, offline queues, approval guards, attendance, notifications and responsive dashboards. Android uses the existing application ID/signing key: update over the installed app and never clear application data or uninstall to update. Windows bundles the EXE and runtimes; macOS bundles Intel and Apple Silicon architectures. See the release manifest for signing/notarization status. Closed-app remote push remains deferred.
 
-The website switches to this exact version only after all three installers and checksums have been verified. No Google Play upload is performed.
+Validation includes the complete Flutter suite, backend tests, packaging checks and isolated database tests. Native CI repeats app tests on Windows/macOS and verifies all three packages share one source/version. Automated checks do not replace physical-device field acceptance. Website links change only after all release assets and checksums are verified. No Google Play upload.
 
 ---
 

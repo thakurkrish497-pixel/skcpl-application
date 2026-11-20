@@ -50,6 +50,10 @@ class UniversalSyncButton extends ConsumerWidget {
                 '${syncResult.syncedCount} uploaded; ${syncResult.remainingCount} pending. '
                 '${syncResult.errors.isNotEmpty ? syncResult.errors.first : refreshError ?? "Retry needed"}'),
             backgroundColor: AppColors.pending));
+      } else if (syncResult.retiredCount > 0) {
+        messenger.showSnackBar(SnackBar(
+            content: Text(
+                'Resolved ${syncResult.retiredCount} rejected entr${syncResult.retiredCount == 1 ? 'y' : 'ies'} already handled on the server. Device copies are preserved for review. ${syncResult.syncedCount} new upload(s).')));
       } else if (syncResult.syncedCount > 0) {
         messenger.showSnackBar(
           SnackBar(

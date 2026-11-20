@@ -83,7 +83,8 @@ class RealtimeSyncService with WidgetsBindingObserver {
       for (final table in [
         'attendance',
         'daily_site_reports',
-        'skcpl_entry_reviews'
+        'skcpl_entry_reviews',
+        'skcpl_rejected_events'
       ]) {
         _reviewChannels
             .add(_client.channel('public:reviews:$table').onPostgresChanges(
@@ -91,7 +92,12 @@ class RealtimeSyncService with WidgetsBindingObserver {
                 schema: 'public',
                 table: table,
                 callback: (_) {
-                  if (!_disposed) _refresh.request();
+                  if (!_disposed) {
+                    _refresh.request();
+                    if (table == 'skcpl_rejected_events') {
+                      unawaited(_ref.read(autoSyncProvider.notifier).syncNow());
+                    }
+                  }
                 })
               ..subscribe());
       }

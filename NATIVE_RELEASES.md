@@ -2,9 +2,9 @@
 
 ## Current release: 1.0.5, build 6
 
-Includes restored cash/stock/site realtime publication, coalesced foreground/reconnect cache refresh, safe explicit retries of permission-paused entries, full site transaction history with status filters, DSR history across management roles, uniform voucher identity, shift inheritance, date restrictions, workflow reminders and foreground GPS quality checks. Midnight closures are estimated audit records; scheduled overnight shifts remain open until their captured end. Existing uploaded source records and actual punch timestamps are preserved. Older offset-free attendance values are interpreted as India time on every platform; new writes use explicit UTC instants.
+Includes restored cash/stock/site realtime publication, coalesced foreground/reconnect cache refresh, safe explicit retries of permission-paused entries, full site transaction history with status filters, DSR history across management roles, uniform voucher identity, shift inheritance, date restrictions, workflow reminders and foreground GPS quality checks. Midnight closures are estimated audit records; scheduled overnight shifts remain open until their captured end. Existing uploaded source records and actual punch timestamps are preserved. Older offset-free attendance values are interpreted as India time on every platform; new writes use explicit UTC instants. Legacy Admin shift values such as 10.00 are interpreted as 10:00 without rewriting saved policies.
 
-Validation: 411 Flutter tests, 46 protected-backend tests, 8 packaging tests, and isolated PostgreSQL checks for primary and legacy attendance/GPS. Flutter analysis is clean. These checks do not substitute for physical-device field acceptance.
+Validation: 412 Flutter tests, 46 protected-backend tests, 8 packaging tests, and isolated PostgreSQL checks for primary and legacy attendance/GPS. Flutter analysis is clean. These checks do not substitute for physical-device field acceptance.
 
 Android preserves the existing application ID and signing key. Update over the installed app; do not uninstall or clear application data. Queued entries and drafts stay on their original device. After updating, tap Sync Now to retry entries paused by the repaired photo permissions; ambiguous legacy entries remain preserved for reconciliation.
 

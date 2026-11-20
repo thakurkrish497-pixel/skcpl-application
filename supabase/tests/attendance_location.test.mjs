@@ -11,6 +11,7 @@ for(const primary of [false,true]) {
  ${primary?`create table public.attendance(id text primary key,site_id text,staff_id text,date date,punch_in_time timestamptz,punch_out_time timestamptz,status text,late_minutes integer,created_at timestamptz default now(),updated_at timestamptz default now());create table public.site_shift_policies(site_id text primary key,shift_start_time text,shift_end_time text,updated_at timestamptz default now());`:''}`);
  await db.exec(sql);
  await db.exec(await fs.readFile(repository+'/supabase/migrations/202611200004_legacy_attendance_timezone.sql','utf8'));
+ await db.exec(await fs.readFile(repository+'/supabase/migrations/202611200005_legacy_shift_time_format.sql','utf8'));
  assert.equal((await db.query("select public.skcpl_attendance_instant('2026-11-20T09:00:00') as instant")).rows[0].instant.toISOString(),'2026-11-20T03:30:00.000Z');
  async function policy(site,start,end) {
   if(primary)await db.query('insert into public.site_shift_policies values($1,$2,$3,now()) on conflict(site_id) do update set shift_start_time=$2,shift_end_time=$3,updated_at=now()',[site,start,end]);
@@ -27,7 +28,7 @@ for(const primary of [false,true]) {
   return JSON.stringify({legacy,rows});
  }
  const job=async(now)=>(await db.query('select public.skcpl_close_expired_attendance($1::timestamptz) result',[now])).rows[0].result;
- await policy('day','09:00','18:00');await policy('night','20:00','06:00');
+ await policy('day','09.00','18.00');await policy('night','20.00','06.00');
  await record('day-one','day','2026-11-20T04:00:00Z','2026-11-20');
  await record('night-one','night','2026-11-20T14:30:00Z','2026-11-20');
  await record('completed','day','2026-11-20T04:00:00Z','2026-11-20',{out:'2026-11-20T12:30:00Z'});

@@ -48,6 +48,22 @@ AttendanceRecordModel record(
         createdAt: DateTime(2020),
         updatedAt: DateTime(2020));
 void main() {
+  test(
+      'Legacy Admin dot-separated shift settings are read consistently without rewriting them',
+      () {
+    final source = {
+      'site_id': 'site',
+      'shift_start_time': '10.00',
+      'shift_end_time': '19.30'
+    };
+    final policy = SiteShiftPolicyModel.fromJson(source);
+    expect(policy.shiftStartTime, '10:00');
+    expect(policy.shiftEndTime, '19:30');
+    expect(policy.startTimeOfDay.hour, 10);
+    expect(AttendanceSessionPolicy.minutes('10.00'), 600);
+    expect(source['shift_start_time'], '10.00');
+  });
+
   test('Legacy offset-free punches are India time on every device', () {
     expect(parseAttendanceInstant('2026-11-20T09:00:00').toUtc(),
         DateTime.parse('2026-11-20T03:30:00Z'));

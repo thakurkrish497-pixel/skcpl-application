@@ -4,7 +4,7 @@ import 'entry_date_policy.dart';
 /// India-time calendar boundaries; automatic ends are estimates, never actual punches.
 class AttendanceSessionPolicy {
   static int minutes(String text) {
-    final parts = text.split(':');
+    final parts = text.replaceAll('.', ':').split(':');
     if (parts.length < 2) throw const FormatException('Shift time unavailable');
     final h = int.parse(parts[0]), m = int.parse(parts[1]);
     if (h < 0 || h > 23 || m < 0 || m > 59) {

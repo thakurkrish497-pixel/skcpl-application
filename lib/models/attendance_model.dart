@@ -29,7 +29,7 @@ class SiteShiftPolicyModel {
 
   /// Parse HH:mm to TimeOfDay
   TimeOfDay get startTimeOfDay {
-    final parts = shiftStartTime.split(':');
+    final parts = shiftStartTime.replaceAll('.', ':').split(':');
     return TimeOfDay(
       hour: int.tryParse(parts[0]) ?? 9,
       minute: parts.length > 1 ? (int.tryParse(parts[1]) ?? 0) : 0,
@@ -37,7 +37,7 @@ class SiteShiftPolicyModel {
   }
 
   TimeOfDay get endTimeOfDay {
-    final parts = shiftEndTime.split(':');
+    final parts = shiftEndTime.replaceAll('.', ':').split(':');
     return TimeOfDay(
       hour: int.tryParse(parts[0]) ?? 18,
       minute: parts.length > 1 ? (int.tryParse(parts[1]) ?? 0) : 0,
@@ -48,9 +48,12 @@ class SiteShiftPolicyModel {
     return SiteShiftPolicyModel(
       siteId: json['site_id'] as String? ?? 'global',
       siteName: json['site_name'] as String? ?? 'Company Default',
-      shiftStartTime: json['shift_start_time'] as String? ?? '09:00',
-      shiftEndTime: json['shift_end_time'] as String? ?? '18:00',
-      punchOutWindowEnd: json['punch_out_window_end'] as String? ?? '19:00',
+      shiftStartTime:
+          (json['shift_start_time'] as String? ?? '09:00').replaceAll('.', ':'),
+      shiftEndTime:
+          (json['shift_end_time'] as String? ?? '18:00').replaceAll('.', ':'),
+      punchOutWindowEnd: (json['punch_out_window_end'] as String? ?? '19:00')
+          .replaceAll('.', ':'),
       graceMinutes: (json['grace_minutes'] as num?)?.toInt() ?? 15,
       lateCutoffMinutes: (json['late_cutoff_minutes'] as num?)?.toInt() ?? 40,
       latitude: (json['latitude'] as num?)?.toDouble(),
